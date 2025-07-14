@@ -64,7 +64,8 @@ async def get_current_active_superadmin(current_user: models.Usuario = Depends(g
             detail="Authentication required",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    if current_user.Rol != "superadmin":
+    user_rol_value = current_user.Rol.value if hasattr(current_user.Rol, 'value') else current_user.Rol
+    if user_rol_value != "superadmin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Insufficient permissions"
@@ -74,7 +75,8 @@ async def get_current_active_superadmin(current_user: models.Usuario = Depends(g
 async def get_current_active_superadmin_optional(current_user: Optional[models.Usuario] = Depends(get_current_active_user)) -> Optional[models.Usuario]:
     if current_user is None:
         return None
-    if current_user.Rol != "superadmin":
+    user_rol_value = current_user.Rol.value if hasattr(current_user.Rol, 'value') else current_user.Rol
+    if user_rol_value != "superadmin":
         return None
     return current_user
 
@@ -85,7 +87,8 @@ async def get_current_active_admin_or_superadmin(current_user: models.Usuario = 
             detail="Authentication required",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    if current_user.Rol not in ["admingrupo", "superadmin"]:
+    user_rol_value = current_user.Rol.value if hasattr(current_user.Rol, 'value') else current_user.Rol
+    if user_rol_value not in ["admingrupo", "superadmin"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Insufficient permissions"
