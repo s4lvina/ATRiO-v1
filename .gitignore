@@ -1,0 +1,56 @@
+# Base de datos
+database/secure/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Archivos de log
+*.log
+tracer_backend.log
+atrio_backend.log
+
+# Caché
+cache/
+__pycache__/
+*.pyc
+*.pyo
+
+# Uploads y datos
+uploads/
+uploads - copia/
+backups/
+
+# Archivos temporales
+temp/
+tmp/
+*.tmp
+
+# Configuración sensible
+*.env
+.env.local
+.env.production
+system_config.json
+footer_config.json
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node modules (si los hay)
+node_modules/
+
+# Archivos de respaldo
+*.bak
+*.backup
+*_copia/
+
+# Backup del git anterior
+.git_backup_*

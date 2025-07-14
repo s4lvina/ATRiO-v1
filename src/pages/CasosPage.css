@@ -1,0 +1,44 @@
+.caso-card-hover {
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.caso-card-hover:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  /* El color del borde se controla mediante el estilo inline que usa getStatusColor */
+}
+
+.estado-nuevo {
+  background: #B7E4C7;
+  color: #388E3C;
+  border: 1px solid #388E3C;
+}
+.estado-analisis {
+  background: #BBDEFB;
+  color: #1976D2;
+  border: 1px solid #1976D2;
+}
+.estado-finalizado, .estado-cerrada {
+  background: #ECEFF1;
+  color: #616161;
+  border: 1px solid #616161;
+}
+.estado-archivado {
+  background: #CFD8DC;
+  color: #455A64;
+  border: 1px solid #455A64;
+}
+.estado-error {
+  background: #FFCDD2;
+  color: #C62828;
+  border: 1px solid #C62828;
+}
+.estado-esperando-archivos {
+  background: #FFF9C4;
+  color: #FBC02D;
+  border: 1px solid #FBC02D;
+}
+.estado-pendiente-informe {
+  background: #E1BEE7;
+  color: #8E24AA;
+  border: 1px solid #8E24AA;
+} 

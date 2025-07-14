@@ -1,0 +1,4276 @@
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap, LayerGroup, CircleMarker } from 'react-leaflet';
+import L from 'leaflet';
+import { Box, Text, Paper, Stack, Group, Button, TextInput, NumberInput, Select, Switch, ActionIcon, ColorInput, Collapse, Alert, Title, Divider, Tooltip, Modal, Textarea, ColorSwatch, SimpleGrid, Card, Badge, Slider, ScrollArea, Table, Drawer, Loader, Grid } from '@mantine/core';
+import { IconPlus, IconTrash, IconEdit, IconInfoCircle, IconMaximize, IconMinimize, IconCar, IconCheck, IconX, IconListDetails, IconSearch, IconHome, IconStar, IconFlag, IconUser, IconMapPin, IconBuilding, IconBriefcase, IconAlertCircle, IconClock, IconGauge, IconCompass, IconMountain, IconRuler, IconChevronDown, IconChevronUp, IconZoomIn, IconRefresh, IconPlayerPlay, IconPlayerPause, IconPlayerStop, IconPlayerTrackNext, IconPlayerTrackPrev, IconPlayerSkipForward, IconPlayerSkipBack, IconCamera, IconDownload, IconAnalyze, IconStack, IconMovie, IconTable, IconFileExport, IconMenuDeep, IconMenu2, IconMapPinPlus, IconFilter, IconMap, IconSparkles, IconFileSpreadsheet, IconFileText, IconUpload, IconSettings } from '@tabler/icons-react';
+import type { GpsLectura, GpsCapa, LocalizacionInteres } from '../../types/data';
+import apiClient from '../../services/api';
+import dayjs from 'dayjs';
+import { useHotkeys } from '@mantine/hooks';
+import { getLecturasGps, getParadasGps, getCoincidenciasGps, getGpsCapas, createGpsCapa, updateGpsCapa, deleteGpsCapa, getLocalizacionesInteres, createLocalizacionInteres, updateLocalizacionInteres, deleteLocalizacionInteres } from '../../services/gpsApi';
+import ReactDOMServer from 'react-dom/server';
+import GpsMapStandalone from './GpsMapStandalone';
+import html2canvas from 'html2canvas';
+import { gpsCache } from '../../services/gpsCache';
+import { notifications } from '@mantine/notifications';
+import DrawControl from '../map/DrawControl';
+import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
+import { point as turfPoint } from '@turf/helpers';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import * as shapefile from 'shapefile';
+import { ImportarCapaBitacoraModal } from '../modals/ImportarCapaBitacoraModal';
+import type { CapaBitacora, CapaBitacoraImportConfig } from '../../types/data';
+import { FileInput } from '@mantine/core';
+import { BitacoraPunto } from './BitacoraPunto';
+import { ImportarCapaExcelModal } from '../modals/ImportarCapaExcelModal';
+import ImportarCapaGpxModal from '../modals/ImportarCapaGpxModal';
+
+// Estilos CSS en línea para el contenedor del mapa
+const mapContainerStyle = {
+  height: '100%',
+  width: '100%',
+  position: 'relative' as const,
+  zIndex: 1
+};
+
+interface GpsAnalysisPanelProps {
+  casoId: number;
+  puntoSeleccionado?: GpsLectura | null;
+}
+
+// Tipo de capa para GPS
+interface CapaGps {
+  id: number;
+  nombre: string;
+  color: string;
+  activa: boolean;
+  lecturas: GpsLectura[];
+  filtros: any;
+  descripcion?: string;
+}
+
+// Modificar la interfaz de CapaBitacora para incluir puntos
+interface CapaBitacoraLayer {
+  id: number;
+  nombre: string;
+  visible: boolean;
+  puntos: CapaBitacora[];
+}
+
+// Lista de iconos disponibles (puedes ampliarla)
+const ICONOS = [
+  { name: 'home', icon: IconHome },
+  { name: 'star', icon: IconStar },
+  { name: 'flag', icon: IconFlag },
+  { name: 'user', icon: IconUser },
+  { name: 'pin', icon: IconMapPin },
+  { name: 'building', icon: IconBuilding },
+  { name: 'briefcase', icon: IconBriefcase },
+  { name: 'alert', icon: IconAlertCircle },
+];
+
+// Extraer y memoizar el componente ModalLocalizacion
+const ModalLocalizacion = React.memo(({ localizacionActual, setLocalizacionActual, setModalAbierto, setFormFocused, handleGuardarLocalizacion, handleEliminarLocalizacion, localizaciones }: {
+  localizacionActual: Partial<LocalizacionInteres> | null;
+  setLocalizacionActual: React.Dispatch<React.SetStateAction<Partial<LocalizacionInteres> | null>>;
+  setModalAbierto: React.Dispatch<React.SetStateAction<boolean>>;
+  setFormFocused: React.Dispatch<React.SetStateAction<boolean>>;
+  handleGuardarLocalizacion: () => void;
+  handleEliminarLocalizacion: () => void;
+  localizaciones: LocalizacionInteres[];
+}) => {
+  if (!localizacionActual) return null;
+  return (
+    <Paper p="md" withBorder mb="md" style={{ position: 'relative' }}>
+      <ActionIcon
+        variant="subtle"
+        color="gray"
+        style={{ position: 'absolute', top: 8, right: 8, zIndex: 10 }}
+        onClick={() => { setModalAbierto(false); setLocalizacionActual(null); }}
+        aria-label="Cerrar panel"
+      >
+        <IconX size={20} />
+      </ActionIcon>
+      <Stack gap="sm">
+        <Group align="center">
+          {(() => {
+            const Icon = ICONOS.find(i => i.name === localizacionActual.icono)?.icon || IconMapPin;
+            return <Icon size={32} color={typeof localizacionActual.color === 'string' ? localizacionActual.color : '#228be6'} />;
+          })()}
+          <TextInput
+            label="Título"
+            value={localizacionActual.titulo}
+            onChange={e => setLocalizacionActual(l => l ? { ...l, titulo: e.target.value } : l)}
+            style={{ flex: 1 }}
+            onFocus={() => setFormFocused(true)}
+            onBlur={() => setFormFocused(false)}
+          />
+        </Group>
+        <Textarea
+          label="Descripción"
+          value={localizacionActual.descripcion ?? ''}
+          onChange={e => setLocalizacionActual(l => l ? { ...l, descripcion: e.target.value } : l)}
+          onFocus={() => setFormFocused(true)}
+          onBlur={() => setFormFocused(false)}
+        />
+        <Text size="sm" c="dimmed">Fecha y hora: {dayjs(localizacionActual.fecha_hora).format('DD/MM/YYYY HH:mm:ss')}</Text>
+        <Group>
+          <Text size="sm">Icono:</Text>
+          <SimpleGrid cols={5} spacing={4}>
+            {ICONOS.map(({ name, icon: Icon }) => (
+              <ActionIcon
+                key={name}
+                variant={localizacionActual.icono === name ? 'filled' : 'light'}
+                color={localizacionActual.icono === name ? typeof localizacionActual.color === 'string' ? localizacionActual.color : '#228be6' : 'gray'}
+                onClick={() => setLocalizacionActual(l => l ? { ...l, icono: name } : l)}
+              >
+                <Icon size={20} />
+              </ActionIcon>
+            ))}
+          </SimpleGrid>
+          <ColorInput
+            label="Color"
+            value={typeof localizacionActual.color === 'string' ? localizacionActual.color : '#228be6'}
+            onChange={color => setLocalizacionActual(l => l ? { ...l, color } : l)}
+            format="hex"
+            style={{ width: 120 }}
+          />
+        </Group>
+        <Group justify="flex-end">
+          {localizaciones.some(l => l.id_lectura === localizacionActual.id_lectura) && (
+            <Button color="red" variant="light" onClick={handleEliminarLocalizacion}>Eliminar</Button>
+          )}
+          <Button variant="light" onClick={() => { setModalAbierto(false); setLocalizacionActual(null); }}>Cancelar</Button>
+          <Button onClick={handleGuardarLocalizacion} disabled={!localizacionActual.titulo}>Guardar</Button>
+        </Group>
+      </Stack>
+    </Paper>
+  );
+});
+
+// Función helper para ordenar lecturas cronológicamente
+const ordenarLecturasCronologicamente = (lecturas: GpsLectura[]): GpsLectura[] => {
+  return [...lecturas].sort((a, b) => 
+    new Date(a.Fecha_y_Hora).getTime() - new Date(b.Fecha_y_Hora).getTime()
+  );
+};
+
+// Extraer y memoizar el componente LocalizacionItem
+const LocalizacionItem = React.memo(({ loc, setLocalizacionActual, setModalAbierto, handleEliminarLocalizacion }: {
+  loc: LocalizacionInteres;
+  setLocalizacionActual: React.Dispatch<React.SetStateAction<Partial<LocalizacionInteres> | null>>;
+  setModalAbierto: React.Dispatch<React.SetStateAction<boolean>>;
+  handleEliminarLocalizacion: () => void;
+}) => {
+  const Icon = ICONOS.find(i => i.name === loc.icono)?.icon || IconMapPin;
+  return (
+    <Paper key={loc.id_lectura} p="xs" withBorder>
+      <Group justify="space-between">
+        <Group gap="xs">
+          <Icon size={18} color={loc.color} />
+          <Text size="sm" fw={600}>{loc.titulo}</Text>
+        </Group>
+        <Group gap={4}>
+          <ActionIcon variant="subtle" color="blue" onClick={() => {
+            // Centrar mapa en la localización (puedes implementar esta lógica)
+          }}><IconMapPin size={16} /></ActionIcon>
+          <ActionIcon variant="subtle" color="gray" onClick={() => {
+            setLocalizacionActual(loc);
+            setModalAbierto(true);
+          }}><IconEdit size={16} /></ActionIcon>
+          <ActionIcon variant="subtle" color="red" onClick={() => {
+            setLocalizacionActual(loc);
+            handleEliminarLocalizacion();
+          }}><IconTrash size={16} /></ActionIcon>
+        </Group>
+      </Group>
+      <Text size="xs" c="dimmed" mt={2}>{dayjs(loc.fecha_hora).format('DD/MM/YYYY HH:mm')}</Text>
+      {loc.descripcion && <Text size="xs" c="dimmed" mt={2}>{loc.descripcion}</Text>}
+    </Paper>
+  );
+});
+
+// Extraer y memoizar el componente CapaItem
+const CapaItem = React.memo(({ capa, handleToggleCapa, handleEditarCapa, handleEliminarCapa }: {
+  capa: CapaGps;
+  handleToggleCapa: (id: number) => void;
+  handleEditarCapa: (id: number) => void;
+  handleEliminarCapa: (id: number) => void;
+}) => {
+  return (
+    <Paper key={capa.id} p="xs" withBorder>
+      <Group justify="space-between">
+        <Group gap="xs">
+          <Switch
+            checked={capa.activa}
+            onChange={() => handleToggleCapa(capa.id)}
+            size="sm"
+          />
+          <Box style={{ width: 10, height: 10, backgroundColor: capa.color, borderRadius: '50%' }} />
+          <Text size="sm">{capa.nombre}</Text>
+          <Tooltip label={`Filtros: ${JSON.stringify(capa.filtros)}`}><ActionIcon variant="subtle" size="sm"><IconInfoCircle size={14} /></ActionIcon></Tooltip>
+        </Group>
+        <Group gap={4}>
+          <ActionIcon variant="subtle" color="blue" onClick={() => handleEditarCapa(capa.id)}><IconEdit size={16} /></ActionIcon>
+          <ActionIcon variant="subtle" color="red" onClick={() => handleEliminarCapa(capa.id)}><IconTrash size={16} /></ActionIcon>
+        </Group>
+      </Group>
+      <Text size="xs" c="dimmed" mt={4}>{capa.lecturas.length} lecturas</Text>
+    </Paper>
+  );
+});
+
+// Nuevo componente para el reproductor de recorrido
+const RoutePlayer = React.memo(({ capas, onPlay, onPause, onStop, onSpeedChange, isPlaying, currentSpeed, currentIndex, onIndexChange, selectedLayerId, onLayerChange }: {
+  capas: CapaGps[];
+  onPlay: () => void;
+  onPause: () => void;
+  onStop: () => void;
+  onSpeedChange: (speed: number) => void;
+  isPlaying: boolean;
+  currentSpeed: number;
+  currentIndex: number;
+  onIndexChange: (index: number) => void;
+  selectedLayerId: number | null;
+  onLayerChange: (layerId: number | null) => void;
+}) => {
+  const selectedLayer = capas.find(c => c.id === selectedLayerId);
+  const totalPoints = selectedLayer?.lecturas.length || 0;
+  const currentPoint = selectedLayer?.lecturas[currentIndex];
+  const progress = totalPoints > 0 ? ((currentIndex + 1) / totalPoints) * 100 : 0;
+
+  return (
+    <Paper p="md" withBorder>
+      <Stack gap="md">
+        <Group justify="space-between" align="center">
+          <Title order={4}>Reproductor de Recorrido</Title>
+        </Group>
+        <Select
+          placeholder="Selecciona una capa"
+          value={selectedLayerId?.toString() || null}
+          onChange={(value) => {
+            onLayerChange(value ? Number(value) : null);
+            onIndexChange(0);
+            onStop();
+          }}
+          data={capas.map(capa => ({
+            value: capa.id.toString(),
+            label: capa.nombre
+          }))}
+          clearable
+          style={{ width: '100%' }}
+        />
+
+        {/* Barra de progreso */}
+        <div 
+          style={{ 
+            position: 'relative', 
+            height: 8, 
+            backgroundColor: 'var(--mantine-color-gray-2)', 
+            borderRadius: 4,
+            cursor: selectedLayer ? 'pointer' : 'default',
+            userSelect: 'none'
+          }}
+          onClick={(e) => {
+            if (!selectedLayer) return;
+            const rect = e.currentTarget.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const percentage = (x / rect.width) * 100;
+            const newIndex = Math.min(
+              Math.max(0, Math.floor((percentage / 100) * totalPoints)),
+              totalPoints - 1
+            );
+            onIndexChange(newIndex);
+          }}
+          onMouseDown={(e) => {
+            if (!selectedLayer) return;
+            e.preventDefault();
+            
+            const updatePosition = (clientX: number) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = clientX - rect.left;
+              const percentage = (x / rect.width) * 100;
+              const newIndex = Math.min(
+                Math.max(0, Math.floor((percentage / 100) * totalPoints)),
+                totalPoints - 1
+              );
+              onIndexChange(newIndex);
+            };
+
+            // Actualizar inmediatamente en el primer clic
+            updatePosition(e.clientX);
+
+            const handleMouseMove = (moveEvent: MouseEvent) => {
+              requestAnimationFrame(() => {
+                updatePosition(moveEvent.clientX);
+              });
+            };
+
+            const handleMouseUp = () => {
+              document.removeEventListener('mousemove', handleMouseMove);
+              document.removeEventListener('mouseup', handleMouseUp);
+            };
+
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              height: '100%',
+              width: `${progress}%`,
+              backgroundColor: selectedLayer?.color || 'var(--mantine-color-blue-6)',
+              borderRadius: 4
+            }}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              left: `${progress}%`,
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: 10,
+              height: 10,
+              backgroundColor: 'white',
+              border: `2px solid ${selectedLayer?.color || 'var(--mantine-color-blue-6)'}`,
+              borderRadius: '50%',
+              boxShadow: '0 0 4px rgba(0,0,0,0.2)',
+              pointerEvents: 'none'
+            }}
+          />
+        </div>
+
+        {/* Información del punto actual */}
+        {currentPoint && (
+          <Group gap="xs">
+            <IconClock size={16} style={{ color: 'var(--mantine-color-gray-6)' }} />
+            <Text size="sm">{dayjs(currentPoint.Fecha_y_Hora).format('DD/MM/YYYY HH:mm:ss')}</Text>
+            <IconGauge size={16} style={{ color: 'var(--mantine-color-gray-6)' }} />
+            <Text size="sm">{currentPoint.Velocidad?.toFixed(1) || '0'} km/h</Text>
+          </Group>
+        )}
+
+        {/* Controles de reproducción */}
+        <Group justify="center" gap="xs">
+          <ActionIcon
+            variant="filled"
+            color="#234be7"
+            size="lg"
+            onClick={() => onIndexChange(Math.max(0, currentIndex - 1))}
+            disabled={!selectedLayer || currentIndex === 0}
+            style={{ fontWeight: 700 }}
+          >
+            <IconPlayerSkipBack size={20} />
+          </ActionIcon>
+          <ActionIcon
+            variant="outline"
+            color="#234be7"
+            size="lg"
+            onClick={() => {
+              const speeds = [0.25, 0.5, 1, 2, 4, 8, 10, 20];
+              const currentIndex = speeds.indexOf(currentSpeed);
+              if (currentIndex > 0) {
+                onSpeedChange(speeds[currentIndex - 1]);
+              }
+            }}
+            disabled={!selectedLayer || currentSpeed <= 0.25}
+            style={{ fontWeight: 700 }}
+          >
+            <IconPlayerTrackPrev size={20} />
+          </ActionIcon>
+          {isPlaying ? (
+            <ActionIcon
+              variant="filled"
+              color="#234be7"
+              size="xl"
+              onClick={onPause}
+              disabled={!selectedLayer}
+              style={{ fontWeight: 700 }}
+            >
+              <IconPlayerPause size={24} />
+            </ActionIcon>
+          ) : (
+            <ActionIcon
+              variant="filled"
+              color="#234be7"
+              size="xl"
+              onClick={onPlay}
+              disabled={!selectedLayer}
+              style={{ fontWeight: 700 }}
+            >
+              <IconPlayerPlay size={24} />
+            </ActionIcon>
+          )}
+          <ActionIcon
+            variant="outline"
+            color="#234be7"
+            size="lg"
+            onClick={() => {
+              const speeds = [0.25, 0.5, 1, 2, 4, 8, 10, 20];
+              const currentIndex = speeds.indexOf(currentSpeed);
+              if (currentIndex < speeds.length - 1) {
+                onSpeedChange(speeds[currentIndex + 1]);
+              }
+            }}
+            disabled={!selectedLayer || currentSpeed >= 20}
+            style={{ fontWeight: 700 }}
+          >
+            <IconPlayerTrackNext size={20} />
+          </ActionIcon>
+          <ActionIcon
+            variant="filled"
+            color="#234be7"
+            size="lg"
+            onClick={() => onIndexChange(Math.min(totalPoints - 1, currentIndex + 1))}
+            disabled={!selectedLayer || currentIndex === totalPoints - 1}
+            style={{ fontWeight: 700 }}
+          >
+            <IconPlayerSkipForward size={20} />
+          </ActionIcon>
+        </Group>
+
+        {/* Control de velocidad */}
+        <Group justify="center" gap="xs">
+          <Text size="sm">Velocidad: {currentSpeed}x</Text>
+        </Group>
+
+        {selectedLayer && (
+          <Text size="sm" c="dimmed" ta="center">
+            {currentIndex + 1} / {totalPoints} puntos
+          </Text>
+        )}
+      </Stack>
+    </Paper>
+  );
+});
+
+// Utility functions for KML and GPX export
+const generateKML = (lecturas: GpsLectura[], nombre: string) => {
+  const kmlHeader = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>${nombre}</name>
+    <Style id="track">
+      <LineStyle>
+        <color>ff0000ff</color>
+        <width>4</width>
+      </LineStyle>
+    </Style>
+    <Placemark>
+      <name>${nombre}</name>
+      <styleUrl>#track</styleUrl>
+      <LineString>
+        <coordinates>`;
+
+  const coordinates = lecturas
+    .filter(l => typeof l.Coordenada_X === 'number' && typeof l.Coordenada_Y === 'number' && !isNaN(l.Coordenada_X) && !isNaN(l.Coordenada_Y))
+    .map(l => `${l.Coordenada_X},${l.Coordenada_Y},0`)
+    .join('\n');
+
+  const kmlFooter = `</coordinates>
+      </LineString>
+    </Placemark>
+  </Document>
+</kml>`;
+
+  return kmlHeader + coordinates + kmlFooter;
+};
+
+const generateGPX = (lecturas: GpsLectura[], nombre: string) => {
+  const gpxHeader = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="ATRIO v1 GPS Export"
+     xmlns="http://www.topografix.com/GPX/1/1"
+     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
+  <metadata>
+    <name>${nombre}</name>
+    <time>${new Date().toISOString()}</time>
+  </metadata>
+  <trk>
+    <name>${nombre}</name>
+    <trkseg>`;
+
+  const trackpoints = lecturas
+    .filter(l => typeof l.Coordenada_X === 'number' && typeof l.Coordenada_Y === 'number' && !isNaN(l.Coordenada_X) && !isNaN(l.Coordenada_Y))
+    .map(l => `    <trkpt lat="${l.Coordenada_Y}" lon="${l.Coordenada_X}">
+      <time>${l.Fecha_y_Hora}</time>
+      ${l.Velocidad ? `<speed>${l.Velocidad}</speed>` : ''}
+    </trkpt>`)
+    .join('\n');
+
+  const gpxFooter = `
+    </trkseg>
+  </trk>
+</gpx>`;
+
+  return gpxHeader + trackpoints + gpxFooter;
+};
+
+const downloadFile = (content: string, filename: string) => {
+  const blob = new Blob([content], { type: 'text/plain' });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+};
+
+// Añadir después de las interfaces y antes de los estados
+const procesarCoordenada = (valor: any): number => {
+  if (valor === null || valor === undefined) {
+    console.error('Coordenada inválida:', valor);
+    return 0;
+  }
+
+  // Si es un número, simplemente convertirlo
+  if (typeof valor === 'number' && !isNaN(valor)) {
+    return valor;
+  }
+
+  // Si es string, limpiar y convertir
+  if (typeof valor === 'string') {
+    // Reemplazar comas por puntos
+    let procesado = valor.replace(',', '.');
+    // Eliminar espacios
+    procesado = procesado.trim();
+    // Convertir a número
+    const numero = parseFloat(procesado);
+    
+    if (isNaN(numero)) {
+      console.error('No se pudo convertir la coordenada:', valor);
+      return 0;
+    }
+    
+    return numero;
+  }
+
+  console.error('Formato de coordenada no soportado:', valor);
+  return 0;
+};
+
+const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSeleccionado }) => {
+  const [selectedInfo, setSelectedInfo] = useState<any | null>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  
+  // Estados principales
+  const [lecturas, setLecturas] = useState<GpsLectura[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [capas, setCapas] = useState<CapaGps[]>([]);
+  const [nuevaCapa, setNuevaCapa] = useState<Partial<CapaGps>>({ nombre: '', color: '#228be6' });
+  const [mostrarFormularioCapa, setMostrarFormularioCapa] = useState(false);
+  const [fullscreenMap, setFullscreenMap] = useState(false);
+  const [editandoCapa, setEditandoCapa] = useState<number | null>(null);
+  const [mostrarLocalizaciones, setMostrarLocalizaciones] = useState(true);
+  const [lecturaSeleccionada, setLecturaSeleccionada] = useState<GpsLectura | null>(null);
+  const [primerUltimosPuntos, setPrimerUltimosPuntos] = useState<{
+    primero: GpsLectura | null;
+    ultimo: GpsLectura | null;
+  }>({ primero: null, ultimo: null });
+
+  // Estados para el sidebar y pestañas
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [activeTab, setActiveTab] = useState<'filtros' | 'mapa' | 'capas' | 'pois' | 'posiciones' | 'analisis' | 'exportar' | 'shapefiles'>('filtros');
+  const [selectedPositionIndex, setSelectedPositionIndex] = useState<number | null>(null);
+
+  // Nuevos estados para el modal de advertencia
+  const [showWarningModal, setShowWarningModal] = useState(false);
+  const [pendingData, setPendingData] = useState<GpsLectura[] | null>(null);
+  const [shouldProceed, setShouldProceed] = useState(false);
+  const [hasDismissedWarning, setHasDismissedWarning] = useState(false);
+
+  // Estados para filtros
+  const [filters, setFilters] = useState({
+    fechaInicio: '',
+    horaInicio: '',
+    fechaFin: '',
+    horaFin: '',
+    velocidadMin: null as number | null,
+    velocidadMax: null as number | null,
+    duracionParada: null as number | null,
+    dia_semana: null as number | null,
+    zonaSeleccionada: null as {
+      latMin: number;
+      latMax: number;
+      lonMin: number;
+      lonMax: number;
+    } | null
+  });
+
+  // Estados para controles del mapa
+  const [mapControls, setMapControls] = useState({
+    visualizationType: 'cartodb-voyager' as 'standard' | 'satellite' | 'cartodb-light' | 'cartodb-voyager',
+    showHeatmap: true,
+    showPoints: false,
+    optimizePoints: false,
+    enableClustering: false
+  });
+
+  const [vehiculosDisponibles, setVehiculosDisponibles] = useState<{ value: string; label: string }[]>([]);
+  const [vehiculoObjetivo, setVehiculoObjetivo] = useState<string | null>(null);
+  const [loadingVehiculos, setLoadingVehiculos] = useState(false);
+  const [loadingFechas, setLoadingFechas] = useState(false);
+
+  // Estado y funciones de localizaciones de interés (persistentes)
+  const [localizaciones, setLocalizaciones] = useState<LocalizacionInteres[]>([]);
+  const [modalAbierto, setModalAbierto] = useState(false);
+  const [localizacionActual, setLocalizacionActual] = useState<Partial<LocalizacionInteres> | null>(null);
+  const [guardandoLocalizacion, setGuardandoLocalizacion] = useState(false);
+
+  // Estado para controlar el foco en el formulario de localización
+  const [formFocused, setFormFocused] = useState(false);
+
+  // Cambiar los siguientes estados a 'false' para que los paneles estén extendidos por defecto
+  const [controlesColapsados, setControlesColapsados] = useState(false);
+  const [localizacionesColapsadas, setLocalizacionesColapsadas] = useState(false);
+  const [capasColapsadas, setCapasColapsadas] = useState(false);
+
+  // Estados para el reproductor de recorrido
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentSpeed, setCurrentSpeed] = useState(4);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedLayerForPlayback, setSelectedLayerForPlayback] = useState<number | null>(null);
+
+  // Centro inicial del mapa (Madrid)
+  const initialCenter: L.LatLngTuple = [40.416775, -3.703790];
+  const [mapCenter, setMapCenter] = useState<L.LatLngTuple>(initialCenter);
+  const [mapZoom, setMapZoom] = useState(10);
+
+  // Añadir nuevo estado para el modo de creación de POI
+  const [creatingManualPOI, setCreatingManualPOI] = useState(false);
+
+  // Justo al inicio del componente GpsAnalysisPanel:
+  const [numerarPuntosActivos, setNumerarPuntosActivos] = useState(false);
+
+  // Estados para shapefiles
+  const [shapefileLayers, setShapefileLayers] = useState<any[]>([]);
+  const [uploadingShapefile, setUploadingShapefile] = useState(false);
+  const [shapefileError, setShapefileError] = useState<string | null>(null);
+
+  // Modificar el estado de capasBitacora
+  const [capasBitacora, setCapasBitacora] = useState<CapaBitacoraLayer[]>([]);
+  const [modalBitacoraAbierto, setModalBitacoraAbierto] = useState(false);
+  const [archivoBitacora, setArchivoBitacora] = useState<File | null>(null);
+
+  // 2. Añadir estados
+  const [bitacoraPanelOpen, setBitacoraPanelOpen] = useState(false);
+  const [selectedBitacoraIndex, setSelectedBitacoraIndex] = useState<number | null>(null);
+
+  // Estados para capas de Excel (datos libres)
+  const [capasExcel, setCapasExcel] = useState<any[]>([]);
+  const [modalExcelAbierto, setModalExcelAbierto] = useState(false);
+  const [archivoExcel, setArchivoExcel] = useState<File | null>(null);
+  const [excelPanelOpen, setExcelPanelOpen] = useState(false);
+  const [selectedExcelIndex, setSelectedExcelIndex] = useState<number | null>(null);
+
+  // Estados para capas GPX/KML
+  const [capasGpx, setCapasGpx] = useState<any[]>([]);
+  const [modalGpxAbierto, setModalGpxAbierto] = useState(false);
+  const [archivoGpx, setArchivoGpx] = useState<File | null>(null);
+  const [gpxPanelOpen, setGpxPanelOpen] = useState(false);
+  const [selectedGpxIndex, setSelectedGpxIndex] = useState<number | null>(null);
+
+  // Estado para la pestaña activa en Capas Externas
+  const [activeExternalTab, setActiveExternalTab] = useState<'bitacora' | 'excel' | 'shapefiles' | 'gpx-kmz'>('bitacora');
+
+  // 1. Añadir estado para mostrar la línea de recorrido
+  const [mostrarLineaRecorrido, setMostrarLineaRecorrido] = useState(true);
+
+  // Añadir estado para controlar la visibilidad del panel flotante
+  const [showMapControls, setShowMapControls] = useState(false);
+
+  // Crear el componente MapControlsPanel
+  const MapControlsPanel = () => {
+    const panelRef = useRef<HTMLDivElement>(null);
+
+    // Cerrar al hacer clic fuera del panel
+    useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+        if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
+          setShowMapControls(false);
+        }
+      };
+
+      if (showMapControls) {
+        document.addEventListener('mousedown', handleClickOutside);
+      }
+
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }, [showMapControls]);
+
+    if (!showMapControls) return null;
+
+    return (
+      <div
+        ref={panelRef}
+        style={{
+          position: 'absolute',
+          bottom: '20px',
+          left: '20px',
+          backgroundColor: 'rgba(255, 255, 255, 0.6)',
+          backdropFilter: 'blur(12px)',
+          border: '1px solid rgba(255, 255, 255, 0.4)',
+          borderRadius: '12px',
+          padding: '20px',
+          width: '380px',
+          height: 'auto',
+          zIndex: 50000,
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)'
+        }}
+      >
+        <Stack gap="md">
+          <Text size="sm" fw={600} mb="xs">Controles de Mapa</Text>
+          
+          <Select
+            label="Tipo de Visualización"
+            value={mapControls.visualizationType}
+            onChange={(value) => {
+              if (value === 'standard' || value === 'satellite' || value === 'cartodb-light' || value === 'cartodb-voyager') {
+                setMapControls(prev => ({ ...prev, visualizationType: value }));
+              }
+            }}
+            data={[
+              { value: 'standard', label: 'OpenStreetMap' },
+              { value: 'satellite', label: 'Satélite' },
+              { value: 'cartodb-light', label: 'CartoDB Light' },
+              { value: 'cartodb-voyager', label: 'CartoDB Voyager' }
+            ]}
+            comboboxProps={{ zIndex: 60000 }}
+          />
+          
+          <Switch
+            label="Mostrar línea de recorrido"
+            checked={mostrarLineaRecorrido}
+            onChange={e => setMostrarLineaRecorrido(e.currentTarget.checked)}
+            description="Dibuja una línea que conecta los puntos GPS en orden cronológico"
+          />
+
+          <Switch
+            label="Mostrar puntos"
+            checked={mapControls.showPoints}
+            onChange={e => setMapControls(prev => ({ ...prev, showPoints: e.currentTarget.checked }))}
+            description="Muestra los puntos GPS individuales"
+          />
+
+          <Switch
+            label="Agrupar puntos cercanos"
+            checked={mapControls.enableClustering}
+            onChange={e => setMapControls(prev => ({ ...prev, enableClustering: e.currentTarget.checked }))}
+            description="Agrupa puntos cercanos en clusters para mejor visualización"
+          />
+
+          <Switch
+            label="Optimizar puntos"
+            checked={mapControls.optimizePoints}
+            onChange={e => setMapControls(prev => ({ ...prev, optimizePoints: e.currentTarget.checked }))}
+            description="Optimiza la visualización de puntos para mejor rendimiento"
+          />
+
+          <Switch
+            label="Numerar puntos activos"
+            checked={numerarPuntosActivos}
+            onChange={e => setNumerarPuntosActivos(e.currentTarget.checked)}
+            description="Muestra números en los puntos de las capas activas"
+          />
+
+          <Switch
+            label="Mostrar localizaciones"
+            checked={mostrarLocalizaciones}
+            onChange={e => setMostrarLocalizaciones(e.currentTarget.checked)}
+            description="Muestra las localizaciones en el mapa"
+          />
+
+          <Switch
+            label="Mostrar mapa de calor"
+            checked={mapControls.showHeatmap}
+            onChange={e => setMapControls(prev => ({ ...prev, showHeatmap: e.currentTarget.checked }))}
+            description="Muestra un mapa de calor de densidad de lecturas"
+          />
+
+          <div>
+            <Text size="sm" mb="xs">Intensidad del mapa de calor: {heatmapMultiplier}</Text>
+            <Slider
+              min={1.25}
+              max={5}
+              step={0.01}
+              value={heatmapMultiplier}
+              onChange={setHeatmapMultiplier}
+              marks={[
+                { value: 1.25, label: '1.25' },
+                { value: 1.65, label: '1.65' },
+                { value: 3, label: '3' },
+                { value: 5, label: '5' }
+              ]}
+            />
+          </div>
+        </Stack>
+      </div>
+    );
+  };
+
+  const centrarMapa = useCallback((lat: number, lon: number, zoom: number = 16) => {
+    if (mapRef.current) {
+      mapRef.current.setView([lat, lon], zoom);
+    }
+  }, []);
+
+  // Añadir función para manejar el clic en el mapa cuando estamos en modo creación
+  const handleMapClick = useCallback((e: { latlng: L.LatLng }) => {
+    if (!creatingManualPOI) return;
+    
+    const newPOI: Partial<LocalizacionInteres> = {
+      id_lectura: Date.now(), // Usar timestamp como ID numérico
+      titulo: '',
+      descripcion: '',
+      fecha_hora: new Date().toISOString(),
+      icono: 'pin',
+      color: '#228be6',
+      coordenada_x: e.latlng.lng,
+      coordenada_y: e.latlng.lat,
+    };
+
+    setLocalizacionActual(newPOI);
+    setModalAbierto(true);
+    setCreatingManualPOI(false); // Desactivar modo creación después de colocar el punto
+  }, [creatingManualPOI]);
+
+  // ---- EFECTO PARA CENTRAR EL MAPA CUANDO puntoSeleccionado CAMBIA ----
+  // Necesitamos acceder al mapa dentro de un componente que sea hijo de MapContainer
+  // por lo que crearemos un pequeño componente auxiliar.
+  const MapEffect = () => {
+    const map = useMap(); // Hook de react-leaflet para obtener la instancia del mapa
+    mapRef.current = map;
+
+    useEffect(() => {
+      if (puntoSeleccionado && map) {
+        const lat = puntoSeleccionado.Coordenada_Y;
+        const lng = puntoSeleccionado.Coordenada_X;
+        if (typeof lat === 'number' && typeof lng === 'number') {
+          console.log(`Centrando mapa en: Lat ${lat}, Lng ${lng}`);
+          map.flyTo([lat, lng], 16); // Zoom a nivel 16, puedes ajustarlo
+        }
+      }
+    }, [puntoSeleccionado, map]);
+
+    return null; // Este componente no renderiza nada visible
+  };
+
+  // Cargar localizaciones de interés al montar o cambiar casoId
+  useEffect(() => {
+    if (!casoId) return;
+    (async () => {
+      try {
+        const locs = await getLocalizacionesInteres(casoId);
+        setLocalizaciones(locs);
+      } catch (error) {
+        setLocalizaciones([]);
+      }
+    })();
+  }, [casoId]);
+
+  // Adaptar handleClickPunto para usar el modelo persistente
+  const handleClickPunto = (lectura: GpsLectura) => {
+    setLecturaSeleccionada(lectura);
+  };
+
+  // Añadir función para abrir el modal de localización
+  const handleAbrirModalLocalizacion = (lectura: GpsLectura) => {
+    if (!lectura) return;
+    setLocalizacionesColapsadas(false);
+    const existente = localizaciones.find(l => l.id_lectura === lectura.ID_Lectura);
+    setLecturaSeleccionada(lectura);
+    setLocalizacionActual(existente || {
+      id_lectura: lectura.ID_Lectura,
+      titulo: '',
+      descripcion: '',
+      fecha_hora: lectura.Fecha_y_Hora,
+      icono: 'pin',
+      color: '#228be6',
+      coordenada_x: lectura.Coordenada_X,
+      coordenada_y: lectura.Coordenada_Y,
+    });
+    setModalAbierto(true);
+  };
+
+  // Guardar o actualizar localización (persistente)
+  const handleGuardarLocalizacion = async () => {
+    if (!localizacionActual) return;
+    setGuardandoLocalizacion(true);
+    try {
+      if ('id' in localizacionActual && localizacionActual.id) {
+        // Actualizar
+        const updated = await updateLocalizacionInteres(casoId, localizacionActual.id, localizacionActual);
+        setLocalizaciones(prev => prev.map(l => l.id === updated.id ? updated : l));
+      } else {
+        // Crear
+        const created = await createLocalizacionInteres(casoId, localizacionActual as Omit<LocalizacionInteres, 'id' | 'caso_id'>);
+        setLocalizaciones(prev => [...prev, created]);
+      }
+      setModalAbierto(false);
+    } catch (e) {
+      // Manejar error
+    } finally {
+      setGuardandoLocalizacion(false);
+    }
+  };
+
+  // Eliminar localización (persistente)
+  const handleEliminarLocalizacion = async () => {
+    if (!localizacionActual || !('id' in localizacionActual) || !localizacionActual.id) return;
+    try {
+      await deleteLocalizacionInteres(casoId, localizacionActual.id);
+      setLocalizaciones(prev => prev.filter(l => l.id !== localizacionActual.id));
+      setModalAbierto(false);
+    } catch (e) {
+      // Manejar error
+    }
+  };
+
+  // Manejar la tecla Escape para salir de pantalla completa
+  useHotkeys([
+    ['Escape', () => fullscreenMap && setFullscreenMap(false)]
+  ]);
+
+  // Cargar matrículas únicas al montar o cambiar casoId
+  useEffect(() => {
+    if (!casoId) return;
+    setLoadingVehiculos(true);
+    apiClient.get(`/casos/${casoId}/matriculas_gps`).then(res => {
+      const matriculas = res.data || [];
+      setVehiculosDisponibles(matriculas.map((matricula: string) => ({ value: matricula, label: matricula })));
+    }).catch(() => {
+      setVehiculosDisponibles([]);
+    }).finally(() => {
+      setLoadingVehiculos(false);
+    });
+  }, [casoId]);
+
+  // Función para obtener las fechas disponibles de una matrícula
+  const obtenerFechasMatricula = useCallback(async (matricula: string) => {
+    if (!casoId || !matricula) return;
+    
+    setLoadingFechas(true);
+    try {
+      const response = await apiClient.get(`/casos/${casoId}/matriculas_gps/${matricula}/fechas`);
+      const { fecha_inicio, fecha_fin } = response.data;
+      
+      // Actualizar los filtros con las fechas obtenidas
+      setFilters(prev => ({
+        ...prev,
+        fechaInicio: fecha_inicio,
+        fechaFin: fecha_fin
+      }));
+      
+      // Mostrar notificación informativa
+      notifications.show({
+        title: 'Fechas autocompletadas',
+        message: `Se han establecido las fechas disponibles para ${matricula}: ${fecha_inicio} a ${fecha_fin}`,
+        color: 'blue',
+        autoClose: 3000,
+      });
+    } catch (error) {
+      console.error('Error al obtener fechas de la matrícula:', error);
+      notifications.show({
+        title: 'Error',
+        message: 'No se pudieron obtener las fechas disponibles para esta matrícula',
+        color: 'red',
+        autoClose: 4000,
+      });
+    } finally {
+      setLoadingFechas(false);
+    }
+  }, [casoId]);
+
+  // Eliminar la carga masiva de lecturas al inicio
+  useEffect(() => {
+    setLecturas([]);
+  }, [casoId]);
+
+  // Modificar handleFiltrar para incluir la verificación de tamaño
+  const handleFiltrar = useCallback(async () => {
+    if (!vehiculoObjetivo) return;
+    setLoading(true);
+    const notificationId = 'gps-loading';
+    notifications.show({
+        id: notificationId,
+        title: 'Cargando datos GPS...',
+        message: 'Obteniendo lecturas GPS para el mapa.',
+        color: 'blue',
+        autoClose: false,
+        withCloseButton: false,
+        loading: true,
+    });
+    try {
+      // Construir fechas y horas correctas
+      let fechaInicio = filters.fechaInicio || undefined;
+      let horaInicio = filters.horaInicio || undefined;
+      let fechaFin = filters.fechaFin || undefined;
+      let horaFin = filters.horaFin || undefined;
+
+      // Manejar caso especial: horas sin fechas
+      if (!fechaInicio && !fechaFin && (horaInicio || horaFin)) {
+        // Si solo hay hora inicio pero no hora fin, usar 23:59 como hora fin
+        if (horaInicio && !horaFin) {
+          horaFin = '23:59';
+        }
+        // Si solo hay hora fin pero no hora inicio, usar 00:00 como hora inicio
+        if (!horaInicio && horaFin) {
+          horaInicio = '00:00';
+        }
+      } else {
+        // Comportamiento normal cuando hay fechas
+      // Si hay fecha inicio pero no hora, usar 00:00
+      if (fechaInicio && !horaInicio) horaInicio = '00:00';
+      // Si hay fecha fin pero no hora, usar 23:59
+      if (fechaFin && !horaFin) horaFin = '23:59';
+      // Si la fecha es igual y la hora fin < hora inicio, sumar un día a la fecha fin
+      if (fechaInicio && fechaFin && fechaInicio === fechaFin && horaInicio && horaFin && horaFin < horaInicio) {
+        const d = new Date(fechaFin);
+        d.setDate(d.getDate() + 1);
+        fechaFin = d.toISOString().slice(0, 10);
+      }
+      }
+
+      const cacheKey = `${casoId}_${vehiculoObjetivo}_${fechaInicio}_${horaInicio}_${fechaFin}_${horaFin}_${filters.velocidadMin}_${filters.velocidadMax}_${filters.duracionParada}_${filters.dia_semana}_${JSON.stringify(filters.zonaSeleccionada)}`;
+      const cachedData = gpsCache.getLecturas(casoId, cacheKey);
+      if (cachedData) {
+        // Desactivar puntos individuales si hay más de 2000 lecturas
+        if (cachedData.length > 2000) {
+          setMapControls(prev => ({ ...prev, showPoints: false }));
+          notifications.show({
+            title: 'Puntos individuales desactivados',
+            message: 'Se han desactivado los puntos individuales debido a la gran cantidad de datos (>2000 puntos)',
+            color: 'yellow',
+            autoClose: 5000,
+          });
+        }
+
+        if (cachedData.length > 2000 && !hasDismissedWarning) {
+          setPendingData(cachedData);
+          setShowWarningModal(true);
+        } else {
+          // Ordenar las lecturas cronológicamente antes de guardarlas
+          const cachedDataOrdenada = ordenarLecturasCronologicamente(cachedData);
+          setLecturas(cachedDataOrdenada);
+        }
+        notifications.update({
+            id: notificationId,
+            title: 'Datos GPS cargados',
+            message: `Se han cargado ${cachedData.length} lecturas GPS.`,
+            color: 'green',
+            autoClose: 2000,
+            loading: false,
+        });
+        return;
+      }
+      const data = await getLecturasGps(casoId, {
+        fecha_inicio: fechaInicio,
+        hora_inicio: horaInicio,
+        fecha_fin: fechaFin,
+        hora_fin: horaFin,
+        velocidad_min: filters.velocidadMin !== null ? filters.velocidadMin : undefined,
+        velocidad_max: filters.velocidadMax !== null ? filters.velocidadMax : undefined,
+        duracion_parada: filters.duracionParada !== null ? filters.duracionParada : undefined,
+        dia_semana: filters.dia_semana !== null ? filters.dia_semana : undefined,
+        zona_seleccionada: filters.zonaSeleccionada || undefined,
+        matricula: vehiculoObjetivo
+      });
+      
+      // Desactivar puntos individuales si hay más de 2000 lecturas
+      if (data.length > 2000) {
+        setMapControls(prev => ({ ...prev, showPoints: false }));
+        notifications.show({
+          title: 'Puntos individuales desactivados',
+          message: 'Se han desactivado los puntos individuales debido a la gran cantidad de datos (>2000 puntos)',
+          color: 'yellow',
+          autoClose: 5000,
+        });
+      }
+      
+      if (data.length > 2000 && !hasDismissedWarning) {
+        setPendingData(data);
+        setShowWarningModal(true);
+      } else {
+        // Ordenar las lecturas cronológicamente antes de guardarlas
+        const dataOrdenada = ordenarLecturasCronologicamente(data);
+        setLecturas(dataOrdenada);
+        gpsCache.setLecturas(casoId, cacheKey, dataOrdenada);
+        notifications.update({
+            id: notificationId,
+            title: 'Datos GPS cargados',
+            message: `Se han cargado ${dataOrdenada.length} lecturas GPS.`,
+            color: 'green',
+            autoClose: 2000,
+            loading: false,
+        });
+      }
+    } catch (error) {
+      console.error('Error al filtrar lecturas GPS:', error);
+      notifications.update({
+            id: notificationId,
+            title: 'Error',
+            message: 'No se pudieron cargar los datos GPS.',
+            color: 'red',
+            autoClose: 4000,
+            loading: false,
+        });
+    } finally {
+      setLoading(false);
+    }
+  }, [casoId, filters, vehiculoObjetivo, hasDismissedWarning]);
+
+  // Función para manejar cambios en los filtros
+  const handleFilterChange = useCallback((updates: Partial<typeof filters>) => {
+    setFilters(prev => ({ ...prev, ...updates }));
+    setHasDismissedWarning(false);
+  }, []);
+
+  // Función para limpiar filtros
+  const handleLimpiar = useCallback(() => {
+    setFilters({
+      fechaInicio: '',
+      horaInicio: '',
+      fechaFin: '',
+      horaFin: '',
+      velocidadMin: null,
+      velocidadMax: null,
+      duracionParada: null,
+      dia_semana: null,
+      zonaSeleccionada: null
+    });
+    setHasDismissedWarning(false);
+    if (vehiculoObjetivo) {
+      handleFiltrar();
+    } else {
+      setLecturas([]);
+    }
+  }, [handleFiltrar, vehiculoObjetivo]);
+
+  // Cuando cambia el vehículo objetivo, resetear el flag
+  useEffect(() => {
+    setHasDismissedWarning(false);
+  }, [vehiculoObjetivo]);
+
+  // Función para limpiar el mapa completamente (igual que MapPanel)
+  const handleLimpiarMapa = () => {
+    setLecturas([]); // Solo borra los puntos temporales
+    setNuevaCapa({ nombre: '', color: '#228be6' });
+    setMostrarFormularioCapa(false);
+    setEditandoCapa(null);
+    setFilters({
+      fechaInicio: '',
+      horaInicio: '',
+      fechaFin: '',
+      horaFin: '',
+      velocidadMin: null,
+      velocidadMax: null,
+      duracionParada: null,
+      dia_semana: null,
+      zonaSeleccionada: null
+    });
+    setVehiculoObjetivo(null); // Opcional: limpiar selección de vehículo
+  };
+
+  // Función para procesar archivos shapefile
+  const processShapefile = async (file: File): Promise<any> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      
+      reader.onload = async (e) => {
+        try {
+          const arrayBuffer = e.target?.result as ArrayBuffer;
+          if (!arrayBuffer) throw new Error('No se pudo leer el archivo');
+
+          const geojson = await shapefile.open(arrayBuffer)
+            .then(source => source.read()
+              .then(function collect(result) {
+                if (result.done) return [];
+                return [result.value].concat(source.read().then(collect));
+              }))
+            .then(geometries => ({
+              type: 'FeatureCollection',
+              features: geometries
+            }));
+
+          resolve(geojson);
+        } catch (error) {
+          reject(error);
+        }
+      };
+
+      reader.onerror = () => {
+        reject(new Error('Error al leer el archivo'));
+      };
+
+      reader.readAsArrayBuffer(file);
+    });
+  };
+
+  // Función para manejar la subida de shapefiles
+  const handleShapefileUpload = async (file: File) => {
+    setUploadingShapefile(true);
+    setShapefileError(null);
+    
+    try {
+      const geojson = await processShapefile(file);
+      
+      const newLayer = {
+        id: Date.now(),
+        name: file.name.replace(/\.(shp|zip)$/i, ''),
+        geojson: geojson,
+        visible: true,
+        color: '#7950f2',
+        opacity: 0.7
+      };
+      
+      setShapefileLayers(prev => [...prev, newLayer]);
+      
+      notifications.show({
+        title: 'Shapefile importado',
+        message: `Se ha importado correctamente ${geojson.features.length} elementos`,
+        color: 'green',
+      });
+    } catch (error: any) {
+      console.error('Error al procesar shapefile:', error);
+      setShapefileError(error.message || 'Error al procesar el archivo shapefile');
+      
+      notifications.show({
+        title: 'Error al importar',
+        message: error.message || 'No se pudo procesar el archivo shapefile',
+        color: 'red',
+      });
+    } finally {
+      setUploadingShapefile(false);
+    }
+  };
+
+  // Función para eliminar una capa de shapefile
+  const removeShapefileLayer = (id: number) => {
+    setShapefileLayers(prev => prev.filter(layer => layer.id !== id));
+  };
+
+  // Función para cambiar la visibilidad de una capa
+  const toggleShapefileLayerVisibility = (id: number) => {
+    setShapefileLayers(prev => 
+      prev.map(layer => 
+        layer.id === id ? { ...layer, visible: !layer.visible } : layer
+      )
+    );
+  };
+
+  const blueCircleIcon = L.divIcon({
+    className: 'custom-div-icon',
+    html: `<div style="background: #228be6; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.4);"></div>`,
+    iconSize: [12, 12],
+    iconAnchor: [6, 6]
+  });
+
+  // Centro y zoom inicial SOLO una vez al montar el componente
+  const getInitialMap = () => {
+    const primeraLectura = Array.isArray(lecturas) && lecturas.length > 0
+      ? lecturas.find(l => typeof l.Coordenada_Y === 'number' && typeof l.Coordenada_X === 'number' && !isNaN(l.Coordenada_Y) && !isNaN(l.Coordenada_X))
+      : null;
+    if (primeraLectura) {
+      return {
+        center: [primeraLectura.Coordenada_Y, primeraLectura.Coordenada_X],
+        zoom: 13
+      };
+    }
+    return { center: [40.416775, -3.703790], zoom: 10 };
+  };
+  const mapInitialRef = useRef(getInitialMap());
+  const [mapKey] = useState(() => Date.now());
+
+  // Guardar resultados actuales en una nueva capa (persistente)
+  const [errorGuardarCapa, setErrorGuardarCapa] = useState<string | null>(null);
+  const [guardandoCapa, setGuardandoCapa] = useState(false);
+  const handleGuardarResultadosEnCapa = async () => {
+    setErrorGuardarCapa(null);
+    if (!nuevaCapa.nombre) return;
+    setGuardandoCapa(true);
+    
+    // Usar datos filtrados si están disponibles, sino usar todos los datos
+    const datosParaGuardar = lecturasFiltradas.length > 0 ? lecturasFiltradas : lecturas;
+    
+    // Ordenar las lecturas cronológicamente antes de guardar
+    const datosOrdenados = ordenarLecturasCronologicamente(datosParaGuardar);
+    
+    const nuevaCapaCompleta: Omit<CapaGps, 'id' | 'caso_id'> = {
+      nombre: nuevaCapa.nombre!,
+      color: nuevaCapa.color || '#228be6',
+      activa: true,
+      lecturas: datosOrdenados,
+      filtros: { ...filters },
+      descripcion: nuevaCapa.descripcion || ''
+    };
+    try {
+      const capaGuardada = await createGpsCapa(casoId, nuevaCapaCompleta);
+      setCapas(prev => [...prev, { ...capaGuardada, descripcion: capaGuardada.descripcion || '' }]);
+      setLecturas([]);
+      setNuevaCapa({ nombre: '', color: '#228be7' });
+      setMostrarFormularioCapa(false);
+      setEditandoCapa(null);
+    } catch (e: any) {
+      setErrorGuardarCapa(e?.message || 'Error al guardar la capa');
+    } finally {
+      setGuardandoCapa(false);
+    }
+  };
+
+  const handleEditarCapa = (id: number) => {
+    const capa = capas.find(c => c.id === id);
+    if (!capa) return;
+    setNuevaCapa({ nombre: capa.nombre, color: capa.color, descripcion: capa.descripcion });
+    setEditandoCapa(id);
+    setMostrarFormularioCapa(true);
+  };
+
+  const handleActualizarCapa = async () => {
+    if (editandoCapa === null || !nuevaCapa.nombre) return;
+    const capaActual = capas.find(c => c.id === editandoCapa);
+    if (!capaActual) return;
+    const capaCompleta = {
+      ...capaActual,
+      nombre: nuevaCapa.nombre!,
+      color: nuevaCapa.color || '#228be6',
+      descripcion: nuevaCapa.descripcion || '',
+    };
+    try {
+      const capaActualizada = await updateGpsCapa(casoId, editandoCapa, capaCompleta);
+      // Asegurar que las lecturas estén ordenadas cronológicamente
+      const capaActualizadaOrdenada = {
+        ...capaActualizada,
+        lecturas: ordenarLecturasCronologicamente(capaActualizada.lecturas),
+        descripcion: capaActualizada.descripcion || ''
+      };
+      setCapas(prev => prev.map(capa =>
+        capa.id === editandoCapa ? capaActualizadaOrdenada : capa
+      ));
+    } catch (e) {}
+    setNuevaCapa({ nombre: '', color: '#228be6' });
+    setEditandoCapa(null);
+    setMostrarFormularioCapa(false);
+  };
+
+  const handleToggleCapa = async (id: number) => {
+    const capa = capas.find(c => c.id === id);
+    if (!capa) return;
+    const capaCompleta = { ...capa, activa: !capa.activa };
+    try {
+      const capaActualizada = await updateGpsCapa(casoId, id, capaCompleta);
+      // Asegurar que las lecturas estén ordenadas cronológicamente
+      const capaActualizadaOrdenada = {
+        ...capaActualizada,
+        lecturas: ordenarLecturasCronologicamente(capaActualizada.lecturas)
+      };
+      setCapas(prev => prev.map(c => c.id === id ? capaActualizadaOrdenada : c));
+      // Si la capa que se está desactivando es la que está en reproducción, detener la reproducción
+      if (selectedLayerForPlayback === id && !capaActualizada.activa) {
+        setIsPlaying(false);
+        setSelectedLayerForPlayback(null);
+        setCurrentIndex(0);
+      }
+    } catch (e) {
+      console.error('Error al actualizar el estado de la capa:', e);
+    }
+  };
+
+  const handleEliminarCapa = async (id: number) => {
+    try {
+      await deleteGpsCapa(casoId, id);
+      setCapas(prev => prev.filter(capa => capa.id !== id));
+    } catch (e) {}
+  };
+
+  // Función para generar nombre sugerido de capa según filtros
+  function generarNombreCapaPorFiltros(filters: any) {
+    const partes: string[] = [];
+    if (filters && filters.vehiculoObjetivo) {
+      partes.push(filters.vehiculoObjetivo);
+    } else if (filters.matricula) {
+      partes.push(filters.matricula);
+    }
+    if (filters.fechaInicio) {
+      partes.push(filters.fechaInicio.split('-').reverse().join('/'));
+    }
+    if (filters.duracionParada) {
+      partes.push(`Paradas ${filters.duracionParada}min`);
+    }
+    if (filters.velocidadMin) {
+      partes.push(`> ${filters.velocidadMin}km/h`);
+    }
+    if (filters.velocidadMax) {
+      partes.push(`< ${filters.velocidadMax}km/h`);
+    }
+    return partes.join(', ');
+  }
+
+  // Estado para interpolación suave
+  const [interpolationProgress, setInterpolationProgress] = useState(0);
+  const animationRef = useRef<number>();
+
+  // Efecto para manejar la reproducción con interpolación suave
+  useEffect(() => {
+    if (isPlaying && selectedLayerForPlayback !== null) {
+      const selectedLayer = capas.find(c => c.id === selectedLayerForPlayback);
+      if (!selectedLayer) return;
+
+      const pointInterval = 1000 / currentSpeed; // Tiempo total para ir de un punto al siguiente
+      const startTime = Date.now();
+      let lastProgressUpdate = 0;
+      
+      const animate = () => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / pointInterval, 1);
+        
+        // Función de easing más suave (ease-out cubic)
+        const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+        const smoothProgress = easeOutCubic(progress);
+        
+        // Solo actualizar si el progreso cambió significativamente para evitar parpadeo
+        if (Math.abs(smoothProgress - lastProgressUpdate) > 0.02) {
+          setInterpolationProgress(smoothProgress);
+          lastProgressUpdate = smoothProgress;
+        }
+        
+        if (progress >= 1) {
+          // Pasar al siguiente punto
+          setCurrentIndex(prev => {
+            if (prev >= selectedLayer.lecturas.length - 1) {
+              setIsPlaying(false);
+              setInterpolationProgress(0);
+              return prev;
+            }
+            return prev + 1;
+          });
+          // No resetear aquí, se resetea cuando cambia currentIndex
+        } else {
+          animationRef.current = requestAnimationFrame(animate);
+        }
+      };
+      
+      animationRef.current = requestAnimationFrame(animate);
+    }
+
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, [isPlaying, currentSpeed, selectedLayerForPlayback, capas, currentIndex]);
+
+  // Resetear interpolationProgress cuando cambia el índice
+  useEffect(() => {
+    setInterpolationProgress(0);
+  }, [currentIndex]);
+
+  // Función para centrar el mapa en el punto actual
+  const centerMapOnCurrentPoint = useCallback(() => {
+    if (selectedLayerForPlayback === null) return;
+    const selectedLayer = capas.find(c => c.id === selectedLayerForPlayback);
+    if (!selectedLayer || !selectedLayer.lecturas[currentIndex]) return;
+
+    const currentPoint = selectedLayer.lecturas[currentIndex];
+    if (mapRef.current && typeof currentPoint.Coordenada_Y === 'number' && typeof currentPoint.Coordenada_X === 'number') {
+      mapRef.current.setView([currentPoint.Coordenada_Y, currentPoint.Coordenada_X], mapRef.current.getZoom());
+    }
+  }, [selectedLayerForPlayback, capas, currentIndex]);
+
+  // Efecto para centrar el mapa cuando cambia el índice
+  useEffect(() => {
+    centerMapOnCurrentPoint();
+  }, [currentIndex, centerMapOnCurrentPoint]);
+
+  const [heatmapMultiplier, setHeatmapMultiplier] = useState(1.65);
+
+  useEffect(() => {
+    if (!fullscreenMap) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFullscreenMap(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [fullscreenMap]);
+
+  // Cargar capas GPS persistentes al montar o cambiar de caso
+  useEffect(() => {
+    async function fetchCapas() {
+      try {
+        const capas = await getGpsCapas(casoId);
+        // Ordenar las lecturas de cada capa cronológicamente
+        const capasOrdenadas = capas.map(capa => ({
+          ...capa,
+          lecturas: ordenarLecturasCronologicamente(capa.lecturas)
+        }));
+        setCapas(capasOrdenadas);
+      } catch (e) {
+        setCapas([]); // Si hay error, dejar vacío
+      }
+    }
+    fetchCapas();
+  }, [casoId]);
+
+  // Efecto para validar coordenadas de capas de bitácora
+  useEffect(() => {
+    if (capasBitacora.length > 0) {
+      capasBitacora.forEach(capa => {
+        console.log(`Validando capa ${capa.nombre}:`, {
+          totalPuntos: capa.puntos.length,
+          puntosValidos: capa.puntos.filter(p => 
+            typeof p.latitud === 'number' && 
+            typeof p.longitud === 'number' && 
+            !isNaN(p.latitud) && 
+            !isNaN(p.longitud) &&
+            p.latitud >= -90 && p.latitud <= 90 &&
+            p.longitud >= -180 && p.longitud <= 180
+          ).length
+        });
+
+        // Mostrar los primeros 3 puntos como ejemplo
+        capa.puntos.slice(0, 3).forEach((punto, idx) => {
+          console.log(`Punto ${idx + 1}:`, {
+            latitud: punto.latitud,
+            longitud: punto.longitud,
+            atestado: punto.atestado,
+            fecha: punto.fecha,
+            esValido: 
+              typeof punto.latitud === 'number' && 
+              typeof punto.longitud === 'number' && 
+              !isNaN(punto.latitud) && 
+              !isNaN(punto.longitud) &&
+              punto.latitud >= -90 && punto.latitud <= 90 &&
+              punto.longitud >= -180 && punto.longitud <= 180
+          });
+        });
+      });
+    }
+  }, [capasBitacora]);
+
+  const [drawnShape, setDrawnShape] = useState<L.Layer | null>(null);
+  const handleShapeDrawn = useCallback((layer: L.Layer) => { setDrawnShape(layer); }, []);
+  const handleShapeDeleted = useCallback(() => { setDrawnShape(null); }, []);
+
+  // Filtrado principal de lecturas (para el panel y el mapa)
+  const lecturasFiltradas = useMemo(() => {
+    if (!drawnShape) return lecturas;
+    // @ts-ignore
+    const geometry = drawnShape.toGeoJSON().geometry;
+    return lecturas.filter(l => {
+      if (l.Coordenada_X == null || l.Coordenada_Y == null) return false;
+      try {
+        const pt = turfPoint([l.Coordenada_X, l.Coordenada_Y]);
+        return booleanPointInPolygon(pt, geometry);
+      } catch {
+        return false;
+      }
+    });
+  }, [lecturas, drawnShape]);
+
+  // Efecto para calcular primer y último punto cronológicamente
+  useEffect(() => {
+    if (lecturasFiltradas.length === 0) {
+      setPrimerUltimosPuntos({ primero: null, ultimo: null });
+      return;
+    }
+
+    // Filtrar lecturas válidas con coordenadas y fecha
+    const lecturasValidas = lecturasFiltradas.filter(l => 
+      l.Coordenada_X != null && 
+      l.Coordenada_Y != null && 
+      !isNaN(l.Coordenada_X) && 
+      !isNaN(l.Coordenada_Y) &&
+      l.Fecha_y_Hora
+    );
+
+    if (lecturasValidas.length === 0) {
+      setPrimerUltimosPuntos({ primero: null, ultimo: null });
+      return;
+    }
+
+    // Ordenar por fecha cronológicamente
+    const lecturasOrdenadas = ordenarLecturasCronologicamente(lecturasValidas);
+
+    const primero = lecturasOrdenadas[0];
+    const ultimo = lecturasOrdenadas[lecturasOrdenadas.length - 1];
+
+    setPrimerUltimosPuntos({ primero, ultimo });
+
+    // Centrar el mapa en el primer punto si existe
+    if (primero && mapRef.current) {
+      console.log(`Centrando mapa en primer punto: Lat ${primero.Coordenada_Y}, Lng ${primero.Coordenada_X}`);
+      mapRef.current.flyTo([primero.Coordenada_Y, primero.Coordenada_X], 16);
+    }
+  }, [lecturasFiltradas]);
+
+  // Nueva función para manejar selección de posición
+  const handleSelectPosition = useCallback((index: number, lectura: GpsLectura) => {
+    setSelectedPositionIndex(index);
+    setLecturaSeleccionada(lectura);
+    if (mapRef.current && typeof lectura.Coordenada_Y === 'number' && typeof lectura.Coordenada_X === 'number') {
+      mapRef.current.flyTo([lectura.Coordenada_Y, lectura.Coordenada_X], 16);
+    }
+  }, []);
+
+  // Configuración de pestañas
+  const tabs = [
+    { id: 'filtros' as const, icon: IconFilter, label: 'Filtros', color: '#228be6' },
+    { id: 'capas' as const, icon: IconStack, label: 'Capas', color: '#fd7e14' },
+    { id: 'pois' as const, icon: IconMapPin, label: 'Puntos de Interés', color: '#7c2d12' },
+    { id: 'posiciones' as const, icon: IconTable, label: 'Tabla de Posiciones', color: '#6741d9' },
+    { id: 'analisis' as const, icon: IconSparkles, label: 'Análisis IA', color: '#10a37f' },
+    { id: 'exportar' as const, icon: IconFileExport, label: 'Exportar', color: '#e64980' },
+    { id: 'shapefiles' as const, icon: IconUpload, label: 'Capas Externas', color: '#7950f2' }
+  ];
+
+  // Tipos para el análisis inteligente
+  interface AnalisisInteligente {
+    lugares_frecuentes: {
+        lat: number;
+        lon: number;
+        frecuencia: number;
+        descripcion?: string;
+    }[];
+    actividad_horaria: {
+        hora: number;
+        frecuencia: number;
+    }[];
+    actividad_semanal: {
+        dia: string;
+        frecuencia: number;
+    }[];
+    puntos_inicio: {
+        lat: number;
+        lon: number;
+        frecuencia: number;
+    }[];
+    puntos_fin: {
+        lat: number;
+        lon: number;
+        frecuencia: number;
+    }[];
+    zonas_frecuentes: {
+        cluster_id: number;
+        lat: number;
+        lon: number;
+        frecuencia: number;
+        radio: number;
+    }[];
+    analisis_velocidad: {
+        velocidad_media: number;
+        velocidad_maxima: number;
+        distribucion_velocidad: {
+            rango: string;
+            frecuencia: number;
+            porcentaje: number;
+        }[];
+        excesos_velocidad: {
+            fecha_hora: string;
+            velocidad: number;
+            lat: number;
+            lon: number;
+            limite_velocidad?: number;
+        }[];
+    };
+  }
+
+  // Añadir estado para el análisis inteligente
+  const [analisisData, setAnalisisData] = useState<AnalisisInteligente | null>(null);
+  const [loadingAnalisis, setLoadingAnalisis] = useState(false);
+
+  // Función para realizar el análisis inteligente
+  const handleAnalisisInteligente = async () => {
+    if (!vehiculoObjetivo || lecturas.length === 0) {
+        notifications.show({
+            title: 'Error',
+            message: 'Necesitas seleccionar un vehículo y cargar datos GPS para realizar el análisis.',
+            color: 'red',
+        });
+        return;
+    }
+
+    setLoadingAnalisis(true);
+    try {
+        const response = await apiClient.post(`/api/gps/analisis_inteligente`, {
+            caso_id: casoId,
+            matricula: vehiculoObjetivo,
+            lecturas: lecturas
+        });
+        setAnalisisData(response.data);
+    } catch (error) {
+        notifications.show({
+            title: 'Error',
+            message: 'No se pudo realizar el análisis inteligente.',
+            color: 'red',
+        });
+    } finally {
+        setLoadingAnalisis(false);
+    }
+  };
+
+  const [informeModalAbierto, setInformeModalAbierto] = useState(false);
+
+  // Añadir funciones para filtrar por hora y día
+  const aplicarFiltroHora = useCallback((hora: number) => {
+    setActiveTab('filtros');
+    setFilters(prev => ({
+      ...prev,
+      horaInicio: String(hora).padStart(2, '0') + ':00',
+      horaFin: String(hora).padStart(2, '0') + ':59'
+    }));
+  }, []);
+
+  const aplicarFiltroDia = useCallback((dia: string) => {
+    setActiveTab('filtros');
+    // Convertir el nombre del día a número (1=Lunes, 7=Domingo)
+    const dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+    const diaIndice = dias.indexOf(dia) + 1; // +1 porque queremos 1-7 en lugar de 0-6
+    
+    setFilters(prev => ({
+      ...prev,
+      dia_semana: diaIndice,
+      // Mantener los strings vacíos para las fechas
+      fechaInicio: '',
+      fechaFin: ''
+    }));
+  }, []);
+
+
+
+  const exportToExcel = () => {
+    if (!analisisData) {
+      notifications.show({
+        title: 'Error',
+        message: 'No hay datos para exportar',
+        color: 'red'
+      });
+      return;
+    }
+
+    try {
+      console.log('Datos de análisis:', analisisData);
+      
+      // Crear un workbook nuevo
+      const workbook = XLSX.utils.book_new();
+
+      // Lugares frecuentes
+      if (analisisData.lugares_frecuentes?.length > 0) {
+        const lugaresData = analisisData.lugares_frecuentes.map((lugar, idx) => ({
+          "Ubicación": lugar.descripcion || `Ubicación ${idx + 1}`,
+          "Latitud": lugar.lat,
+          "Longitud": lugar.lon,
+          "Frecuencia": lugar.frecuencia
+        }));
+        const lugaresWS = XLSX.utils.json_to_sheet(lugaresData);
+        XLSX.utils.book_append_sheet(workbook, lugaresWS, "Lugares Frecuentes");
+      }
+
+      // Actividad horaria
+      if (analisisData.actividad_horaria?.length > 0) {
+        const horariaData = analisisData.actividad_horaria.map(hora => ({
+          "Hora": `${String(hora.hora).padStart(2, '0')}:00`,
+          "Frecuencia": hora.frecuencia
+        }));
+        const horariaWS = XLSX.utils.json_to_sheet(horariaData);
+        XLSX.utils.book_append_sheet(workbook, horariaWS, "Actividad Horaria");
+      }
+
+      // Actividad semanal
+      if (analisisData.actividad_semanal?.length > 0) {
+        const semanalData = analisisData.actividad_semanal.map(dia => ({
+          "Día": dia.dia,
+          "Frecuencia": dia.frecuencia
+        }));
+        const semanalWS = XLSX.utils.json_to_sheet(semanalData);
+        XLSX.utils.book_append_sheet(workbook, semanalWS, "Actividad Semanal");
+      }
+
+      // Puntos de inicio
+      if (analisisData.puntos_inicio?.length > 0) {
+        const inicioData = analisisData.puntos_inicio.map((punto, idx) => ({
+          "ID": idx + 1,
+          "Latitud": punto.lat,
+          "Longitud": punto.lon,
+          "Frecuencia": punto.frecuencia
+        }));
+        const inicioWS = XLSX.utils.json_to_sheet(inicioData);
+        XLSX.utils.book_append_sheet(workbook, inicioWS, "Puntos de Inicio");
+      }
+
+      // Puntos de fin
+      if (analisisData.puntos_fin?.length > 0) {
+        const finData = analisisData.puntos_fin.map((punto, idx) => ({
+          "ID": idx + 1,
+          "Latitud": punto.lat,
+          "Longitud": punto.lon,
+          "Frecuencia": punto.frecuencia
+        }));
+        const finWS = XLSX.utils.json_to_sheet(finData);
+        XLSX.utils.book_append_sheet(workbook, finWS, "Puntos de Fin");
+      }
+
+      // Zonas frecuentes
+      if (analisisData.zonas_frecuentes?.length > 0) {
+        const zonasData = analisisData.zonas_frecuentes.map((zona, idx) => ({
+          "Zona": `Zona ${idx + 1}`,
+          "Latitud": zona.lat,
+          "Longitud": zona.lon,
+          "Radio (m)": zona.radio,
+          "Frecuencia": zona.frecuencia
+        }));
+        const zonasWS = XLSX.utils.json_to_sheet(zonasData);
+        XLSX.utils.book_append_sheet(workbook, zonasWS, "Zonas Frecuentes");
+      }
+
+      // Análisis de velocidad
+      if (analisisData.analisis_velocidad) {
+        const velocidadHeaders = [
+          ["Análisis de Velocidad"],
+          [],
+          ["Indicador", "Valor"],
+          ["Velocidad Media", `${analisisData.analisis_velocidad.velocidad_media.toFixed(1)} km/h`],
+          ["Velocidad Máxima", `${analisisData.analisis_velocidad.velocidad_maxima.toFixed(1)} km/h`],
+          [],
+          ["Distribución de Velocidades"]
+        ];
+
+        const velocidadWS = XLSX.utils.aoa_to_sheet(velocidadHeaders);
+
+        // Añadir distribución de velocidad si existe
+        if (analisisData.analisis_velocidad.distribucion_velocidad?.length > 0) {
+          const distData = analisisData.analisis_velocidad.distribucion_velocidad.map(dist => ({
+            "Rango": dist.rango,
+            "Frecuencia": dist.frecuencia,
+            "Porcentaje": `${dist.porcentaje.toFixed(1)}%`
+          }));
+          XLSX.utils.sheet_add_json(velocidadWS, distData, { origin: "A8" });
+        }
+
+        // Añadir excesos de velocidad si existen
+        if (analisisData.analisis_velocidad.excesos_velocidad?.length > 0) {
+          const startRow = 9 + (analisisData.analisis_velocidad.distribucion_velocidad?.length || 0);
+          XLSX.utils.sheet_add_aoa(velocidadWS, [[], ["Excesos de Velocidad"]], { origin: `A${startRow}` });
+          
+          const excesosData = analisisData.analisis_velocidad.excesos_velocidad.map(exceso => ({
+            "Fecha y Hora": dayjs(exceso.fecha_hora).format('DD/MM/YYYY HH:mm:ss'),
+            "Velocidad (km/h)": exceso.velocidad.toFixed(1),
+            "Límite (km/h)": exceso.limite_velocidad ? exceso.limite_velocidad.toString() : 'N/A',
+            "Latitud": exceso.lat,
+            "Longitud": exceso.lon
+          }));
+          XLSX.utils.sheet_add_json(velocidadWS, excesosData, { origin: `A${startRow + 2}` });
+        }
+
+        XLSX.utils.book_append_sheet(workbook, velocidadWS, "Análisis de Velocidad");
+      }
+
+      // Guardar el archivo
+      const filename = `analisis_gps_${dayjs().format('YYYYMMDD_HHmmss')}.xlsx`;
+      XLSX.writeFile(workbook, filename);
+
+      notifications.show({
+        title: 'Exportación completada',
+        message: 'El informe se ha exportado correctamente a Excel',
+        color: 'green'
+      });
+    } catch (error) {
+      console.error('Error al exportar a Excel:', error);
+      notifications.show({
+        title: 'Error en la exportación',
+        message: 'No se pudo generar el archivo Excel. Por favor, inténtelo de nuevo.',
+        color: 'red'
+      });
+    }
+  };
+
+  // Modifica renderInformeCompleto para aceptar un parámetro showExportButtons (por defecto true)
+  const renderInformeCompleto = (showExportButtons = true) => {
+    if (!analisisData) return null;
+    return (
+      <Stack gap="lg" id="informe-completo">
+        <Group justify="flex-end" mb="md">
+          {showExportButtons && (
+            <>
+              <Button
+                variant="light"
+                color="green"
+                leftSection={<IconFileSpreadsheet size={20} />}
+                onClick={exportToExcel}
+              >
+                Exportar a Excel
+              </Button>
+            </>
+          )}
+        </Group>
+        
+        {/* Resto del código del informe ... */}
+        {/* Lugares más frecuentes */}
+        <Paper withBorder p="md">
+          <Title order={5}>📍 Lugares más frecuentes</Title>
+          <SimpleGrid cols={2} spacing="md" mt="md">
+            {analisisData.lugares_frecuentes.map((lugar, idx) => (
+              <Card 
+                key={idx} 
+                withBorder 
+                padding="sm"
+                style={{ cursor: 'pointer' }}
+                onClick={() => centrarMapa(lugar.lat, lugar.lon)}
+              >
+                <Group>
+                  <Badge size="lg" variant="filled" color="blue">
+                    #{idx + 1}
+                  </Badge>
+                  <Stack gap={0}>
+                    <Text size="sm" fw={500}>
+                      {lugar.descripcion || `Ubicación ${idx + 1}`}
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      {lugar.lat.toFixed(6)}, {lugar.lon.toFixed(6)}
+                    </Text>
+                    <Text size="xs">
+                      Visitas: {lugar.frecuencia}
+                    </Text>
+                  </Stack>
+                </Group>
+              </Card>
+            ))}
+          </SimpleGrid>
+        </Paper>
+
+        {/* Actividad por hora */}
+        <Paper withBorder p="md">
+          <Title order={5}>🕒 Actividad por hora</Title>
+          <Box mt="md" style={{ height: 300, display: 'flex', alignItems: 'flex-end' }}>
+            <SimpleGrid cols={24} spacing={2} style={{ width: '100%', height: '100%', alignItems: 'flex-end' }}>
+              {analisisData.actividad_horaria.map((hora) => (
+                <Stack 
+                  key={hora.hora} 
+                  gap={4} 
+                  align="center" 
+                  style={{ height: '100%', justifyContent: 'flex-end', cursor: 'pointer' }}
+                  onClick={() => aplicarFiltroHora(hora.hora)}
+                >
+                  <Box
+                    style={{
+                      height: `${(hora.frecuencia / Math.max(...analisisData.actividad_horaria.map(h => h.frecuencia))) * 200}px`,
+                      backgroundColor: 'var(--mantine-color-teal-6)',
+                      borderRadius: '4px 4px 0 0',
+                      width: '100%',
+                      transition: 'height 0.3s ease, background-color 0.2s ease',
+                      '&:hover': {
+                        backgroundColor: 'var(--mantine-color-teal-8)'
+                      }
+                    }}
+                    title={`Ver movimientos a las ${hora.hora}:00 - ${hora.frecuencia} registros`}
+                  />
+                  <Text size="xs" c="dimmed" style={{ transform: 'rotate(-45deg)', transformOrigin: 'center', marginBottom: '8px', whiteSpace: 'nowrap' }}>
+                    {hora.hora}:00
+                  </Text>
+                  <Text size="xs" c="dimmed" style={{ position: 'absolute', top: -20 }}>
+                    {hora.frecuencia}
+                  </Text>
+                </Stack>
+              ))}
+            </SimpleGrid>
+          </Box>
+        </Paper>
+
+        {/* Actividad semanal */}
+        <Paper withBorder p="md">
+          <Title order={5}>📅 Actividad por día</Title>
+          <Box mt="md" style={{ height: 300, display: 'flex', alignItems: 'flex-end' }}>
+            <SimpleGrid cols={7} style={{ width: '100%', height: '100%', alignItems: 'flex-end' }}>
+              {analisisData.actividad_semanal.map((dia) => (
+                <Stack 
+                  key={dia.dia} 
+                  align="center" 
+                  style={{ height: '100%', justifyContent: 'flex-end', cursor: 'pointer' }} 
+                  gap={4}
+                  onClick={() => aplicarFiltroDia(dia.dia)}
+                >
+                  <Box
+                    style={{
+                      height: `${(dia.frecuencia / Math.max(...analisisData.actividad_semanal.map(d => d.frecuencia))) * 200}px`,
+                      width: '40px',
+                      backgroundColor: 'var(--mantine-color-teal-6)',
+                      borderRadius: '4px 4px 0 0',
+                      transition: 'height 0.3s ease, background-color 0.2s ease',
+                      '&:hover': {
+                        backgroundColor: 'var(--mantine-color-teal-8)'
+                      }
+                    }}
+                    title={`Ver movimientos del ${dia.dia} - ${dia.frecuencia} registros`}
+                  />
+                  <Text size="sm" style={{ transform: 'rotate(-45deg)', transformOrigin: 'center', marginBottom: '8px', whiteSpace: 'nowrap' }}>
+                    {dia.dia}
+                  </Text>
+                  <Text size="xs" c="dimmed" style={{ position: 'absolute', top: -20 }}>
+                    {dia.frecuencia}
+                  </Text>
+                </Stack>
+              ))}
+            </SimpleGrid>
+          </Box>
+        </Paper>
+
+        {/* Puntos de inicio y fin */}
+        <SimpleGrid cols={2}>
+          <Paper withBorder p="md">
+            <Title order={5}>🚗 Puntos de inicio frecuentes</Title>
+            <Stack gap="xs" mt="md">
+              {analisisData.puntos_inicio.map((punto, idx) => (
+                <Group 
+                  key={idx}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => centrarMapa(punto.lat, punto.lon)}
+                >
+                  <Badge size="sm">{idx + 1}</Badge>
+                  <Text size="sm">
+                    {punto.lat.toFixed(6)}, {punto.lon.toFixed(6)}
+                  </Text>
+                  <Badge size="sm" variant="light">
+                    {punto.frecuencia} veces
+                  </Badge>
+                </Group>
+              ))}
+            </Stack>
+          </Paper>
+
+          <Paper withBorder p="md">
+            <Title order={5}>🏁 Puntos de fin frecuentes</Title>
+            <Stack gap="xs" mt="md">
+              {analisisData.puntos_fin.map((punto, idx) => (
+                <Group 
+                  key={idx}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => centrarMapa(punto.lat, punto.lon)}
+                >
+                  <Badge size="sm">{idx + 1}</Badge>
+                  <Text size="sm">
+                    {punto.lat.toFixed(6)}, {punto.lon.toFixed(6)}
+                  </Text>
+                  <Badge size="sm" variant="light">
+                    {punto.frecuencia} veces
+                  </Badge>
+                </Group>
+              ))}
+            </Stack>
+          </Paper>
+        </SimpleGrid>
+
+        {/* Zonas frecuentes */}
+        <Paper withBorder p="md">
+          <Title order={5}>🎯 Zonas frecuentes detectadas</Title>
+          <SimpleGrid cols={2} spacing="md" mt="md">
+            {analisisData.zonas_frecuentes.map((zona, idx) => (
+              <Card 
+                key={idx} 
+                withBorder 
+                padding="sm"
+                style={{ cursor: 'pointer' }}
+                onClick={() => centrarMapa(zona.lat, zona.lon)}
+              >
+                <Group>
+                  <Badge size="lg" variant="filled" color="grape">
+                    Zona {idx + 1}
+                  </Badge>
+                  <Stack gap={0}>
+                    <Text size="xs">
+                      Centro: {zona.lat.toFixed(6)}, {zona.lon.toFixed(6)}
+                    </Text>
+                    <Text size="xs">
+                      Radio: {zona.radio.toFixed(2)} metros
+                    </Text>
+                    <Text size="xs">
+                      Puntos: {zona.frecuencia}
+                    </Text>
+                  </Stack>
+                </Group>
+              </Card>
+            ))}
+          </SimpleGrid>
+        </Paper>
+
+        {/* Análisis de Velocidades */}
+        {analisisData?.analisis_velocidad && (
+          <>
+            <Title order={4} mt="xl">Análisis de Velocidades</Title>
+            <Grid mt="md">
+              <Grid.Col span={4}>
+                <Card withBorder p="md">
+                  <Group justify="space-between" align="center">
+                    <Text size="sm" fw={500}>Velocidad Media</Text>
+                    <Badge size="lg" variant="light">
+                      {analisisData.analisis_velocidad.velocidad_media.toFixed(1)} km/h
+                    </Badge>
+                  </Group>
+                </Card>
+              </Grid.Col>
+              <Grid.Col span={4}>
+                <Card withBorder p="md">
+                  <Group justify="space-between" align="center">
+                    <Text size="sm" fw={500}>Velocidad Máxima</Text>
+                    <Badge size="lg" variant="light" color="red">
+                      {analisisData.analisis_velocidad.velocidad_maxima.toFixed(1)} km/h
+                    </Badge>
+                  </Group>
+                </Card>
+              </Grid.Col>
+              <Grid.Col span={4}>
+                <Card withBorder p="md">
+                  <Group justify="space-between" align="center">
+                    <Text size="sm" fw={500}>Excesos de Velocidad</Text>
+                    <Badge size="lg" variant="light" color="orange">
+                      {analisisData.analisis_velocidad.excesos_velocidad.length}
+                    </Badge>
+                  </Group>
+                </Card>
+              </Grid.Col>
+            </Grid>
+
+            {/* Distribución de Velocidades */}
+            {analisisData.analisis_velocidad.distribucion_velocidad?.length > 0 && (
+              <Card withBorder mt="md">
+                <Text size="sm" fw={500} mb="md">Distribución de Velocidades</Text>
+                <ScrollArea>
+                  <Table>
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th>Rango (km/h)</Table.Th>
+                        <Table.Th>Frecuencia</Table.Th>
+                        <Table.Th>Porcentaje</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {analisisData.analisis_velocidad.distribucion_velocidad.map((rango, index) => (
+                        <Table.Tr key={index}>
+                          <Table.Td>{rango.rango}</Table.Td>
+                          <Table.Td>{rango.frecuencia}</Table.Td>
+                          <Table.Td>{rango.porcentaje.toFixed(1)}%</Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </ScrollArea>
+              </Card>
+            )}
+
+            {/* Excesos de Velocidad */}
+            {analisisData.analisis_velocidad.excesos_velocidad?.length > 0 && (
+              <Card withBorder mt="md">
+                <Text size="sm" fw={500} mb="md">Excesos de Velocidad Detectados</Text>
+                <ScrollArea>
+                  <Table>
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th>Fecha y Hora</Table.Th>
+                        <Table.Th>Velocidad</Table.Th>
+                        <Table.Th>Límite</Table.Th>
+                        <Table.Th>Ubicación</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {analisisData.analisis_velocidad.excesos_velocidad.map((exceso, index) => (
+                        <Table.Tr key={index}>
+                          <Table.Td>{dayjs(exceso.fecha_hora).format('DD/MM/YYYY HH:mm:ss')}</Table.Td>
+                          <Table.Td style={{ color: 'red' }}>{exceso.velocidad.toFixed(1)} km/h</Table.Td>
+                          <Table.Td>{exceso.limite_velocidad ? `${exceso.limite_velocidad} km/h` : 'N/A'}</Table.Td>
+                          <Table.Td>
+                            <Button 
+                              variant="subtle" 
+                              size="xs"
+                              onClick={() => {
+                                if (mapRef.current) {
+                                  mapRef.current.setView([exceso.lat, exceso.lon], 17);
+                                }
+                              }}
+                            >
+                              Ver en mapa
+                            </Button>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </ScrollArea>
+              </Card>
+            )}
+          </>
+        )}
+      </Stack>
+    );
+  };
+
+  // Renderizado del contenido de cada pestaña
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'filtros':
+        return (
+          <Stack gap="md">
+            <Box style={{ height: 16 }} />
+            {/* <Title order={4}>Filtros y Análisis</Title> */}
+            {/* Selector de vehículo objetivo */}
+            <Select
+              label="Vehículo Objetivo"
+              placeholder="Selecciona matrícula"
+              data={vehiculosDisponibles}
+              value={vehiculoObjetivo}
+              onChange={(value) => {
+                setVehiculoObjetivo(value);
+                // Si se selecciona una matrícula, obtener y autocompletar las fechas
+                if (value) {
+                  obtenerFechasMatricula(value);
+                } else {
+                  // Si se limpia la selección, limpiar también las fechas
+                  setFilters(prev => ({
+                    ...prev,
+                    fechaInicio: '',
+                    fechaFin: ''
+                  }));
+                }
+              }}
+              searchable
+              clearable
+              disabled={loadingVehiculos}
+              leftSection={<IconCar size={18} />}
+            />
+            
+            {/* Filtros de fecha y hora */}
+            <Stack gap="md">
+              <Group grow>
+                <TextInput
+                  label="Fecha Inicio"
+                  type="date"
+                  value={filters.fechaInicio}
+                  onChange={(e) => handleFilterChange({ fechaInicio: e.target.value })}
+                  rightSection={loadingFechas ? <Loader size="xs" /> : undefined}
+                  disabled={loadingFechas}
+                />
+                <TextInput
+                  label="Hora Inicio"
+                  type="time"
+                  value={filters.horaInicio}
+                  onChange={(e) => handleFilterChange({ horaInicio: e.target.value })}
+                  disabled={loadingFechas}
+                />
+              </Group>
+              <Group grow>
+                <TextInput
+                  label="Fecha Fin"
+                  type="date"
+                  value={filters.fechaFin}
+                  onChange={(e) => handleFilterChange({ fechaFin: e.target.value })}
+                  rightSection={loadingFechas ? <Loader size="xs" /> : undefined}
+                  disabled={loadingFechas}
+                />
+                <TextInput
+                  label="Hora Fin"
+                  type="time"
+                  value={filters.horaFin}
+                  onChange={(e) => handleFilterChange({ horaFin: e.target.value })}
+                  disabled={loadingFechas}
+                />
+              </Group>
+              <Group grow>
+                <NumberInput
+                  label="Velocidad Mínima (km/h)"
+                  value={filters.velocidadMin || ''}
+                  onChange={(value) => handleFilterChange({ velocidadMin: value === '' ? null : Number(value) })}
+                  min={0}
+                />
+                <NumberInput
+                  label="Velocidad Máxima (km/h)"
+                  value={filters.velocidadMax || ''}
+                  onChange={(value) => handleFilterChange({ velocidadMax: value === '' ? null : Number(value) })}
+                  min={0}
+                />
+              </Group>
+              <NumberInput
+                label="Detección de Paradas"
+                value={filters.duracionParada || ''}
+                onChange={(value) => handleFilterChange({ duracionParada: value === '' ? null : Number(value) })}
+                min={0}
+              />
+
+            <Select
+                label="Día de la semana"
+                placeholder="Selecciona un día"
+                value={filters.dia_semana?.toString() || ''}
+                onChange={(value) => handleFilterChange({ dia_semana: value ? parseInt(value) : null })}
+              data={[
+                  { value: '1', label: 'Lunes' },
+                  { value: '2', label: 'Martes' },
+                  { value: '3', label: 'Miércoles' },
+                  { value: '4', label: 'Jueves' },
+                  { value: '5', label: 'Viernes' },
+                  { value: '6', label: 'Sábado' },
+                  { value: '7', label: 'Domingo' }
+                ]}
+                clearable
+              />
+            </Stack>
+
+            <Group grow mt="md">
+              <Button
+                variant="outline"
+                color="#234be7"
+                leftSection={<IconListDetails size={18} />}
+                onClick={handleLimpiar}
+                style={{ fontWeight: 500 }}
+              >
+                Limpiar
+              </Button>
+              <Button
+                variant="filled"
+                color="#234be7"
+                leftSection={<IconSearch size={18} />}
+                onClick={handleFiltrar}
+                style={{ fontWeight: 700 }}
+              >
+                Aplicar
+              </Button>
+            </Group>
+
+            <Button 
+              variant="light" 
+              color="red" 
+              fullWidth
+              onClick={handleLimpiarMapa}
+            >
+              Limpiar Mapa
+            </Button>
+          </Stack>
+        );
+
+      case 'capas':
+        return (
+          <Stack gap="md">
+            <Box style={{ height: 16 }} />
+            {/* <Title order={4}>Gestión de Capas</Title> */}
+
+            {/* Botón para crear nueva capa */}
+            <Button
+              fullWidth
+              variant="light"
+              color="blue"
+              onClick={() => {
+                setNuevaCapa(prev => ({
+                  ...prev,
+                  nombre: generarNombreCapaPorFiltros({ ...filters, vehiculoObjetivo })
+                }));
+                setMostrarFormularioCapa(true);
+              }}
+              disabled={lecturasFiltradas.length === 0 && lecturas.length === 0}
+            >
+              <IconPlus size={16} style={{ marginRight: 8 }} />
+              {lecturasFiltradas.length > 0
+                ? `Guardar ${lecturasFiltradas.length} puntos visibles en capa`
+                : 'Guardar resultados en capa'}
+            </Button>
+            
+            {/* Formulario para guardar capa */}
+            {mostrarFormularioCapa && (
+                <Stack gap="sm">
+                  <TextInput
+                    label="Nombre de la capa"
+                    value={nuevaCapa.nombre}
+                    onChange={e => setNuevaCapa(prev => ({ ...prev, nombre: e.target.value }))}
+                    placeholder="Ej: Trayecto 1"
+                  />
+                  <ColorInput
+                    label="Color de la capa"
+                    value={nuevaCapa.color}
+                    onChange={color => setNuevaCapa(prev => ({ ...prev, color }))}
+                    format="hex"
+                  />
+                  <TextInput
+                    label="Descripción de la capa"
+                    value={nuevaCapa.descripcion}
+                    onChange={e => setNuevaCapa(prev => ({ ...prev, descripcion: e.target.value }))}
+                    placeholder="Descripción de la capa"
+                  />
+                  <Group justify="flex-end">
+                    <Button variant="light" color="gray" onClick={() => { setMostrarFormularioCapa(false); setEditandoCapa(null); }}>
+                      <IconX size={16} style={{ marginRight: 8 }} />Cancelar
+                    </Button>
+                    {editandoCapa !== null ? (
+                      <Button onClick={handleActualizarCapa} disabled={!nuevaCapa.nombre}>
+                        <IconCheck size={16} style={{ marginRight: 8 }} />Actualizar capa
+                      </Button>
+                    ) : (
+                      <Button onClick={handleGuardarResultadosEnCapa} loading={guardandoCapa} disabled={!nuevaCapa.nombre}>
+                        <IconCheck size={16} style={{ marginRight: 8 }} />Guardar en capa
+                      </Button>
+                    )}
+                  </Group>
+                  {errorGuardarCapa && <Alert color="red" mt="sm">{errorGuardarCapa}</Alert>}
+                </Stack>
+            )}
+
+            <Divider />
+
+            {/* Lista de capas */}
+            <Stack gap="xs">
+              {capas.map(capa => (
+                <CapaItem
+                  key={capa.id}
+                  capa={capa}
+                  handleToggleCapa={handleToggleCapa}
+                  handleEditarCapa={handleEditarCapa}
+                  handleEliminarCapa={handleEliminarCapa}
+                />
+              ))}
+              {capas.length === 0 && (
+                <Text size="sm" c="dimmed" ta="center" py="md">
+                  No hay capas creadas. Aplica un filtro y guárdalo en una capa.
+                </Text>
+              )}
+            </Stack>
+
+            <Divider />
+
+            {/* Reproductor de Recorrido */}
+            <RoutePlayer
+              capas={capas}
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              onStop={() => {
+                setIsPlaying(false);
+                setCurrentIndex(0);
+              }}
+              onSpeedChange={setCurrentSpeed}
+              isPlaying={isPlaying}
+              currentSpeed={currentSpeed}
+              currentIndex={currentIndex}
+              onIndexChange={setCurrentIndex}
+              selectedLayerId={selectedLayerForPlayback}
+              onLayerChange={setSelectedLayerForPlayback}
+            />
+          </Stack>
+        );
+
+      case 'pois':
+        return (
+          <Stack gap="md">
+            <Box style={{ height: 16 }} />
+            
+            <Group>
+              <Button
+                variant="light"
+                color="#234be7"
+                leftSection={<IconMapPinPlus size={16} />}
+                onClick={() => {
+                  setCreatingManualPOI(true);
+                  notifications.show({
+                    title: 'Modo creación de POI activado',
+                    message: 'Haz clic en cualquier punto del mapa para crear un nuevo POI',
+                    color: 'blue',
+                  });
+                }}
+                style={{ flex: 1 }}
+              >
+                Crear POI Manual
+              </Button>
+              
+              {creatingManualPOI && (
+                <Button
+                  variant="light"
+                  color="red"
+                  onClick={() => setCreatingManualPOI(false)}
+                >
+                  Cancelar
+                </Button>
+              )}
+            </Group>
+
+            <Alert
+              icon={<IconInfoCircle size={16} />}
+              color="blue"
+              variant="light"
+              style={{ display: creatingManualPOI ? 'block' : 'none' }}
+            >
+              Haz clic en cualquier punto del mapa para crear un nuevo POI
+            </Alert>
+            
+            <Group justify="flex-end">
+              <Switch
+                checked={mostrarLocalizaciones}
+                onChange={e => setMostrarLocalizaciones(e.currentTarget.checked)}
+                label={mostrarLocalizaciones ? 'Mostrar' : 'Ocultar'}
+                size="sm"
+                color="#234be7"
+              />
+            </Group>
+
+            <Collapse in={modalAbierto && !!localizacionActual}>
+              {modalAbierto && localizacionActual && (
+                <ModalLocalizacion
+                  localizacionActual={localizacionActual}
+                  setLocalizacionActual={setLocalizacionActual}
+                  setModalAbierto={setModalAbierto}
+                  setFormFocused={setFormFocused}
+                  handleGuardarLocalizacion={handleGuardarLocalizacion}
+                  handleEliminarLocalizacion={handleEliminarLocalizacion}
+                  localizaciones={localizaciones}
+                />
+              )}
+            </Collapse>
+
+            <Stack gap="xs">
+              {localizaciones.length === 0 && <Text size="sm" c="dimmed">No hay localizaciones guardadas.</Text>}
+              {localizaciones.map(loc => (
+                <LocalizacionItem
+                  key={loc.id_lectura}
+                  loc={loc}
+                  setLocalizacionActual={setLocalizacionActual}
+                  setModalAbierto={setModalAbierto}
+                  handleEliminarLocalizacion={handleEliminarLocalizacion}
+                />
+              ))}
+            </Stack>
+          </Stack>
+        );
+
+      case 'posiciones':
+        return (
+          <Stack gap="md">
+            <Box style={{ height: 16 }} />
+            <Group justify="space-between">
+              <Badge variant="light" color="blue">
+                {lecturasFiltradas.length} posiciones
+              </Badge>
+            </Group>
+            
+            {lecturasFiltradas.length === 0 ? (
+              <Text size="sm" c="dimmed" ta="center" py="xl">
+                No hay posiciones para mostrar. Aplica filtros para cargar datos GPS.
+              </Text>
+            ) : (
+              <ScrollArea h="90%">
+                <Table striped highlightOnHover withTableBorder>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>#</Table.Th>
+                      <Table.Th>Fecha/Hora</Table.Th>
+                      <Table.Th>Velocidad</Table.Th>
+                      <Table.Th>Coordenadas</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {ordenarLecturasCronologicamente(
+                      lecturasFiltradas.filter(l => l.Coordenada_X != null && l.Coordenada_Y != null)
+                    ).map((lectura, index) => (
+                        <Table.Tr 
+                          key={`${lectura.ID_Lectura}-${index}`}
+                          onClick={() => handleSelectPosition(index, lectura)}
+                          style={{ 
+                            cursor: 'pointer',
+                            backgroundColor: selectedPositionIndex === index ? 'var(--mantine-color-blue-0)' : undefined
+                          }}
+                        >
+                          <Table.Td>
+                            <Badge 
+                              size="sm" 
+                              variant={selectedPositionIndex === index ? 'filled' : 'light'}
+                              color={selectedPositionIndex === index ? 'blue' : 'gray'}
+                            >
+                              {index + 1}
+                            </Badge>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm">
+                              {dayjs(lectura.Fecha_y_Hora).format('DD/MM HH:mm:ss')}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Badge variant="outline" color="orange" size="sm">
+                              {lectura.Velocidad?.toFixed(1) || '0'} km/h
+                            </Badge>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="xs" c="dimmed">
+                              {lectura.Coordenada_Y?.toFixed(6)}, {lectura.Coordenada_X?.toFixed(6)}
+                            </Text>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))}
+                  </Table.Tbody>
+                </Table>
+              </ScrollArea>
+            )}
+            
+            {selectedPositionIndex !== null && (
+              <Paper p="sm" withBorder>
+                <Text size="sm" fw={500}>Posición {selectedPositionIndex + 1} seleccionada</Text>
+                <Button 
+                  size="xs" 
+                  variant="light" 
+                  onClick={() => setSelectedPositionIndex(null)}
+                  mt="xs"
+                >
+                  Deseleccionar
+                </Button>
+              </Paper>
+            )}
+          </Stack>
+        );
+
+      case 'analisis':
+        return (
+          <Stack gap="md">
+            <Box style={{ height: 16 }} />
+            <Group gap="sm" mb="md">
+              <Button  
+              variant="light" 
+              color="teal" 
+              leftSection={<IconSparkles size={18} />}
+              onClick={handleAnalisisInteligente}
+              loading={loadingAnalisis}
+              disabled={!vehiculoObjetivo || lecturas.length === 0}
+            >
+              Analizar Datos
+            </Button>
+            <Button
+              variant="light"
+              color="blue"
+              leftSection={<IconListDetails size={18} />}
+              onClick={() => setInformeModalAbierto(true)}
+              disabled={!analisisData}
+            >
+              Ver Detalle
+            </Button>
+          </Group>
+
+          {/* Solo mostrar mensaje de ayuda o loading, NO informe ni exportación aquí */}
+          {!analisisData && !loadingAnalisis && (
+            <Alert icon={<IconInfoCircle size={16} />} color="blue">
+              Selecciona un vehículo y carga datos GPS para realizar un análisis inteligente de sus patrones de movimiento.
+            </Alert>
+          )}
+
+          {loadingAnalisis && (
+            <Paper p="xl" withBorder>
+              <Stack align="center" gap="md">
+                <Loader size="lg" color="teal" />
+                <Text>Analizando patrones de movimiento...</Text>
+              </Stack>
+            </Paper>
+          )}
+          {/* Previsualización del informe completo, sin botones de exportación */}
+          {analisisData && renderInformeCompleto(false)}
+          </Stack>
+        );
+
+      case 'exportar':
+        return (
+          <Stack gap="md">
+            <Box style={{ height: 16 }} />
+            {/* <Title order={4}>Exportar Datos</Title> */}
+            
+            <Stack gap="md">
+              <Group grow>
+                <Button
+                  leftSection={<IconDownload size={18} />}
+                  color="blue"
+                  variant="filled"
+                  onClick={() => {
+                    const kml = generateKML(lecturas, `GPS_Track_${new Date().toISOString().split('T')[0]}`);
+                    downloadFile(kml, `gps_track_${new Date().toISOString().split('T')[0]}.kml`);
+                  }}
+                  disabled={lecturas.length === 0}
+                >
+                  Exportar KML
+                </Button>
+                <Button
+                  leftSection={<IconDownload size={18} />}
+                  color="blue"
+                  variant="light"
+                  onClick={() => {
+                    const gpx = generateGPX(lecturas, `GPS_Track_${new Date().toISOString().split('T')[0]}`);
+                    downloadFile(gpx, `gps_track_${new Date().toISOString().split('T')[0]}.gpx`);
+                  }}
+                  disabled={lecturas.length === 0}
+                >
+                  Exportar GPX
+                </Button>
+              </Group>
+              
+              <Divider />
+              
+              <Stack gap="sm">
+                <Text size="sm" fw={500}>Capturas de Pantalla</Text>
+                <Button
+                  leftSection={<IconCamera size={18} />}
+                  variant="outline"
+                  onClick={async () => {
+                    const mapContainer = document.querySelector('.leaflet-container')?.parentElement;
+                    if (!mapContainer) return;
+                    html2canvas(mapContainer, { useCORS: true, backgroundColor: null }).then(canvas => {
+                      const link = document.createElement('a');
+                      link.download = `captura-mapa-gps.png`;
+                      link.href = canvas.toDataURL('image/png');
+                      link.click();
+                    });
+                  }}
+                >
+                  Capturar Mapa
+                </Button>
+              </Stack>
+
+              <Divider />
+
+              <Stack gap="sm">
+                <Text size="sm" fw={500}>Estadísticas</Text>
+                <SimpleGrid cols={2} spacing="xs">
+                  <Paper p="xs" withBorder>
+                    <Text size="xs" c="dimmed">Total Puntos</Text>
+                    <Text size="lg" fw={700}>{lecturas.length}</Text>
+                  </Paper>
+                  <Paper p="xs" withBorder>
+                    <Text size="xs" c="dimmed">Capas Creadas</Text>
+                    <Text size="lg" fw={700}>{capas.length}</Text>
+                  </Paper>
+                  <Paper p="xs" withBorder>
+                    <Text size="xs" c="dimmed">Localizaciones</Text>
+                    <Text size="lg" fw={700}>{localizaciones.length}</Text>
+                  </Paper>
+                  <Paper p="xs" withBorder>
+                    <Text size="xs" c="dimmed">Vehículos</Text>
+                    <Text size="lg" fw={700}>{vehiculosDisponibles.length}</Text>
+                  </Paper>
+                </SimpleGrid>
+              </Stack>
+            </Stack>
+          </Stack>
+        );
+
+      case 'shapefiles':
+        return (
+          <Stack gap="md">
+            <Box style={{ height: 16 }} />
+            
+            {/* Pestañas de Capas Externas */}
+            <Group gap="xs" mb="md">
+              <Button
+                variant={activeExternalTab === 'bitacora' ? 'filled' : 'light'}
+                size="xs"
+                onClick={() => setActiveExternalTab('bitacora')}
+                color="blue"
+              >
+                Bitácora
+              </Button>
+              <Button
+                variant={activeExternalTab === 'excel' ? 'filled' : 'light'}
+                size="xs"
+                onClick={() => setActiveExternalTab('excel')}
+                color="green"
+              >
+                Excel
+              </Button>
+              <Button
+                variant={activeExternalTab === 'shapefiles' ? 'filled' : 'light'}
+                size="xs"
+                onClick={() => setActiveExternalTab('shapefiles')}
+                color="purple"
+              >
+                Shapefiles
+              </Button>
+              <Button
+                variant={activeExternalTab === 'gpx-kmz' ? 'filled' : 'light'}
+                size="xs"
+                onClick={() => setActiveExternalTab('gpx-kmz')}
+                color="orange"
+              >
+                GPX/KMZ
+              </Button>
+            </Group>
+
+            {/* Contenido según la pestaña activa */}
+            {activeExternalTab === 'bitacora' && (
+              <Paper p="md" withBorder>
+                <Stack gap="sm">
+                  <Title order={5}>Capas Bitácora</Title>
+                  <Text size="sm" c="dimmed">
+                    Importa archivos Excel o CSV con información de hechos delictivos para visualizarlos en el mapa.
+                  </Text>
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    style={{ display: 'none' }}
+                    id="bitacora-upload"
+                    onChange={e => {
+                      const file = e.target.files?.[0] || null;
+                      setArchivoBitacora(file);
+                      if (file) setModalBitacoraAbierto(true);
+                      e.target.value = '';
+                    }}
+                    disabled={uploadingShapefile}
+                  />
+                  <Button
+                    component="label"
+                    htmlFor="bitacora-upload"
+                    leftSection={<IconUpload size={18} />}
+                    disabled={uploadingShapefile}
+                    fullWidth
+                    color="blue"
+                    variant="filled"
+                  >
+                    Seleccionar archivo de Bitácora
+                  </Button>
+                  {capasBitacora.length > 0 && (
+                    <>
+                      <Stack mt="md">
+                        <Text fw={500}>Capas Bitácora</Text>
+                        {capasBitacora.map((capa) => (
+                          <Group key={capa.id} justify="space-between">
+                            <Group>
+                              <Switch
+                                checked={capa.visible}
+                                onChange={() => {
+                                  setCapasBitacora(prev =>
+                                    prev.map(c =>
+                                      c.id === capa.id ? { ...c, visible: !c.visible } : c
+                                    )
+                                  );
+                                }}
+                              />
+                              <Stack gap={2}>
+                                <Text size="sm">{capa.nombre}</Text>
+                                <Text size="xs" c="dimmed">{capa.puntos.length} registros</Text>
+                              </Stack>
+                            </Group>
+                            <ActionIcon
+                              color="red"
+                              variant="subtle"
+                              onClick={() => {
+                                setCapasBitacora(prev =>
+                                  prev.filter(c => c.id !== capa.id)
+                                );
+                              }}
+                            >
+                              <IconTrash size={16} />
+                            </ActionIcon>
+                          </Group>
+                        ))}
+                      </Stack>
+                      <Button
+                        leftSection={<IconTable size={22} />}
+                        color="blue"
+                        variant="filled"
+                        fullWidth
+                        mt="md"
+                        style={{ fontWeight: 600 }}
+                        onClick={() => setBitacoraPanelOpen(true)}
+                      >
+                        Ver tabla de hechos
+                      </Button>
+                    </>
+                  )}
+                </Stack>
+              </Paper>
+            )}
+
+            {activeExternalTab === 'excel' && (
+              <Paper p="md" withBorder>
+                <Stack gap="sm">
+                  <Title order={5}>Datos Excel Libres</Title>
+                  <Text size="sm" c="dimmed">
+                    Importa archivos Excel o CSV con datos personalizados que contengan coordenadas para visualizar en el mapa.
+                  </Text>
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    style={{ display: 'none' }}
+                    id="excel-upload"
+                    onChange={e => {
+                      const file = e.target.files?.[0] || null;
+                      setArchivoExcel(file);
+                      if (file) setModalExcelAbierto(true);
+                      e.target.value = '';
+                    }}
+                    disabled={uploadingShapefile}
+                  />
+                  <Button
+                    component="label"
+                    htmlFor="excel-upload"
+                    leftSection={<IconUpload size={18} />}
+                    disabled={uploadingShapefile}
+                    fullWidth
+                    color="green"
+                    variant="filled"
+                  >
+                    Seleccionar archivo Excel
+                  </Button>
+                  {capasExcel.length > 0 && (
+                    <>
+                      <Stack mt="md">
+                        <Text fw={500}>Capas Excel</Text>
+                        {capasExcel.map((capa) => (
+                          <Group key={capa.id} justify="space-between">
+                            <Group>
+                              <Switch
+                                checked={capa.visible}
+                                onChange={() => {
+                                  setCapasExcel(prev =>
+                                    prev.map(c =>
+                                      c.id === capa.id ? { ...c, visible: !c.visible } : c
+                                    )
+                                  );
+                                }}
+                              />
+                              <Stack gap={2}>
+                                <Text size="sm">{capa.nombre}</Text>
+                                <Text size="xs" c="dimmed">{capa.datos.length} registros</Text>
+                              </Stack>
+                            </Group>
+                            <ActionIcon
+                              color="red"
+                              variant="subtle"
+                              onClick={() => {
+                                setCapasExcel(prev =>
+                                  prev.filter(c => c.id !== capa.id)
+                                );
+                              }}
+                            >
+                              <IconTrash size={16} />
+                            </ActionIcon>
+                          </Group>
+                        ))}
+                      </Stack>
+                      <Button
+                        leftSection={<IconTable size={22} />}
+                        color="green"
+                        variant="filled"
+                        fullWidth
+                        mt="md"
+                        style={{ fontWeight: 600 }}
+                        onClick={() => setExcelPanelOpen(true)}
+                      >
+                        Ver tabla de datos
+                      </Button>
+                    </>
+                  )}
+                </Stack>
+              </Paper>
+            )}
+
+            {activeExternalTab === 'shapefiles' && (
+              <Paper p="md" withBorder>
+                <Stack gap="sm">
+                  <Title order={5}>Shapefiles</Title>
+                  <Text size="sm" c="dimmed">
+                    Importa archivos shapefile para visualizar capas geográficas en el mapa.
+                  </Text>
+                  
+                  <input
+                    type="file"
+                    accept=".shp,.zip"
+                    disabled
+                    style={{ display: 'none' }}
+                    id="shapefile-upload"
+                  />
+                  
+                  <Button
+                    component="label"
+                    htmlFor="shapefile-upload"
+                    leftSection={<IconUpload size={18} />}
+                    disabled
+                    fullWidth
+                    color="purple"
+                    variant="filled"
+                  >
+                    Seleccionar Shapefile
+                  </Button>
+                  
+                  <Stack gap="sm" mt="md">
+                    <Text size="sm" fw={500}>Capas importadas ({shapefileLayers.length})</Text>
+                    
+                    {shapefileLayers.length === 0 ? (
+                      <Text size="sm" c="dimmed" ta="center" py="md">
+                        No hay shapefiles importados. Esta funcionalidad estará disponible próximamente.
+                      </Text>
+                    ) : (
+                      shapefileLayers.map(layer => (
+                        <Paper key={layer.id} p="xs" withBorder>
+                          <Group justify="space-between">
+                            <Group gap="xs">
+                              <Switch
+                                checked={layer.visible}
+                                onChange={() => toggleShapefileLayerVisibility(layer.id)}
+                                size="sm"
+                              />
+                              <Box 
+                                style={{ 
+                                  width: 10, 
+                                  height: 10, 
+                                  backgroundColor: layer.color, 
+                                  borderRadius: '50%',
+                                  opacity: layer.opacity
+                                }} 
+                              />
+                              <Text size="sm">{layer.name}</Text>
+                              <Badge size="sm" variant="light">
+                                {layer.geojson.features.length} elementos
+                              </Badge>
+                            </Group>
+                            <ActionIcon
+                              variant="subtle"
+                              color="red"
+                              onClick={() => removeShapefileLayer(layer.id)}
+                              size="sm"
+                            >
+                              <IconTrash size={16} />
+                            </ActionIcon>
+                          </Group>
+                        </Paper>
+                      ))
+                    )}
+                  </Stack>
+                </Stack>
+              </Paper>
+            )}
+
+            {activeExternalTab === 'gpx-kmz' && (
+              <Paper p="md" withBorder>
+                <Stack gap="sm">
+                  <Title order={5}>Archivos GPX/KML</Title>
+                  <Text size="sm" c="dimmed">
+                    Importa archivos GPX o KML para visualizar rutas y puntos de interés en el mapa.
+                  </Text>
+                  
+                  <input
+                    type="file"
+                    accept=".gpx,.kml,.kmz"
+                    style={{ display: 'none' }}
+                    id="gpx-upload"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setArchivoGpx(file);
+                        setModalGpxAbierto(true);
+                      }
+                    }}
+                  />
+                  
+                  <Button
+                    component="label"
+                    htmlFor="gpx-upload"
+                    leftSection={<IconUpload size={18} />}
+                    fullWidth
+                    color="orange"
+                    variant="filled"
+                  >
+                    Seleccionar archivo GPX/KML
+                  </Button>
+                  
+                  {capasGpx.length > 0 && (
+                    <>
+                      <Stack mt="md">
+                        <Text fw={500}>Capas GPX/KML</Text>
+                        {capasGpx.map((capa) => (
+                          <Group key={capa.id} justify="space-between">
+                            <Group>
+                              <Switch
+                                checked={capa.visible}
+                                onChange={() => {
+                                  setCapasGpx(prev =>
+                                    prev.map(c =>
+                                      c.id === capa.id ? { ...c, visible: !c.visible } : c
+                                    )
+                                  );
+                                }}
+                              />
+                              <Stack gap={2}>
+                                <Text size="sm">{capa.nombre}</Text>
+                                <Text size="xs" c="dimmed">
+                                  {capa.datos.length} puntos
+                                  {capa.tipoVisualizacion === 'lineas' && ' (solo líneas)'}
+                                  {capa.tipoVisualizacion === 'puntos' && ' (solo puntos)'}
+                                  {capa.tipoVisualizacion === 'ambos' && ' (puntos y líneas)'}
+                                </Text>
+                              </Stack>
+                            </Group>
+                            <ActionIcon
+                              color="red"
+                              variant="subtle"
+                              onClick={() => {
+                                setCapasGpx(prev =>
+                                  prev.filter(c => c.id !== capa.id)
+                                );
+                              }}
+                            >
+                              <IconTrash size={16} />
+                            </ActionIcon>
+                          </Group>
+                        ))}
+                      </Stack>
+                      <Button
+                        leftSection={<IconTable size={22} />}
+                        color="orange"
+                        variant="filled"
+                        fullWidth
+                        mt="md"
+                        style={{ fontWeight: 600 }}
+                        onClick={() => setGpxPanelOpen(true)}
+                      >
+                        Ver tabla de datos
+                      </Button>
+                    </>
+                  )}
+                </Stack>
+              </Paper>
+            )}
+          </Stack>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  // --- Renderizado principal ---
+  if (fullscreenMap) {
+    return (
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          backgroundColor: 'white',
+          zIndex: 9999,
+        }}
+      >
+        {/* Overlay de botones en pantalla completa */}
+        <div style={{
+          position: 'absolute',
+          top: 24,
+          right: 32,
+          zIndex: 20000,
+          display: 'flex',
+          gap: 10,
+          alignItems: 'center'
+        }}>
+          <ActionIcon
+            variant="default"
+            size={30}
+            style={{
+              width: 30,
+              height: 30,
+              background: 'white',
+              border: '2px solid #234be7',
+              color: '#234be7',
+              boxShadow: 'none',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 0
+            }}
+            onClick={() => setShowMapControls((v) => !v)}
+            aria-label="Controles de mapa"
+          >
+            <IconSettings size={18} color="#234be7" />
+          </ActionIcon>
+            <ActionIcon
+            variant="default"
+            size={30}
+              style={{
+              width: 30,
+              height: 30,
+              background: 'white',
+              border: '2px solid #234be7',
+              color: '#234be7',
+              boxShadow: 'none',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              padding: 0
+              }}
+              onClick={() => setFullscreenMap(false)}
+            aria-label="Pantalla completa"
+            >
+            <IconMaximize size={18} color="#234be7" />
+            </ActionIcon>
+        </div>
+        <Paper withBorder style={{ height: '100vh', minHeight: 400, width: '100vw', position: 'relative' }}>
+          {/* Panel flotante de controles */}
+          <MapControlsPanel />
+
+          <GpsMapStandalone
+            ref={mapRef}
+            lecturas={lecturasFiltradas}
+            capas={capas}
+            localizaciones={localizaciones}
+            mapControls={mapControls}
+            mostrarLocalizaciones={mostrarLocalizaciones}
+            onGuardarLocalizacion={handleAbrirModalLocalizacion}
+            playbackLayer={selectedLayerForPlayback !== null ? capas.find(c => c.id === selectedLayerForPlayback) || null : null}
+            currentPlaybackIndex={currentIndex}
+            fullscreenMap={fullscreenMap}
+            puntoSeleccionado={puntoSeleccionado}
+            heatmapMultiplier={heatmapMultiplier}
+            drawnShape={drawnShape}
+            onShapeDrawn={handleShapeDrawn}
+            onShapeDeleted={handleShapeDeleted}
+            primerPunto={primerUltimosPuntos.primero}
+            ultimoPunto={primerUltimosPuntos.ultimo}
+            onMapClick={handleMapClick}
+            isCreatingPOI={creatingManualPOI}
+            numerarPuntosActivos={numerarPuntosActivos}
+            shapefileLayers={shapefileLayers}
+            onPuntoSeleccionado={(info) => {
+              if (info?.info?.tipo === 'bitacora') {
+                setSelectedInfo(info);
+              }
+            }}
+            mostrarLineaRecorrido={mostrarLineaRecorrido}
+          >
+            {/* Marcadores de bitácora */}
+            <LayerGroup>
+              {capasBitacora
+                .filter(capa => capa.visible)
+                .flatMap(capa => capa.puntos)
+                .filter(punto => 
+                  typeof punto.latitud === 'number' && 
+                  typeof punto.longitud === 'number' &&
+                  !isNaN(punto.latitud) && 
+                  !isNaN(punto.longitud) &&
+                  punto.latitud >= -90 && 
+                  punto.latitud <= 90 &&
+                  punto.longitud >= -180 && 
+                  punto.longitud <= 180
+                )
+                .map(punto => (
+                  <BitacoraPunto
+                    key={punto.id}
+                    punto={punto}
+                    onSelect={setSelectedInfo}
+                  />
+                ))
+              }
+            </LayerGroup>
+
+            {/* Marcadores de Excel */}
+            <LayerGroup>
+              {capasExcel
+                .filter(capa => capa.visible)
+                .flatMap(capa => capa.datos)
+                .filter(dato => 
+                  typeof dato.latitud === 'number' && 
+                  typeof dato.longitud === 'number' &&
+                  !isNaN(dato.latitud) && 
+                  !isNaN(dato.longitud) &&
+                  dato.latitud >= -90 && 
+                  dato.latitud <= 90 &&
+                  dato.longitud >= -180 && 
+                  dato.longitud <= 180
+                )
+                .map(dato => (
+                  <Marker
+                    key={dato.id}
+                    position={[dato.latitud, dato.longitud]}
+                    icon={L.divIcon({
+                      className: 'custom-div-icon',
+                      html: `<div style="background: ${capasExcel.find(c => c.datos.includes(dato))?.color || '#40c057'}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.4);"></div>`,
+                      iconSize: [12, 12],
+                      iconAnchor: [6, 6]
+                    })}
+                  >
+                    <Popup>
+                      <Stack gap="xs">
+                        <Text fw={500} size="sm">Datos Excel</Text>
+                        <Text size="xs" c="dimmed">
+                          {dato.latitud.toFixed(6)}, {dato.longitud.toFixed(6)}
+                        </Text>
+                        {Object.entries(dato)
+                          .filter(([key]) => !['id', 'latitud', 'longitud'].includes(key))
+                          .map(([key, value]) => (
+                            <Text key={key} size="xs">
+                              <Text component="span" fw={500}>{key}:</Text> {String(value)}
+                            </Text>
+                          ))}
+                      </Stack>
+                    </Popup>
+                  </Marker>
+                ))
+              }
+            </LayerGroup>
+
+            {/* Marcadores de GPX/KML */}
+            <LayerGroup>
+              {capasGpx
+                .filter(capa => capa.visible)
+                .flatMap(capa => capa.datos)
+                .filter(dato => 
+                  typeof dato.lat === 'number' && 
+                  typeof dato.lon === 'number' &&
+                  !isNaN(dato.lat) && 
+                  !isNaN(dato.lon) &&
+                  dato.lat >= -90 && 
+                  dato.lat <= 90 &&
+                  dato.lon >= -180 && 
+                  dato.lon <= 180
+                )
+                .map((dato, index) => {
+                  const capa = capasGpx.find(c => c.datos.includes(dato));
+                  const shouldShowPoint = capa?.tipoVisualizacion === 'puntos' || capa?.tipoVisualizacion === 'ambos';
+                  
+                  if (!shouldShowPoint) return null;
+                  
+                  return (
+                    <Marker
+                                             key={`gpx-${index}`}
+                       position={[dato.lat, dato.lon]}
+                       icon={L.divIcon({
+                         className: 'custom-div-icon',
+                         html: `<div style="background: ${capa?.color || '#ff6b35'}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.4);"></div>`,
+                         iconSize: [12, 12],
+                         iconAnchor: [6, 6]
+                      })}
+                    >
+                      <Popup>
+                        <Stack gap="xs">
+                          <Text fw={500} size="sm">
+                            {dato.type === 'waypoint' ? 'Waypoint' :
+                             dato.type === 'trackpoint' ? 'Track Point' : 'Route Point'}
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            {dato.lat.toFixed(6)}, {dato.lon.toFixed(6)}
+                          </Text>
+                          {dato.name && (
+                            <Text size="xs">
+                              <Text component="span" fw={500}>Nombre:</Text> {dato.name}
+                            </Text>
+                          )}
+                          {dato.elevation && (
+                            <Text size="xs">
+                              <Text component="span" fw={500}>Elevación:</Text> {dato.elevation.toFixed(1)}m
+                            </Text>
+                          )}
+                          {dato.description && (
+                            <Text size="xs">
+                              <Text component="span" fw={500}>Descripción:</Text> {dato.description}
+                            </Text>
+                          )}
+                          {dato.time && (
+                            <Text size="xs">
+                              <Text component="span" fw={500}>Tiempo:</Text> {new Date(dato.time).toLocaleString()}
+                            </Text>
+                          )}
+                        </Stack>
+                      </Popup>
+                    </Marker>
+                  );
+                })
+                .filter(Boolean)
+              }
+            </LayerGroup>
+          </GpsMapStandalone>
+        </Paper>
+      </div>
+    );
+  }
+
+  return (
+    <Box>
+      {/* Modal de advertencia para grandes conjuntos de datos */}
+      <Modal
+        opened={showWarningModal}
+        onClose={() => {
+          setShowWarningModal(false);
+          setPendingData(null);
+        }}
+        title="Advertencia: Gran cantidad de datos"
+        centered
+      >
+        <Stack>
+          <Text>
+            La búsqueda ha encontrado {pendingData?.length} puntos, lo que puede ralentizar significativamente el sistema.
+          </Text>
+          <Text size="sm" c="dimmed">
+            Recomendaciones:
+            <ul>
+              <li>Acota el rango de fechas o horas</li>
+              <li>Utiliza el mapa de calor para visualizar grandes conjuntos de datos</li>
+              <li>Considera aplicar filtros adicionales (velocidad, zona, etc.)</li>
+              <li>Activa "Agrupar puntos cercanos" en los controles del mapa</li>
+              <li>Habilita "Optimizar puntos" para reducir la densidad de puntos</li>
+            </ul>
+          </Text>
+          <Group justify="flex-end" mt="md">
+            <Button
+              variant="light"
+              color="gray"
+              onClick={() => {
+                if (pendingData) {
+                  // Ordenar las lecturas cronológicamente antes de guardarlas
+                  const pendingDataOrdenada = ordenarLecturasCronologicamente(pendingData);
+                  setLecturas(pendingDataOrdenada);
+                  const cacheKey = `${casoId}_${vehiculoObjetivo}_${filters.fechaInicio}_${filters.horaInicio}_${filters.fechaFin}_${filters.horaFin}_${filters.velocidadMin}_${filters.velocidadMax}_${filters.duracionParada}_${filters.dia_semana}_${JSON.stringify(filters.zonaSeleccionada)}`;
+                  gpsCache.setLecturas(casoId, cacheKey, pendingDataOrdenada);
+                }
+                setShowWarningModal(false);
+                setPendingData(null);
+                setHasDismissedWarning(true);
+              }}
+            >
+              Continuar de todos modos
+            </Button>
+            <Button
+              color="blue"
+              onClick={() => {
+                setShowWarningModal(false);
+                setPendingData(null);
+                setLecturas([]);
+                setHasDismissedWarning(true);
+              }}
+            >
+              Cancelar
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* Layout principal */}
+      <div style={{ display: 'flex', height: 'calc(100vh - 200px)' }}>
+        {/* Iconos de pestañas inactivas (marcadores de carpeta) */}
+        <Box style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: '4px', 
+          padding: '8px 4px',
+          borderRight: '1px solid var(--mantine-color-gray-3)',
+          backgroundColor: 'var(--mantine-color-gray-0)'
+        }}>
+          {tabs.map((tab) => {
+            const IconComponent = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <Box
+                key={tab.id}
+                style={{
+                  width: 40,
+                  height: 40,
+                  border: `2px solid ${isActive ? tab.color : 'var(--mantine-color-gray-4)'}`,
+                  borderRadius: '4px',
+                  backgroundColor: isActive ? tab.color : 'white',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  position: 'relative'
+                }}
+                onClick={() => setActiveTab(tab.id)}
+                title={tab.label}
+              >
+                <IconComponent 
+                  size={20} 
+                  color={isActive ? 'white' : tab.color}
+                />
+                {isActive && (
+                  <Box
+                    style={{
+                      position: 'absolute',
+                      right: -2,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      width: 0,
+                      height: 0,
+                      borderTop: '8px solid transparent',
+                      borderBottom: '8px solid transparent',
+                      borderLeft: `8px solid ${tab.color}`,
+                    }}
+                  />
+                )}
+              </Box>
+            );
+          })}
+        </Box>
+
+        {/* Sidebar colapsible */}
+        <Paper 
+          withBorder 
+          style={{ 
+            width: sidebarOpen ? 380 : 60, 
+            transition: 'width 0.3s ease',
+            display: 'flex',
+            flexDirection: 'column',
+            borderRight: '1px solid var(--mantine-color-gray-3)'
+          }}
+        >
+          {/* Header del sidebar */}
+          <Group 
+            justify={sidebarOpen ? 'space-between' : 'center'} 
+            p="md" 
+            style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}
+          >
+            {sidebarOpen && (
+              <Title order={4}>
+                {tabs.find(tab => tab.id === activeTab)?.label || 'Herramientas GPS'}
+              </Title>
+            )}
+            <ActionIcon
+              variant="subtle"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              aria-label={sidebarOpen ? 'Colapsar sidebar' : 'Expandir sidebar'}
+            >
+              {sidebarOpen ? <IconMenuDeep size={18} /> : <IconMenu2 size={18} />}
+            </ActionIcon>
+          </Group>
+
+          {/* Contenido de la pestaña activa */}
+          {sidebarOpen && (
+            <ScrollArea flex={1} p="md" pt={0}>
+              {renderTabContent()}
+            </ScrollArea>
+          )}
+        </Paper>
+
+        {/* Mapa principal */}
+        <Box style={{ flex: 1, position: 'relative' }}>
+          <div style={{
+              position: 'absolute', 
+            top: 24,
+            right: 32,
+            zIndex: 10000,
+            display: 'flex',
+            gap: 10,
+            alignItems: 'center'
+          }}>
+            <ActionIcon
+              variant="default"
+              size={30}
+              style={{
+                width: 30,
+                height: 30,
+                background: 'white',
+                border: '2px solid #234be7',
+                color: '#234be7',
+                boxShadow: 'none',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 0
+              }}
+              onClick={() => setShowMapControls((v) => !v)}
+              aria-label="Controles de mapa"
+            >
+              <IconSettings size={18} color="#234be7" />
+            </ActionIcon>
+            <ActionIcon
+              variant="default"
+              size={30}
+              style={{
+                width: 30,
+                height: 30,
+                background: 'white',
+                border: '2px solid #234be7',
+                color: '#234be7',
+                boxShadow: 'none',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 0
+              }}
+              onClick={() => setFullscreenMap(true)}
+              aria-label="Pantalla completa"
+            >
+              <IconMaximize size={18} color="#234be7" />
+            </ActionIcon>
+          </div>
+          {showMapControls && <MapControlsPanel />}
+          {/* Panel flotante bitácora */}
+          {capasBitacora.length > 0 && bitacoraPanelOpen && (
+            <Paper
+              shadow="lg"
+              withBorder
+              style={{
+                position: 'absolute',
+                left: 24,
+                top: '60%',
+                zIndex: 1201,
+                width: 612,
+                background: 'rgba(255,255,255,0.85)',
+                borderRadius: 12,
+                display: 'flex',
+                flexDirection: 'column',
+                boxShadow: '0 4px 24px rgba(0,0,0,0.18)'
+              }}
+            >
+              <Group justify="space-between" align="center" px="md" py={8} style={{ borderBottom: '1px solid #e0e0e0', background: 'rgba(255,255,255,0.92)' }}>
+                <Text fw={600} size="md">Registros Bitácora</Text>
+                <ActionIcon color="blue" variant="subtle" onClick={() => setBitacoraPanelOpen(false)}>
+                  <IconX size={20} />
+            </ActionIcon>
+          </Group>
+              <ScrollArea style={{ flex: 1, maxHeight: 350, overflowY: 'auto' }}>
+                <Table striped highlightOnHover withTableBorder>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>#</Table.Th>
+                      <Table.Th>Fecha/Hora</Table.Th>
+                      <Table.Th>Atestado</Table.Th>
+                      <Table.Th>Dirección</Table.Th>
+                      <Table.Th>Coordenadas</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {capasBitacora
+                      .flatMap(capa => capa.puntos.map((p, idx) => ({ ...p, _capa: capa, _idx: idx })))
+                      .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
+                      .map((punto, idx) => (
+                        <Table.Tr
+                          key={punto.id}
+                          style={{
+                            cursor: 'pointer',
+                            backgroundColor: selectedBitacoraIndex === idx ? 'var(--mantine-color-blue-0)' : undefined
+                          }}
+                          onClick={() => {
+                            setSelectedBitacoraIndex(idx);
+                            if (mapRef.current && typeof punto.latitud === 'number' && typeof punto.longitud === 'number') {
+                              mapRef.current.setView([punto.latitud, punto.longitud], 16);
+                            }
+                          }}
+                        >
+                          <Table.Td>
+                            <Badge size="sm" variant={selectedBitacoraIndex === idx ? 'filled' : 'light'} color={selectedBitacoraIndex === idx ? 'blue' : 'gray'}>{idx + 1}</Badge>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm">{new Date(punto.fecha).toLocaleString()}</Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="xs" c="dimmed">{punto.atestado}</Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="xs" c="dimmed">{punto.direccion}</Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="xs" c="dimmed">{punto.latitud?.toFixed(6)}, {punto.longitud?.toFixed(6)}</Text>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))}
+                  </Table.Tbody>
+                </Table>
+              </ScrollArea>
+            </Paper>
+          )}
+
+          {/* Panel flotante Excel */}
+          {capasExcel.length > 0 && excelPanelOpen && (
+            <Paper
+              shadow="lg"
+              withBorder
+              style={{
+                position: 'absolute',
+                left: 24,
+                top: '60%',
+                zIndex: 1201,
+                width: 612,
+                background: 'rgba(255,255,255,0.85)',
+                borderRadius: 12,
+                display: 'flex',
+                flexDirection: 'column',
+                boxShadow: '0 4px 24px rgba(0,0,0,0.18)'
+              }}
+            >
+              <Group justify="space-between" align="center" px="md" py={8} style={{ borderBottom: '1px solid #e0e0e0', background: 'rgba(255,255,255,0.92)' }}>
+                <Text fw={600} size="md">Datos Excel</Text>
+                <ActionIcon color="green" variant="subtle" onClick={() => setExcelPanelOpen(false)}>
+                  <IconX size={20} />
+                </ActionIcon>
+              </Group>
+              <ScrollArea style={{ flex: 1, maxHeight: 350, overflowY: 'auto' }}>
+                <Table striped highlightOnHover withTableBorder>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>#</Table.Th>
+                      <Table.Th>Coordenadas</Table.Th>
+                      <Table.Th>Datos</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {capasExcel
+                      .flatMap(capa => capa.datos.map((dato, idx) => ({ ...dato, _capa: capa, _idx: idx })))
+                      .map((dato, idx) => (
+                        <Table.Tr
+                          key={`${dato._capa.id}-${idx}`}
+                          style={{
+                            cursor: 'pointer',
+                            backgroundColor: selectedExcelIndex === idx ? 'var(--mantine-color-green-0)' : undefined
+                          }}
+                          onClick={() => {
+                            setSelectedExcelIndex(idx);
+                            if (mapRef.current && typeof dato.latitud === 'number' && typeof dato.longitud === 'number') {
+                              mapRef.current.setView([dato.latitud, dato.longitud], 16);
+                            }
+                          }}
+                        >
+                          <Table.Td>
+                            <Badge size="sm" variant={selectedExcelIndex === idx ? 'filled' : 'light'} color={selectedExcelIndex === idx ? 'green' : 'gray'}>{idx + 1}</Badge>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="xs" c="dimmed">{dato.latitud?.toFixed(6)}, {dato.longitud?.toFixed(6)}</Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Stack gap={1}>
+                              {Object.entries(dato).filter(([key]) => !['latitud', 'longitud', '_capa', '_idx', 'id'].includes(key)).map(([key, value]) => (
+                                <Text key={key} size="xs" c="dimmed">
+                                  <Text component="span" fw={500}>{key}:</Text> {String(value)}
+                                </Text>
+                              ))}
+                            </Stack>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))}
+                  </Table.Tbody>
+                </Table>
+              </ScrollArea>
+            </Paper>
+          )}
+
+          {/* Panel flotante GPX/KML */}
+          {capasGpx.length > 0 && gpxPanelOpen && (
+            <Paper
+              shadow="lg"
+              withBorder
+              style={{
+                position: 'absolute',
+                right: 24,
+                top: '20%',
+                zIndex: 1201,
+                width: 612,
+                background: 'rgba(255,255,255,0.85)',
+                borderRadius: 12,
+                display: 'flex',
+                flexDirection: 'column',
+                boxShadow: '0 4px 24px rgba(0,0,0,0.18)'
+              }}
+            >
+              <Group justify="space-between" align="center" px="md" py={8} style={{ borderBottom: '1px solid #e0e0e0', background: 'rgba(255,255,255,0.92)' }}>
+                <Text fw={600} size="md">Datos GPX/KML</Text>
+                <ActionIcon color="orange" variant="subtle" onClick={() => setGpxPanelOpen(false)}>
+                  <IconX size={20} />
+                </ActionIcon>
+              </Group>
+              <ScrollArea style={{ flex: 1, maxHeight: 350, overflowY: 'auto' }}>
+                <Table striped highlightOnHover withTableBorder>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>#</Table.Th>
+                      <Table.Th>Tipo</Table.Th>
+                      <Table.Th>Nombre</Table.Th>
+                      <Table.Th>Coordenadas</Table.Th>
+                      <Table.Th>Elevación</Table.Th>
+                      <Table.Th>Descripción</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {capasGpx
+                      .flatMap(capa => capa.datos.map((dato, idx) => ({ ...dato, _capa: capa, _idx: idx })))
+                      .map((dato, idx) => (
+                        <Table.Tr
+                          key={`${dato._capa.id}-${idx}`}
+                          style={{
+                            cursor: 'pointer',
+                            backgroundColor: selectedGpxIndex === idx ? 'var(--mantine-color-orange-0)' : undefined
+                          }}
+                          onClick={() => {
+                            setSelectedGpxIndex(idx);
+                            if (mapRef.current && typeof dato.lat === 'number' && typeof dato.lon === 'number') {
+                              mapRef.current.setView([dato.lat, dato.lon], 16);
+                            }
+                          }}
+                        >
+                          <Table.Td>
+                            <Badge size="sm" variant={selectedGpxIndex === idx ? 'filled' : 'light'} color={selectedGpxIndex === idx ? 'orange' : 'gray'}>{idx + 1}</Badge>
+                          </Table.Td>
+                          <Table.Td>
+                            <Badge 
+                              size="sm" 
+                              color={
+                                dato.type === 'waypoint' ? 'green' :
+                                dato.type === 'trackpoint' ? 'blue' : 'orange'
+                              }
+                            >
+                              {dato.type === 'waypoint' ? 'WPT' :
+                               dato.type === 'trackpoint' ? 'TRK' : 'RTE'}
+                            </Badge>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm" truncate="end" maw={120}>
+                              {dato.name || '-'}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm" ff="monospace">
+                              {dato.lat?.toFixed(6)}, {dato.lon?.toFixed(6)}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm">
+                              {dato.elevation ? `${dato.elevation.toFixed(1)}m` : '-'}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm" truncate="end" maw={150}>
+                              {dato.description || '-'}
+                            </Text>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))}
+                  </Table.Tbody>
+                </Table>
+              </ScrollArea>
+            </Paper>
+          )}
+          {/* Mapa GPS */}
+          <Paper withBorder style={{ height: '100%', minHeight: 400 }}>
+            <GpsMapStandalone
+              ref={mapRef}
+              lecturas={lecturasFiltradas}
+              capas={capas}
+              localizaciones={localizaciones}
+              mapControls={mapControls}
+              mostrarLocalizaciones={mostrarLocalizaciones}
+              onGuardarLocalizacion={handleAbrirModalLocalizacion}
+              playbackLayer={selectedLayerForPlayback !== null ? capas.find(c => c.id === selectedLayerForPlayback) || null : null}
+              currentPlaybackIndex={currentIndex}
+              interpolationProgress={interpolationProgress}
+              fullscreenMap={fullscreenMap}
+              puntoSeleccionado={selectedPositionIndex !== null ? lecturasFiltradas[selectedPositionIndex] : puntoSeleccionado}
+              heatmapMultiplier={heatmapMultiplier}
+              drawnShape={drawnShape}
+              onShapeDrawn={handleShapeDrawn}
+              onShapeDeleted={handleShapeDeleted}
+              primerPunto={primerUltimosPuntos.primero}
+              ultimoPunto={primerUltimosPuntos.ultimo}
+              onMapClick={handleMapClick}
+              isCreatingPOI={creatingManualPOI}
+              numerarPuntosActivos={numerarPuntosActivos}
+              shapefileLayers={shapefileLayers}
+              onPuntoSeleccionado={(info) => {
+                if (info?.info?.tipo === 'bitacora') {
+                  setSelectedInfo(info);
+                }
+              }}
+              mostrarLineaRecorrido={mostrarLineaRecorrido}
+            >
+              {/* Marcadores de bitácora */}
+              <LayerGroup>
+                {capasBitacora
+                  .filter(capa => capa.visible)
+                  .flatMap(capa => capa.puntos)
+                  .filter(punto => 
+                    typeof punto.latitud === 'number' && 
+                    typeof punto.longitud === 'number' &&
+                    !isNaN(punto.latitud) && 
+                    !isNaN(punto.longitud) &&
+                    punto.latitud >= -90 && 
+                    punto.latitud <= 90 &&
+                    punto.longitud >= -180 && 
+                    punto.longitud <= 180
+                  )
+                  .map(punto => (
+                    <BitacoraPunto
+                      key={punto.id}
+                      punto={punto}
+                      onSelect={setSelectedInfo}
+                    />
+                  ))
+                }
+              </LayerGroup>
+
+              {/* Marcadores de Excel */}
+              <LayerGroup>
+                {capasExcel
+                  .filter(capa => capa.visible)
+                  .flatMap(capa => capa.datos)
+                  .filter(dato => 
+                    typeof dato.latitud === 'number' && 
+                    typeof dato.longitud === 'number' &&
+                    !isNaN(dato.latitud) && 
+                    !isNaN(dato.longitud) &&
+                    dato.latitud >= -90 && 
+                    dato.latitud <= 90 &&
+                    dato.longitud >= -180 && 
+                    dato.longitud <= 180
+                  )
+                  .map(dato => (
+                    <Marker
+                      key={dato.id}
+                      position={[dato.latitud, dato.longitud]}
+                      icon={L.divIcon({
+                        className: 'custom-div-icon',
+                        html: `<div style="background: ${capasExcel.find(c => c.datos.includes(dato))?.color || '#40c057'}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.4);"></div>`,
+                        iconSize: [12, 12],
+                        iconAnchor: [6, 6]
+                      })}
+                    >
+                      <Popup>
+                        <Stack gap="xs">
+                          <Text fw={500} size="sm">Datos Excel</Text>
+                          <Text size="xs" c="dimmed">
+                            {dato.latitud.toFixed(6)}, {dato.longitud.toFixed(6)}
+                          </Text>
+                          {Object.entries(dato)
+                            .filter(([key]) => !['id', 'latitud', 'longitud'].includes(key))
+                            .map(([key, value]) => (
+                              <Text key={key} size="xs">
+                                <Text component="span" fw={500}>{key}:</Text> {String(value)}
+                              </Text>
+                            ))}
+                        </Stack>
+                      </Popup>
+                    </Marker>
+                                  ))
+              }
+            </LayerGroup>
+
+            {/* Marcadores de GPX/KML */}
+            <LayerGroup>
+              {capasGpx
+                .filter(capa => capa.visible)
+                .flatMap(capa => capa.datos)
+                .filter(dato => 
+                  typeof dato.lat === 'number' && 
+                  typeof dato.lon === 'number' &&
+                  !isNaN(dato.lat) && 
+                  !isNaN(dato.lon) &&
+                  dato.lat >= -90 && 
+                  dato.lat <= 90 &&
+                  dato.lon >= -180 && 
+                  dato.lon <= 180
+                )
+                .map((dato, index) => {
+                  const capa = capasGpx.find(c => c.datos.includes(dato));
+                  const shouldShowPoint = capa?.tipoVisualizacion === 'puntos' || capa?.tipoVisualizacion === 'ambos';
+                  
+                  if (!shouldShowPoint) return null;
+                  
+                  return (
+                    <Marker
+                                             key={`gpx-normal-${index}`}
+                       position={[dato.lat, dato.lon]}
+                       icon={L.divIcon({
+                         className: 'custom-div-icon',
+                         html: `<div style="background: ${capa?.color || '#ff6b35'}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.4);"></div>`,
+                         iconSize: [12, 12],
+                         iconAnchor: [6, 6]
+                      })}
+                    >
+                      <Popup>
+                        <Stack gap="xs">
+                          <Text fw={500} size="sm">
+                            {dato.type === 'waypoint' ? 'Waypoint' :
+                             dato.type === 'trackpoint' ? 'Track Point' : 'Route Point'}
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            {dato.lat.toFixed(6)}, {dato.lon.toFixed(6)}
+                          </Text>
+                          {dato.name && (
+                            <Text size="xs">
+                              <Text component="span" fw={500}>Nombre:</Text> {dato.name}
+                            </Text>
+                          )}
+                          {dato.elevation && (
+                            <Text size="xs">
+                              <Text component="span" fw={500}>Elevación:</Text> {dato.elevation.toFixed(1)}m
+                            </Text>
+                          )}
+                          {dato.description && (
+                            <Text size="xs">
+                              <Text component="span" fw={500}>Descripción:</Text> {dato.description}
+                            </Text>
+                          )}
+                          {dato.time && (
+                            <Text size="xs">
+                              <Text component="span" fw={500}>Tiempo:</Text> {new Date(dato.time).toLocaleString()}
+                            </Text>
+                          )}
+                        </Stack>
+                      </Popup>
+                    </Marker>
+                  );
+                })
+                .filter(Boolean)
+              }
+            </LayerGroup>
+            </GpsMapStandalone>
+          </Paper>
+        </Box>
+      </div>
+      
+      <Modal
+        opened={informeModalAbierto}
+        onClose={() => setInformeModalAbierto(false)}
+        title={
+          <Group>
+            <IconSparkles size={24} color="var(--mantine-color-teal-6)" />
+            <Title order={3}>Informe de Análisis Inteligente</Title>
+          </Group>
+        }
+        size="xl"
+        centered
+      >
+        <ScrollArea h={600}>
+          {renderInformeCompleto()}
+        </ScrollArea>
+      </Modal>
+
+      {modalBitacoraAbierto && (
+        <ImportarCapaBitacoraModal
+          opened={modalBitacoraAbierto}
+          onClose={() => {
+            setModalBitacoraAbierto(false);
+            setArchivoBitacora(null);
+          }}
+          file={archivoBitacora}
+          onImport={(data, config) => {
+            console.log('Datos recibidos:', data);
+            console.log('Configuración:', config);
+            
+            const puntos: CapaBitacora[] = data.map((row, index) => {
+              const latitudRaw = row[config.columnaLatitud];
+              const longitudRaw = row[config.columnaLongitud];
+              
+              console.log('Procesando coordenadas:', {
+                latitudRaw,
+                longitudRaw,
+                tipo: {
+                  latitud: typeof latitudRaw,
+                  longitud: typeof longitudRaw
+                }
+              });
+              
+              const latitud = procesarCoordenada(latitudRaw);
+              const longitud = procesarCoordenada(longitudRaw);
+              
+              if (isNaN(latitud) || isNaN(longitud) || 
+                  latitud < -90 || latitud > 90 || 
+                  longitud < -180 || longitud > 180) {
+                console.error('Coordenadas inválidas:', {
+                  original: { lat: latitudRaw, lon: longitudRaw },
+                  procesado: { lat: latitud, lon: longitud }
+                });
+                return null;
+              }
+              
+              console.log('Punto procesado:', {
+                original: {
+                  lat: latitudRaw,
+                  lon: longitudRaw
+                },
+                procesado: {
+                  lat: latitud,
+                  lon: longitud
+                }
+              });
+
+              return {
+                id: Date.now() + index,
+                atestado: row[config.columnaAtestado],
+                fecha: `${row[config.columnaAnio]}-${String(row[config.columnaMes]).padStart(2, '0')}-${String(row[config.columnaDia]).padStart(2, '0')}`,
+                latitud: latitud,
+                longitud: longitud,
+                direccion: row[config.columnaDireccion],
+                visible: true
+              };
+            }).filter(punto => punto !== null);
+
+            console.log('Puntos procesados:', puntos);
+            
+            // Validar los puntos antes de crear la capa
+            const puntosValidos = puntos.filter(p => 
+              p && typeof p.latitud === 'number' && 
+              typeof p.longitud === 'number' && 
+              !isNaN(p.latitud) && 
+              !isNaN(p.longitud) &&
+              p.latitud >= -90 && p.latitud <= 90 &&
+              p.longitud >= -180 && p.longitud <= 180
+            );
+
+            console.log('Puntos válidos:', {
+              total: puntos.length,
+              validos: puntosValidos.length,
+              primerosTres: puntosValidos.slice(0, 3)
+            });
+
+            // Crear nueva capa con los puntos válidos
+            const nuevaCapa: CapaBitacoraLayer = {
+              id: Date.now(),
+              nombre: archivoBitacora?.name || 'Nueva capa de bitácora',
+              visible: true,
+              puntos: puntosValidos
+            };
+
+            setCapasBitacora(capas => [...capas, nuevaCapa]);
+            setModalBitacoraAbierto(false);
+            setArchivoBitacora(null);
+
+            // Notificar al usuario
+            notifications.show({
+              title: 'Capa importada',
+              message: `Se han importado ${puntosValidos.length} puntos válidos de ${puntos.length} totales`,
+              color: puntosValidos.length === puntos.length ? 'green' : 'yellow'
+            });
+          }}
+        />
+      )}
+
+      {/* Modal de importación de Excel flexible */}
+      {modalExcelAbierto && (
+        <ImportarCapaExcelModal
+          opened={modalExcelAbierto}
+          onClose={() => {
+            setModalExcelAbierto(false);
+            setArchivoExcel(null);
+          }}
+          file={archivoExcel}
+          onImport={(data, config) => {
+            console.log('Datos Excel recibidos:', data);
+            console.log('Configuración Excel:', config);
+            
+            const datos = data.map((row, index) => {
+              const latitudRaw = row[config.columnaLatitud];
+              const longitudRaw = row[config.columnaLongitud];
+              
+              const latitud = procesarCoordenada(latitudRaw);
+              const longitud = procesarCoordenada(longitudRaw);
+              
+              if (isNaN(latitud) || isNaN(longitud) || 
+                  latitud < -90 || latitud > 90 || 
+                  longitud < -180 || longitud > 180) {
+                console.error('Coordenadas inválidas en Excel:', {
+                  original: { lat: latitudRaw, lon: longitudRaw },
+                  procesado: { lat: latitud, lon: longitud }
+                });
+                return null;
+              }
+              
+              // Crear objeto con todas las columnas excepto las de coordenadas
+              const datoCompleto = {
+                id: Date.now() + index,
+                latitud: latitud,
+                longitud: longitud,
+                ...Object.fromEntries(
+                  Object.entries(row).filter(([key]) => 
+                    key !== config.columnaLatitud && key !== config.columnaLongitud
+                  )
+                )
+              };
+
+              return datoCompleto;
+            }).filter(dato => dato !== null);
+
+            console.log('Datos Excel procesados:', datos);
+            
+            // Validar los datos antes de crear la capa
+            const datosValidos = datos.filter(d => 
+              d && typeof d.latitud === 'number' && 
+              typeof d.longitud === 'number' && 
+              !isNaN(d.latitud) && 
+              !isNaN(d.longitud) &&
+              d.latitud >= -90 && d.latitud <= 90 &&
+              d.longitud >= -180 && d.longitud <= 180
+            );
+
+            console.log('Datos Excel válidos:', {
+              total: datos.length,
+              validos: datosValidos.length,
+              primerosTres: datosValidos.slice(0, 3)
+            });
+
+            // Crear nueva capa con los datos válidos
+            const nuevaCapa = {
+              id: Date.now(),
+              nombre: config.nombreCapa || archivoExcel?.name || 'Nueva capa Excel',
+              visible: true,
+              datos: datosValidos,
+              color: config.color || '#40c057'
+            };
+
+            setCapasExcel(capas => [...capas, nuevaCapa]);
+            setModalExcelAbierto(false);
+            setArchivoExcel(null);
+
+            // Notificar al usuario
+            notifications.show({
+              title: 'Capa Excel importada',
+              message: `Se han importado ${datosValidos.length} registros válidos de ${datos.length} totales`,
+              color: datosValidos.length === datos.length ? 'green' : 'yellow'
+            });
+          }}
+        />
+      )}
+
+      {/* Modal de importación de GPX/KML */}
+      {modalGpxAbierto && (
+        <ImportarCapaGpxModal
+          opened={modalGpxAbierto}
+          onClose={() => {
+            setModalGpxAbierto(false);
+            setArchivoGpx(null);
+          }}
+          file={archivoGpx}
+          onImport={(data, config) => {
+            console.log('Datos GPX/KML recibidos:', data);
+            console.log('Configuración GPX/KML:', config);
+            
+            // Validar los datos antes de crear la capa
+            const datosValidos = data.filter(d => 
+              d && typeof d.lat === 'number' && 
+              typeof d.lon === 'number' && 
+              !isNaN(d.lat) && 
+              !isNaN(d.lon) &&
+              d.lat >= -90 && d.lat <= 90 &&
+              d.lon >= -180 && d.lon <= 180
+            );
+
+            console.log('Datos GPX/KML válidos:', {
+              total: data.length,
+              validos: datosValidos.length,
+              primerosTres: datosValidos.slice(0, 3)
+            });
+
+            // Crear nueva capa con los datos válidos
+            const nuevaCapa = {
+              id: Date.now(),
+              nombre: config.nombreCapa || archivoGpx?.name || 'Nueva capa GPX/KML',
+              visible: true,
+              datos: datosValidos,
+              color: config.color || '#ff6b35',
+              tipoVisualizacion: config.tipoVisualizacion || 'ambos',
+              estadisticas: config.estadisticas
+            };
+
+            setCapasGpx(capas => [...capas, nuevaCapa]);
+            setModalGpxAbierto(false);
+            setArchivoGpx(null);
+
+            // Notificar al usuario
+            notifications.show({
+              title: 'Capa GPX/KML importada',
+              message: `Se han importado ${datosValidos.length} puntos válidos de ${data.length} totales`,
+              color: datosValidos.length === data.length ? 'green' : 'yellow'
+            });
+          }}
+        />
+      )}
+    </Box>
+  );
+};
+
+export default GpsAnalysisPanel; 

@@ -1,0 +1,90 @@
+
+        <html>
+        <head>
+            <title>Informe de Rendimiento Tracer - 20250710_182703</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                th { background-color: #f5f5f5; }
+                .plot { margin: 20px 0; }
+                .summary { margin: 20px 0; padding: 15px; background-color: #f8f9fa; }
+            </style>
+        </head>
+        <body>
+            <h1>Informe de Rendimiento de Consultas Tracer</h1>
+            <p>Generado el: 2025-07-10 18:27:03</p>
+            
+            <div class="summary">
+                <h2>Resumen</h2>
+                <p>Consulta más rápida: lecturas_último_día (0.003s)</p>
+                <p>Consulta más lenta: búsqueda_compleja (0.117s)</p>
+                <p>Tiempo promedio general: 0.040s</p>
+            </div>
+
+            <h2>Resultados Detallados</h2>
+            <table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th>Consulta</th>
+      <th>Tiempo Mín (s)</th>
+      <th>Tiempo Máx (s)</th>
+      <th>Tiempo Promedio (s)</th>
+      <th>Filas</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>búsqueda_por_matrícula</td>
+      <td>0.009</td>
+      <td>0.018</td>
+      <td>0.012</td>
+      <td>1000</td>
+    </tr>
+    <tr>
+      <td>lecturas_último_día</td>
+      <td>0.002</td>
+      <td>0.004</td>
+      <td>0.003</td>
+      <td>1000</td>
+    </tr>
+    <tr>
+      <td>conteo_por_lector</td>
+      <td>0.059</td>
+      <td>0.083</td>
+      <td>0.066</td>
+      <td>316</td>
+    </tr>
+    <tr>
+      <td>búsqueda_compleja</td>
+      <td>0.106</td>
+      <td>0.136</td>
+      <td>0.117</td>
+      <td>68</td>
+    </tr>
+    <tr>
+      <td>análisis_gps</td>
+      <td>0.002</td>
+      <td>0.009</td>
+      <td>0.004</td>
+      <td>1000</td>
+    </tr>
+  </tbody>
+</table>
+            
+            <div class="plot">
+                <h2>Gráfico de Rendimiento</h2>
+                <img src="performance_plot_20250710_182703.png" alt="Gráfico de rendimiento">
+            </div>
+            
+            <div class="summary">
+                <h2>Recomendaciones</h2>
+                <ul>
+                    <li>Consultas que tardan más de 1 segundo deberían optimizarse</li>
+                    <li>Considerar índices adicionales para consultas lentas</li>
+                    <li>Monitorear periódicamente para detectar degradación</li>
+                </ul>
+            </div>
+        </body>
+        </html>
+        

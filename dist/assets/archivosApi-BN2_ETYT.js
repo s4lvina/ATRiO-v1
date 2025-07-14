@@ -1,0 +1,6 @@
+import{M as c,l as s}from"./index-B9r5cl9W.js";/**
+ * @license @tabler/icons-react v3.34.0 - MIT
+ *
+ * This source code is licensed under the MIT license.
+ * See the LICENSE file in the root directory of this source tree.
+ */var p=c("outline","alert-triangle","IconAlertTriangle",[["path",{d:"M12 9v4",key:"svg-0"}],["path",{d:"M10.363 3.591l-8.106 13.534a1.914 1.914 0 0 0 1.636 2.871h16.214a1.914 1.914 0 0 0 1.636 -2.87l-8.106 -13.536a1.914 1.914 0 0 0 -3.274 0z",key:"svg-1"}],["path",{d:"M12 16h.01",key:"svg-2"}]]);const i=async(a,r,t,n)=>{const e=new FormData;e.append("tipo_archivo",r),e.append("column_mapping",n),e.append("excel_file",t,t.name);try{return(await s.post(`/casos/${a}/archivos/upload`,e)).data}catch(o){throw console.error("Error al subir el archivo:",o),o}},h=async a=>{try{return(await s.get(`/casos/${a}/archivos`)).data}catch(r){throw console.error(`Error al obtener los archivos para el caso ${a}:`,r),r}},v=async a=>{try{await s.delete(`/archivos/${a}`)}catch(r){throw console.error(`Error al eliminar el archivo ID ${a}:`,r),r}},d=async(a,r,t,n)=>{const e=new FormData;e.append("tipo_archivo",r),e.append("column_mapping",n),e.append("excel_file",t,t.name);try{return(await s.post(`/casos/${a}/archivos/validate_lectores`,e)).data}catch(o){throw console.error("Error al validar lectores:",o),o}};export{p as I,v as d,h as g,i as u,d as v};
