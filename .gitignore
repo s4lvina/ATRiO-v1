@@ -54,3 +54,11 @@ node_modules/
 
 # Backup del git anterior
 .git_backup_*
+
+# Build y distribución
+build/
+dist/
+*.pkg
+*.exe
+*.dmg
+*.app
