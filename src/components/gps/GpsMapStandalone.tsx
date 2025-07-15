@@ -65,7 +65,7 @@ const ICONOS = [
   { name: 'alert', icon: IconAlertCircle },
 ];
 
-// Banner de información con estilo del mapa de gestión de lectores
+// Banner de información con estilo profesional de tooltip
 const InfoBanner = ({ info, onClose, onEditLocalizacion, isLocalizacion, onNavigate }: {
   info: any;
   onClose: () => void;
@@ -83,104 +83,244 @@ const InfoBanner = ({ info, onClose, onEditLocalizacion, isLocalizacion, onNavig
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: 1000,
-        backgroundColor: 'white',
-        padding: '15px 20px',
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        padding: '16px',
         borderRadius: '8px',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-        maxWidth: '90%',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+        maxWidth: '400px',
         width: 'auto',
-        animation: 'slideUp 0.3s cubic-bezier(.4,0,.2,1)'
+        animation: 'slideUp 0.3s cubic-bezier(.4,0,.2,1)',
+        fontFamily: 'var(--mantine-font-family)',
+        lineHeight: '1.2'
       }}
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <Group gap="xs" align="center">
-          <Box
-            style={{
-              width: '12px',
-              height: '12px',
-              borderRadius: '50%',
-              backgroundColor: isLocalizacion ? '#228be6' : '#011638',
-              flexShrink: 0
-            }}
-          />
-          <Text fw={700} size="sm">
+      {/* Header con título y coordenadas */}
+      <div style={{
+        borderBottom: '2px solid var(--mantine-color-blue-6)',
+        paddingBottom: '8px',
+        marginBottom: '12px'
+      }}>
+        <div style={{
+          fontSize: '16px',
+          fontWeight: '700',
+          color: 'var(--mantine-color-blue-8)',
+          marginBottom: '4px',
+          textTransform: 'uppercase',
+          letterSpacing: '0.5px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px'
+        }}>
+          {isLocalizacion ? '📍 Punto de Interés' : '🚗 Lectura GPS'}
+        </div>
+        <div style={{
+          fontSize: '11px',
+          color: 'var(--mantine-color-gray-6)',
+          fontFamily: 'monospace',
+          backgroundColor: 'var(--mantine-color-gray-0)',
+          padding: '4px 6px',
+          borderRadius: '4px',
+          border: '1px solid var(--mantine-color-gray-3)'
+        }}>
+          {isLocalizacion
+            ? `${typeof info.coordenada_y === 'number' && !isNaN(info.coordenada_y) ? info.coordenada_y.toFixed(6) : '?'}, ${typeof info.coordenada_x === 'number' && !isNaN(info.coordenada_x) ? info.coordenada_x.toFixed(6) : '?'}`
+            : `${typeof info.Coordenada_Y === 'number' && !isNaN(info.Coordenada_Y) ? info.Coordenada_Y.toFixed(6) : '?'}, ${typeof info.Coordenada_X === 'number' && !isNaN(info.Coordenada_X) ? info.Coordenada_X.toFixed(6) : '?'}`
+          }
+        </div>
+      </div>
+
+      {/* Contenido de datos */}
+      <div style={{
+        display: 'grid',
+        gap: '4px'
+      }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          padding: '3px 0',
+          borderBottom: '1px solid var(--mantine-color-gray-2)'
+        }}>
+          <div style={{
+            fontSize: '12px',
+            fontWeight: '600',
+            color: 'var(--mantine-color-gray-8)',
+            textTransform: 'capitalize',
+            minWidth: '80px',
+            marginRight: '12px'
+          }}>
+            {isLocalizacion ? 'Título' : 'Matrícula'}
+          </div>
+          <div style={{
+            fontSize: '12px',
+            color: 'var(--mantine-color-gray-7)',
+            flex: '1',
+            textAlign: 'right'
+          }}>
             {isLocalizacion ? info.titulo : info.Matricula}
-          </Text>
-          <ActionIcon
-            variant="subtle"
-            color="gray"
-            onClick={onClose}
-            size="sm"
-            style={{ marginLeft: 'auto' }}
-          >
-            <IconX size={14} />
-          </ActionIcon>
-        </Group>
-        
-        <Group gap="md">
-          <Text size="sm">
-            <b>Fecha/Hora:</b> {(() => {
+          </div>
+        </div>
+
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          padding: '3px 0',
+          borderBottom: '1px solid var(--mantine-color-gray-2)'
+        }}>
+          <div style={{
+            fontSize: '12px',
+            fontWeight: '600',
+            color: 'var(--mantine-color-gray-8)',
+            textTransform: 'capitalize',
+            minWidth: '80px',
+            marginRight: '12px'
+          }}>
+            Fecha/Hora
+          </div>
+          <div style={{
+            fontSize: '12px',
+            color: 'var(--mantine-color-gray-7)',
+            flex: '1',
+            textAlign: 'right'
+          }}>
+            {(() => {
               const raw = isLocalizacion ? info.fecha_hora : info.Fecha_y_Hora;
               if (!raw) return '-';
               const [date, time] = raw.split('T');
               return date && time ? `${date} ${time.slice(0,8)}` : raw;
             })()}
-          </Text>
-          
-          {!isLocalizacion && typeof info.Velocidad === 'number' && !isNaN(info.Velocidad) && (
-            <Text size="sm">
-              <b>Velocidad:</b> {info.Velocidad.toFixed(1)} km/h
-            </Text>
-          )}
-        </Group>
-        
-        <Group gap="md">
-          <Text size="sm">
-            <b>Coordenadas:</b> {isLocalizacion
-              ? `${typeof info.coordenada_y === 'number' && !isNaN(info.coordenada_y) ? info.coordenada_y.toFixed(6) : '?'}, ${typeof info.coordenada_x === 'number' && !isNaN(info.coordenada_x) ? info.coordenada_x.toFixed(6) : '?'}`
-              : `${typeof info.Coordenada_Y === 'number' && !isNaN(info.Coordenada_Y) ? info.Coordenada_Y.toFixed(6) : '?'}, ${typeof info.Coordenada_X === 'number' && !isNaN(info.Coordenada_X) ? info.Coordenada_X.toFixed(6) : '?'}`
-            }
-          </Text>
-          
-          {!isLocalizacion && typeof info.duracion_parada_min === 'number' && !isNaN(info.duracion_parada_min) && info.duracion_parada_min >= 0.33 && (
-            <Text size="sm" c="orange">
-              <b>Duración parada:</b> {info.duracion_parada_min.toFixed(1)} min
-            </Text>
-          )}
-        </Group>
-        
-        {isLocalizacion && info.descripcion && (
-          <Text size="sm" c="dimmed">
-            <b>Descripción:</b> {info.descripcion}
-          </Text>
+          </div>
+        </div>
+
+        {!isLocalizacion && typeof info.Velocidad === 'number' && !isNaN(info.Velocidad) && (
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            padding: '3px 0',
+            borderBottom: '1px solid var(--mantine-color-gray-2)'
+          }}>
+            <div style={{
+              fontSize: '12px',
+              fontWeight: '600',
+              color: 'var(--mantine-color-gray-8)',
+              textTransform: 'capitalize',
+              minWidth: '80px',
+              marginRight: '12px'
+            }}>
+              Velocidad
+            </div>
+            <div style={{
+              fontSize: '12px',
+              color: 'var(--mantine-color-gray-7)',
+              flex: '1',
+              textAlign: 'right'
+            }}>
+              {info.Velocidad.toFixed(1)} km/h
+            </div>
+          </div>
         )}
-        
-        {/* Botones de acción */}
-        {(onNavigate && !isLocalizacion) || (isLocalizacion && onEditLocalizacion) || (!isLocalizacion && info.onGuardarLocalizacion) ? (
-          <Group justify="center" gap={4} mt="xs">
-            {onNavigate && !isLocalizacion && (
-              <>
-                <ActionIcon size="md" variant="filled" color="blue" onClick={() => onNavigate('prev')}>
-                  <IconChevronLeft size={20} />
-                </ActionIcon>
-                <ActionIcon size="md" variant="filled" color="blue" onClick={() => onNavigate('next')}>
-                  <IconChevronRight size={20} />
-                </ActionIcon>
-              </>
-            )}
-            {isLocalizacion && onEditLocalizacion && (
-              <ActionIcon size="md" variant="filled" color="blue" onClick={onEditLocalizacion}>
-                <IconMapPin size={20} />
-              </ActionIcon>
-            )}
-            {!isLocalizacion && info.onGuardarLocalizacion && (
-              <ActionIcon size="md" variant="filled" color="green" onClick={info.onGuardarLocalizacion}>
-                <IconMapPin size={20} />
-              </ActionIcon>
-            )}
-          </Group>
-        ) : null}
+
+        {!isLocalizacion && typeof info.duracion_parada_min === 'number' && !isNaN(info.duracion_parada_min) && info.duracion_parada_min >= 0.33 && (
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            padding: '3px 0',
+            borderBottom: '1px solid var(--mantine-color-gray-2)'
+          }}>
+            <div style={{
+              fontSize: '12px',
+              fontWeight: '600',
+              color: 'var(--mantine-color-orange-6)',
+              textTransform: 'capitalize',
+              minWidth: '80px',
+              marginRight: '12px'
+            }}>
+              Duración parada
+            </div>
+            <div style={{
+              fontSize: '12px',
+              color: 'var(--mantine-color-orange-6)',
+              flex: '1',
+              textAlign: 'right'
+            }}>
+              {info.duracion_parada_min.toFixed(1)} min
+            </div>
+          </div>
+        )}
+
+        {isLocalizacion && info.descripcion && (
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            padding: '3px 0',
+            borderBottom: '1px solid var(--mantine-color-gray-2)'
+          }}>
+            <div style={{
+              fontSize: '12px',
+              fontWeight: '600',
+              color: 'var(--mantine-color-gray-8)',
+              textTransform: 'capitalize',
+              minWidth: '80px',
+              marginRight: '12px'
+            }}>
+              Descripción
+            </div>
+            <div style={{
+              fontSize: '12px',
+              color: 'var(--mantine-color-gray-6)',
+              flex: '1',
+              textAlign: 'right'
+            }}>
+              {info.descripcion}
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Botones de acción */}
+      {(onNavigate && !isLocalizacion) || (isLocalizacion && onEditLocalizacion) || (!isLocalizacion && info.onGuardarLocalizacion) ? (
+        <Group justify="center" gap={4} style={{ marginTop: '8px' }}>
+          {onNavigate && !isLocalizacion && (
+            <>
+              <ActionIcon size="md" variant="filled" color="blue" onClick={() => onNavigate('prev')}>
+                <IconChevronLeft size={20} />
+              </ActionIcon>
+              <ActionIcon size="md" variant="filled" color="blue" onClick={() => onNavigate('next')}>
+                <IconChevronRight size={20} />
+              </ActionIcon>
+            </>
+          )}
+          {isLocalizacion && onEditLocalizacion && (
+            <ActionIcon size="md" variant="filled" color="blue" onClick={onEditLocalizacion}>
+              <IconMapPin size={20} />
+            </ActionIcon>
+          )}
+          {!isLocalizacion && info.onGuardarLocalizacion && (
+            <ActionIcon size="md" variant="filled" color="green" onClick={info.onGuardarLocalizacion}>
+              <IconMapPin size={20} />
+            </ActionIcon>
+          )}
+        </Group>
+      ) : null}
+
+      {/* Botón de cerrar */}
+      <ActionIcon
+        variant="subtle"
+        color="gray"
+        onClick={onClose}
+        size="sm"
+        style={{
+          position: 'absolute',
+          top: '8px',
+          right: '8px'
+        }}
+      >
+        <IconX size={14} />
+      </ActionIcon>
       
       <style>{`
         @keyframes slideUp {

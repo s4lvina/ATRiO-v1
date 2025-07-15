@@ -3534,7 +3534,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                                       textAlign: 'right',
                                       flex: '1',
                                       wordBreak: 'break-word',
-                                      lineHeight: '1.3'
+                                      lineHeight: '1.1'
                                     }}>
                                       {String(value || '-')}
                                     </div>
@@ -3654,7 +3654,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                                   textAlign: 'right',
                                   flex: '1',
                                   wordBreak: 'break-word',
-                                  lineHeight: '1.3'
+                                  lineHeight: '1.1'
                                 }}>
                                   {dato.name}
                                 </div>
@@ -3683,7 +3683,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                                   textAlign: 'right',
                                   flex: '1',
                                   wordBreak: 'break-word',
-                                  lineHeight: '1.3'
+                                  lineHeight: '1.1'
                                 }}>
                                   {dato.elevation.toFixed(1)}m
                                 </div>
@@ -3710,7 +3710,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                                   fontSize: '12px',
                                   color: 'var(--mantine-color-gray-7)',
                                   wordBreak: 'break-word',
-                                  lineHeight: '1.3',
+                                  lineHeight: '1.1',
                                   flex: '1'
                                 }}>
                                   {dato.description}
@@ -3740,7 +3740,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                                   textAlign: 'right',
                                   flex: '1',
                                   wordBreak: 'break-word',
-                                  lineHeight: '1.3'
+                                  lineHeight: '1.1'
                                 }}>
                                   {new Date(dato.time).toLocaleString()}
                                 </div>
@@ -4329,19 +4329,87 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                           })}
                         >
                           <Popup>
-                            <Stack gap="xs">
-                              <Text fw={500} size="sm">Datos Excel</Text>
-                              <Text size="xs" c="dimmed">
-                                {dato.latitud.toFixed(6)}, {dato.longitud.toFixed(6)}
-                              </Text>
-                              {Object.entries(dato)
-                                .filter(([key]) => !['id', 'latitud', 'longitud'].includes(key))
-                                .map(([key, value]) => (
-                                  <Text key={key} size="xs">
-                                    <Text component="span" fw={500}>{key}:</Text> {String(value)}
-                                  </Text>
-                                ))}
-                            </Stack>
+                            <div style={{
+                              minWidth: '320px',
+                              maxWidth: '400px',
+                              padding: '16px',
+                              fontFamily: 'var(--mantine-font-family)',
+                              lineHeight: '1.2',
+                              backgroundColor: 'white',
+                              borderRadius: '8px',
+                              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
+                            }}>
+                              {/* Header con título y coordenadas */}
+                              <div style={{
+                                borderBottom: '2px solid var(--mantine-color-green-6)',
+                                paddingBottom: '8px',
+                                marginBottom: '12px'
+                              }}>
+                                <div style={{
+                                  fontSize: '16px',
+                                  fontWeight: '700',
+                                  color: 'var(--mantine-color-green-8)',
+                                  marginBottom: '4px',
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.5px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '6px'
+                                }}>
+                                  📊 Datos Excel
+                                </div>
+                                <div style={{
+                                  fontSize: '11px',
+                                  color: 'var(--mantine-color-gray-6)',
+                                  fontFamily: 'monospace',
+                                  backgroundColor: 'var(--mantine-color-gray-0)',
+                                  padding: '4px 6px',
+                                  borderRadius: '4px',
+                                  border: '1px solid var(--mantine-color-gray-3)'
+                                }}>
+                                  {dato.latitud.toFixed(6)}, {dato.longitud.toFixed(6)}
+                                </div>
+                              </div>
+
+                              {/* Contenido de datos */}
+                              <div style={{
+                                display: 'grid',
+                                gap: '4px'
+                              }}>
+                                {Object.entries(dato)
+                                  .filter(([key]) => !['id', 'latitud', 'longitud'].includes(key))
+                                  .map(([key, value]) => (
+                                    <div key={key} style={{
+                                      display: 'flex',
+                                      justifyContent: 'space-between',
+                                      alignItems: 'flex-start',
+                                      padding: '3px 0',
+                                      borderBottom: '1px solid var(--mantine-color-gray-2)'
+                                    }}>
+                                      <div style={{
+                                        fontSize: '12px',
+                                        fontWeight: '600',
+                                        color: 'var(--mantine-color-gray-8)',
+                                        textTransform: 'capitalize',
+                                        minWidth: '80px',
+                                        marginRight: '12px'
+                                      }}>
+                                        {key.replace(/_/g, ' ')}:
+                                      </div>
+                                      <div style={{
+                                        fontSize: '12px',
+                                        color: 'var(--mantine-color-gray-7)',
+                                        textAlign: 'right',
+                                        flex: '1',
+                                        wordBreak: 'break-word',
+                                        lineHeight: '1.1'
+                                      }}>
+                                        {String(value || '-')}
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                            </div>
                           </Popup>
                         </Marker>
                       );
@@ -4383,35 +4451,172 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                       })}
                     >
                       <Popup>
-                        <Stack gap="xs">
-                          <Text fw={500} size="sm">
-                            {dato.type === 'waypoint' ? 'Waypoint' :
-                             dato.type === 'trackpoint' ? 'Track Point' : 'Route Point'}
-                          </Text>
-                          <Text size="xs" c="dimmed">
-                            {dato.lat.toFixed(6)}, {dato.lon.toFixed(6)}
-                          </Text>
-                          {dato.name && (
-                            <Text size="xs">
-                              <Text component="span" fw={500}>Nombre:</Text> {dato.name}
-                            </Text>
-                          )}
-                          {dato.elevation && (
-                            <Text size="xs">
-                              <Text component="span" fw={500}>Elevación:</Text> {dato.elevation.toFixed(1)}m
-                            </Text>
-                          )}
-                          {dato.description && (
-                            <Text size="xs">
-                              <Text component="span" fw={500}>Descripción:</Text> {dato.description}
-                            </Text>
-                          )}
-                          {dato.time && (
-                            <Text size="xs">
-                              <Text component="span" fw={500}>Tiempo:</Text> {new Date(dato.time).toLocaleString()}
-                            </Text>
-                          )}
-                        </Stack>
+                        <div style={{
+                          minWidth: '320px',
+                          maxWidth: '400px',
+                          padding: '16px',
+                          fontFamily: 'var(--mantine-font-family)',
+                          lineHeight: '1.2',
+                          backgroundColor: 'white',
+                          borderRadius: '8px',
+                          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
+                        }}>
+                          {/* Header con título y coordenadas */}
+                          <div style={{
+                            borderBottom: '2px solid var(--mantine-color-orange-6)',
+                            paddingBottom: '8px',
+                            marginBottom: '12px'
+                          }}>
+                            <div style={{
+                              fontSize: '16px',
+                              fontWeight: '700',
+                              color: 'var(--mantine-color-orange-8)',
+                              marginBottom: '4px',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.5px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px'
+                            }}>
+                              {dato.type === 'waypoint' ? '📍 Waypoint' :
+                               dato.type === 'trackpoint' ? '🛤️ Track Point' : '🛣️ Route Point'}
+                            </div>
+                            <div style={{
+                              fontSize: '11px',
+                              color: 'var(--mantine-color-gray-6)',
+                              fontFamily: 'monospace',
+                              backgroundColor: 'var(--mantine-color-gray-0)',
+                              padding: '4px 6px',
+                              borderRadius: '4px',
+                              border: '1px solid var(--mantine-color-gray-3)'
+                            }}>
+                              {dato.lat.toFixed(6)}, {dato.lon.toFixed(6)}
+                            </div>
+                          </div>
+
+                          {/* Contenido de datos */}
+                          <div style={{
+                            display: 'grid',
+                            gap: '4px'
+                          }}>
+                            {dato.name && (
+                              <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'flex-start',
+                                padding: '3px 0',
+                                borderBottom: '1px solid var(--mantine-color-gray-2)'
+                              }}>
+                                <div style={{
+                                  fontSize: '12px',
+                                  fontWeight: '600',
+                                  color: 'var(--mantine-color-gray-8)',
+                                  minWidth: '80px',
+                                  marginRight: '12px'
+                                }}>
+                                  Nombre:
+                                </div>
+                                <div style={{
+                                  fontSize: '12px',
+                                  color: 'var(--mantine-color-gray-7)',
+                                  textAlign: 'right',
+                                  flex: '1',
+                                  wordBreak: 'break-word',
+                                  lineHeight: '1.1'
+                                }}>
+                                  {dato.name}
+                                </div>
+                              </div>
+                            )}
+                            {dato.elevation && (
+                              <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'flex-start',
+                                padding: '3px 0',
+                                borderBottom: '1px solid var(--mantine-color-gray-2)'
+                              }}>
+                                <div style={{
+                                  fontSize: '12px',
+                                  fontWeight: '600',
+                                  color: 'var(--mantine-color-gray-8)',
+                                  minWidth: '80px',
+                                  marginRight: '12px'
+                                }}>
+                                  Elevación:
+                                </div>
+                                <div style={{
+                                  fontSize: '12px',
+                                  color: 'var(--mantine-color-gray-7)',
+                                  textAlign: 'right',
+                                  flex: '1',
+                                  wordBreak: 'break-word',
+                                  lineHeight: '1.1'
+                                }}>
+                                  {dato.elevation.toFixed(1)}m
+                                </div>
+                              </div>
+                            )}
+                            {dato.description && (
+                              <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'flex-start',
+                                padding: '3px 0',
+                                borderBottom: '1px solid var(--mantine-color-gray-2)'
+                              }}>
+                                <div style={{
+                                  fontSize: '12px',
+                                  fontWeight: '600',
+                                  color: 'var(--mantine-color-gray-8)',
+                                  minWidth: '80px',
+                                  marginRight: '12px'
+                                }}>
+                                  Descripción:
+                                </div>
+                                <div style={{
+                                  fontSize: '12px',
+                                  color: 'var(--mantine-color-gray-7)',
+                                  textAlign: 'right',
+                                  flex: '1',
+                                  wordBreak: 'break-word',
+                                  lineHeight: '1.1'
+                                }}>
+                                  {dato.description}
+                                </div>
+                              </div>
+                            )}
+                            {dato.time && (
+                              <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'flex-start',
+                                padding: '3px 0',
+                                borderBottom: '1px solid var(--mantine-color-gray-2)'
+                              }}>
+                                <div style={{
+                                  fontSize: '12px',
+                                  fontWeight: '600',
+                                  color: 'var(--mantine-color-gray-8)',
+                                  minWidth: '80px',
+                                  marginRight: '12px'
+                                }}>
+                                  Tiempo:
+                                </div>
+                                <div style={{
+                                  fontSize: '12px',
+                                  color: 'var(--mantine-color-gray-7)',
+                                  textAlign: 'right',
+                                  flex: '1',
+                                  wordBreak: 'break-word',
+                                  lineHeight: '1.1'
+                                }}>
+                                  {new Date(dato.time).toLocaleString()}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </Popup>
                     </Marker>
                   );
