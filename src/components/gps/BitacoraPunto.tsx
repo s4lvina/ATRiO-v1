@@ -6,9 +6,10 @@ import type { CapaBitacora } from '../../types/data';
 interface BitacoraPuntoProps {
   punto: CapaBitacora;
   onSelect: (info: any) => void;
+  color?: string;
 }
 
-export const BitacoraPunto: React.FC<BitacoraPuntoProps> = ({ punto, onSelect }) => {
+export const BitacoraPunto: React.FC<BitacoraPuntoProps> = ({ punto, onSelect, color = '#000000' }) => {
   const [popupRef, setPopupRef] = useState<L.Popup | null>(null);
 
   const handleClick = () => {
@@ -37,7 +38,7 @@ export const BitacoraPunto: React.FC<BitacoraPuntoProps> = ({ punto, onSelect })
         className: 'custom-marker',
         html: `
           <div style="
-            background-color: #000000;
+            background-color: ${color};
             width: 8px;
             height: 8px;
             border-radius: 50%;

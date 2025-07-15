@@ -56,6 +56,7 @@ interface CapaBitacoraLayer {
   nombre: string;
   visible: boolean;
   puntos: CapaBitacora[];
+  color: string;
 }
 
 // Lista de iconos disponibles (puedes ampliarla)
@@ -3412,16 +3413,18 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                   pointGroups[key].push(p);
                 });
                 return Object.entries(pointGroups).flatMap(([key, group]) =>
-                  group.map((punto, idx) => {
-                    const [lat, lng] = getOffsetLatLngCircle(punto.latitud, punto.longitud, idx, group.length, 5);
-                    return (
-                      <BitacoraPunto
-                        key={punto.id}
-                        punto={{ ...punto, latitud: lat, longitud: lng }}
-                        onSelect={setSelectedInfo}
-                      />
-                    );
-                  })
+                                      group.map((punto, idx) => {
+                      const [lat, lng] = getOffsetLatLngCircle(punto.latitud, punto.longitud, idx, group.length, 5);
+                      const capa = capasBitacora.find(c => c.puntos.includes(punto));
+                      return (
+                        <BitacoraPunto
+                          key={punto.id}
+                          punto={{ ...punto, latitud: lat, longitud: lng }}
+                          onSelect={setSelectedInfo}
+                          color={capa?.color || '#000000'}
+                        />
+                      );
+                    })
                 );
               })()}
             </LayerGroup>
@@ -4279,11 +4282,13 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                   return Object.entries(pointGroups).flatMap(([key, group]) =>
                     group.map((punto, idx) => {
                       const [lat, lng] = getOffsetLatLngCircle(punto.latitud, punto.longitud, idx, group.length, 5);
+                      const capa = capasBitacora.find(c => c.puntos.includes(punto));
                       return (
                         <BitacoraPunto
                           key={punto.id}
                           punto={{ ...punto, latitud: lat, longitud: lng }}
                           onSelect={setSelectedInfo}
+                          color={capa?.color || '#000000'}
                         />
                       );
                     })
@@ -4727,9 +4732,10 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
             // Crear nueva capa con los puntos válidos
             const nuevaCapa: CapaBitacoraLayer = {
               id: Date.now(),
-              nombre: archivoBitacora?.name || 'Nueva capa de bitácora',
+              nombre: config.nombreCapa || archivoBitacora?.name || 'Nueva capa de bitácora',
               visible: true,
-              puntos: puntosValidos
+              puntos: puntosValidos,
+              color: config.color || '#000000'
             };
 
             setCapasBitacora(capas => [...capas, nuevaCapa]);

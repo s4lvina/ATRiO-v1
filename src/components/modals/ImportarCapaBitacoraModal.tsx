@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Select, Button, Group, Stack, Text, Alert } from '@mantine/core';
-import { IconAlertCircle } from '@tabler/icons-react';
+import { Modal, Select, Button, Group, Stack, Text, Alert, ColorInput, TextInput, Table, ScrollArea, Divider, Title } from '@mantine/core';
+import { IconAlertCircle, IconTable } from '@tabler/icons-react';
 import * as XLSX from 'xlsx';
 import type { CapaBitacoraImportConfig } from '../../types/data';
 
@@ -20,7 +20,9 @@ export function ImportarCapaBitacoraModal({ opened, onClose, onImport, file }: I
     columnaAnio: '',
     columnaMes: '',
     columnaDia: '',
-    columnaDireccion: ''
+    columnaDireccion: '',
+    color: '#000000',
+    nombreCapa: ''
   });
   const [previewData, setPreviewData] = useState<any[]>([]);
 
@@ -55,6 +57,9 @@ export function ImportarCapaBitacoraModal({ opened, onClose, onImport, file }: I
               if (headerLower.includes('direccion')) configAuto.columnaDireccion = header;
             });
             
+            // Establecer nombre de capa por defecto
+            configAuto.nombreCapa = file.name.replace(/\.(xlsx|xls|csv)$/i, '');
+            
             setConfig(prev => ({ ...prev, ...configAuto }));
           }
         } catch (error) {
@@ -84,78 +89,194 @@ export function ImportarCapaBitacoraModal({ opened, onClose, onImport, file }: I
   };
 
   const isConfigValid = () => {
-    return Object.values(config).every(value => value !== '');
+    return config.columnaLatitud !== '' && 
+           config.columnaLongitud !== '' && 
+           config.columnaAtestado !== '' && 
+           config.columnaAnio !== '' && 
+           config.columnaMes !== '' && 
+           config.columnaDia !== '' && 
+           config.columnaDireccion !== '' &&
+           config.nombreCapa.trim() !== '' &&
+           config.color !== '';
   };
 
   return (
     <Modal 
       opened={opened} 
       onClose={onClose}
-      title="Configurar Importación de Capa Bitácora"
-      size="lg"
+      title={
+        <Group>
+          <IconTable size={20} color="var(--mantine-color-blue-6)" />
+          <Text fw={600}>Configurar Importación de Capa Bitácora</Text>
+        </Group>
+      }
+      size="xl"
+      centered
     >
-      <Stack>
-        <Alert icon={<IconAlertCircle size={16} />} title="Información" color="blue">
-          Selecciona las columnas correspondientes a cada campo requerido.
-          Los datos deben incluir latitud, longitud, atestado, fecha (año, mes, día) y dirección.
+      <Stack gap="lg">
+        <Alert icon={<IconAlertCircle size={16} />} title="Información Importante" color="blue">
+          <Text size="sm">
+            Selecciona las columnas correspondientes a cada campo requerido.
+            Los datos deben incluir latitud, longitud, atestado, fecha (año, mes, día) y dirección.
+          </Text>
         </Alert>
 
-        <Select
-          label="Columna Latitud"
-          data={columnas}
-          value={config.columnaLatitud}
-          onChange={(value) => setConfig(prev => ({ ...prev, columnaLatitud: value || '' }))}
-        />
-        <Select
-          label="Columna Longitud"
-          data={columnas}
-          value={config.columnaLongitud}
-          onChange={(value) => setConfig(prev => ({ ...prev, columnaLongitud: value || '' }))}
-        />
+        <Group grow>
+          <Select
+            label="Columna Latitud"
+            data={columnas}
+            value={config.columnaLatitud}
+            onChange={(value) => setConfig(prev => ({ ...prev, columnaLatitud: value || '' }))}
+            placeholder="Selecciona la columna de latitud"
+            searchable
+          />
+          <Select
+            label="Columna Longitud"
+            data={columnas}
+            value={config.columnaLongitud}
+            onChange={(value) => setConfig(prev => ({ ...prev, columnaLongitud: value || '' }))}
+            placeholder="Selecciona la columna de longitud"
+            searchable
+          />
+        </Group>
+
         <Select
           label="Columna Atestado"
           data={columnas}
           value={config.columnaAtestado}
           onChange={(value) => setConfig(prev => ({ ...prev, columnaAtestado: value || '' }))}
+          placeholder="Selecciona la columna del atestado"
+          searchable
         />
-        <Select
-          label="Columna Año"
-          data={columnas}
-          value={config.columnaAnio}
-          onChange={(value) => setConfig(prev => ({ ...prev, columnaAnio: value || '' }))}
-        />
-        <Select
-          label="Columna Mes"
-          data={columnas}
-          value={config.columnaMes}
-          onChange={(value) => setConfig(prev => ({ ...prev, columnaMes: value || '' }))}
-        />
-        <Select
-          label="Columna Día"
-          data={columnas}
-          value={config.columnaDia}
-          onChange={(value) => setConfig(prev => ({ ...prev, columnaDia: value || '' }))}
-        />
+
+        <Group grow>
+          <Select
+            label="Columna Año"
+            data={columnas}
+            value={config.columnaAnio}
+            onChange={(value) => setConfig(prev => ({ ...prev, columnaAnio: value || '' }))}
+            placeholder="Selecciona la columna del año"
+            searchable
+          />
+          <Select
+            label="Columna Mes"
+            data={columnas}
+            value={config.columnaMes}
+            onChange={(value) => setConfig(prev => ({ ...prev, columnaMes: value || '' }))}
+            placeholder="Selecciona la columna del mes"
+            searchable
+          />
+          <Select
+            label="Columna Día"
+            data={columnas}
+            value={config.columnaDia}
+            onChange={(value) => setConfig(prev => ({ ...prev, columnaDia: value || '' }))}
+            placeholder="Selecciona la columna del día"
+            searchable
+          />
+        </Group>
+
         <Select
           label="Columna Dirección"
           data={columnas}
           value={config.columnaDireccion}
           onChange={(value) => setConfig(prev => ({ ...prev, columnaDireccion: value || '' }))}
+          placeholder="Selecciona la columna de dirección"
+          searchable
         />
 
+        <Group grow>
+          <TextInput
+            label="Nombre de la Capa"
+            value={config.nombreCapa}
+            onChange={(e) => setConfig(prev => ({ ...prev, nombreCapa: e.target.value }))}
+            placeholder="Introduce un nombre para la capa"
+          />
+
+          <ColorInput
+            label="Color de los Puntos"
+            value={config.color}
+            onChange={(value) => setConfig(prev => ({ ...prev, color: value }))}
+            format="hex"
+            swatches={['#000000', '#228be6', '#40c057', '#fd7e14', '#e64980', '#be4bdb', '#7950f2', '#868e96']}
+            placeholder="Selecciona un color"
+          />
+        </Group>
+
         {previewData.length > 0 && (
-          <Stack>
-            <Text size="sm" fw={500}>Vista previa de datos:</Text>
-            <Text size="xs" c="dimmed" style={{ whiteSpace: 'pre-wrap' }}>
-              {JSON.stringify(previewData[0], null, 2)}
-            </Text>
-          </Stack>
+          <>
+            <Divider />
+            <Stack gap="sm">
+              <Group>
+                <IconTable size={16} color="var(--mantine-color-gray-6)" />
+                <Title order={6}>Vista Previa de Datos</Title>
+                <Text size="xs" c="dimmed">({previewData.length} registros de muestra)</Text>
+              </Group>
+              
+              <ScrollArea h={200}>
+                <Table striped highlightOnHover withTableBorder>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>#</Table.Th>
+                      {columnas.map((columna, index) => (
+                        <Table.Th key={index} style={{ 
+                          backgroundColor: 
+                            columna === config.columnaLatitud || 
+                            columna === config.columnaLongitud || 
+                            columna === config.columnaAtestado || 
+                            columna === config.columnaAnio || 
+                            columna === config.columnaMes || 
+                            columna === config.columnaDia || 
+                            columna === config.columnaDireccion
+                              ? 'var(--mantine-color-blue-0)'
+                              : undefined
+                        }}>
+                          {columna}
+                        </Table.Th>
+                      ))}
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {previewData.map((row, index) => (
+                      <Table.Tr key={index}>
+                        <Table.Td>
+                          <Text size="xs" fw={500}>{index + 1}</Text>
+                        </Table.Td>
+                        {columnas.map((columna, colIndex) => (
+                          <Table.Td key={colIndex}>
+                            <Text size="xs" style={{ 
+                              color: 
+                                columna === config.columnaLatitud || 
+                                columna === config.columnaLongitud || 
+                                columna === config.columnaAtestado || 
+                                columna === config.columnaAnio || 
+                                columna === config.columnaMes || 
+                                columna === config.columnaDia || 
+                                columna === config.columnaDireccion
+                                  ? 'var(--mantine-color-blue-7)'
+                                  : 'var(--mantine-color-gray-6)'
+                            }}>
+                              {String(row[columna] || '')}
+                            </Text>
+                          </Table.Td>
+                        ))}
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </ScrollArea>
+            </Stack>
+          </>
         )}
 
-        <Group justify="flex-end" mt="xl">
+        <Group justify="flex-end" style={{ marginTop: '16px' }}>
           <Button variant="light" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleImport} disabled={!isConfigValid()}>
-            Importar
+          <Button 
+            onClick={handleImport} 
+            disabled={!isConfigValid()}
+            color="blue"
+          >
+            Importar Capa
           </Button>
         </Group>
       </Stack>
