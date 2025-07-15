@@ -588,6 +588,27 @@ const procesarCoordenada = (valor: any): number => {
   return 0;
 };
 
+// --- Utilidad para offset visual de puntos coincidentes ---
+function getOffsetLatLng(lat: number, lng: number, index: number, offsetMeters = 5): [number, number] {
+  // 1 grado latitud ~ 111320 metros
+  // 1 grado longitud ~ 111320 * cos(lat) metros
+  const dLat = (offsetMeters * index) / 111320;
+  const dLng = (offsetMeters * index) / (111320 * Math.cos((lat * Math.PI) / 180));
+  return [lat + dLat, lng + dLng];
+}
+
+// --- Utilidad para offset visual de puntos coincidentes en círculo ---
+function getOffsetLatLngCircle(lat: number, lng: number, index: number, total: number, radiusMeters = 5): [number, number] {
+  if (total === 1) return [lat, lng];
+  // Distribuir puntos en círculo, ángulo en radianes
+  const angle = (2 * Math.PI * index) / total;
+  // 1 grado latitud ~ 111320 metros
+  // 1 grado longitud ~ 111320 * cos(lat) metros
+  const dLat = (radiusMeters * Math.cos(angle)) / 111320;
+  const dLng = (radiusMeters * Math.sin(angle)) / (111320 * Math.cos((lat * Math.PI) / 180));
+  return [lat + dLat, lng + dLng];
+}
+
 const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSeleccionado }) => {
   const [selectedInfo, setSelectedInfo] = useState<any | null>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -715,8 +736,45 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
   // 1. Añadir estado para mostrar la línea de recorrido
   const [mostrarLineaRecorrido, setMostrarLineaRecorrido] = useState(true);
 
+  // Estado para la leyenda editable
+  const [editLegend, setEditLegend] = useState<{ tipo: string; id: number | string; nombre: string } | null>(null);
+  const [legendCollapsed, setLegendCollapsed] = useState(false);
+
   // Añadir estado para controlar la visibilidad del panel flotante
   const [showMapControls, setShowMapControls] = useState(false);
+
+  // Funciones para manejar la edición de la leyenda
+  const handleLegendEdit = (tipo: string, id: number | string, nombre: string) => {
+    setEditLegend({ tipo, id, nombre });
+  };
+
+  const handleLegendSave = () => {
+    if (!editLegend) return;
+    
+    if (editLegend.tipo === 'excel') {
+      setCapasExcel(prev => prev.map(capa => 
+        capa.id === editLegend.id ? { ...capa, nombre: editLegend.nombre } : capa
+      ));
+    } else if (editLegend.tipo === 'bitacora') {
+      setCapasBitacora(prev => prev.map(capa => 
+        capa.id === editLegend.id ? { ...capa, nombre: editLegend.nombre } : capa
+      ));
+    } else if (editLegend.tipo === 'gpx') {
+      setCapasGpx(prev => prev.map(capa => 
+        capa.id === editLegend.id ? { ...capa, nombre: editLegend.nombre } : capa
+      ));
+    }
+    
+    setEditLegend(null);
+  };
+
+  const handleLegendKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleLegendSave();
+    } else if (e.key === 'Escape') {
+      setEditLegend(null);
+    }
+  };
 
   // Crear el componente MapControlsPanel
   const MapControlsPanel = () => {
@@ -3270,73 +3328,97 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
           >
             {/* Marcadores de bitácora */}
             <LayerGroup>
-              {capasBitacora
-                .filter(capa => capa.visible)
-                .flatMap(capa => capa.puntos)
-                .filter(punto => 
-                  typeof punto.latitud === 'number' && 
-                  typeof punto.longitud === 'number' &&
-                  !isNaN(punto.latitud) && 
-                  !isNaN(punto.longitud) &&
-                  punto.latitud >= -90 && 
-                  punto.latitud <= 90 &&
-                  punto.longitud >= -180 && 
-                  punto.longitud <= 180
-                )
-                .map(punto => (
-                  <BitacoraPunto
-                    key={punto.id}
-                    punto={punto}
-                    onSelect={setSelectedInfo}
-                  />
-                ))
-              }
+              {(() => {
+                // Agrupar por lat/lon redondeados a 6 decimales
+                const allBitacoraPoints = capasBitacora
+                  .filter(capa => capa.visible)
+                  .flatMap(capa => capa.puntos)
+                  .filter(punto =>
+                    typeof punto.latitud === 'number' &&
+                    typeof punto.longitud === 'number' &&
+                    !isNaN(punto.latitud) &&
+                    !isNaN(punto.longitud) &&
+                    punto.latitud >= -90 && punto.latitud <= 90 &&
+                    punto.longitud >= -180 && punto.longitud <= 180
+                  );
+                const pointGroups = {};
+                allBitacoraPoints.forEach((p) => {
+                  const key = `${p.latitud.toFixed(6)},${p.longitud.toFixed(6)}`;
+                  if (!pointGroups[key]) pointGroups[key] = [];
+                  pointGroups[key].push(p);
+                });
+                return Object.entries(pointGroups).flatMap(([key, group]) =>
+                  group.map((punto, idx) => {
+                    const [lat, lng] = getOffsetLatLngCircle(punto.latitud, punto.longitud, idx, group.length, 5);
+                    return (
+                      <BitacoraPunto
+                        key={punto.id}
+                        punto={{ ...punto, latitud: lat, longitud: lng }}
+                        onSelect={setSelectedInfo}
+                      />
+                    );
+                  })
+                );
+              })()}
             </LayerGroup>
 
             {/* Marcadores de Excel */}
             <LayerGroup>
-              {capasExcel
-                .filter(capa => capa.visible)
-                .flatMap(capa => capa.datos)
-                .filter(dato => 
-                  typeof dato.latitud === 'number' && 
-                  typeof dato.longitud === 'number' &&
-                  !isNaN(dato.latitud) && 
-                  !isNaN(dato.longitud) &&
-                  dato.latitud >= -90 && 
-                  dato.latitud <= 90 &&
-                  dato.longitud >= -180 && 
-                  dato.longitud <= 180
-                )
-                .map(dato => (
-                  <Marker
-                    key={dato.id}
-                    position={[dato.latitud, dato.longitud]}
-                    icon={L.divIcon({
-                      className: 'custom-div-icon',
-                      html: `<div style="background: ${capasExcel.find(c => c.datos.includes(dato))?.color || '#40c057'}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.4);"></div>`,
-                      iconSize: [12, 12],
-                      iconAnchor: [6, 6]
-                    })}
-                  >
-                    <Popup>
-                      <Stack gap="xs">
-                        <Text fw={500} size="sm">Datos Excel</Text>
-                        <Text size="xs" c="dimmed">
-                          {dato.latitud.toFixed(6)}, {dato.longitud.toFixed(6)}
-                        </Text>
-                        {Object.entries(dato)
-                          .filter(([key]) => !['id', 'latitud', 'longitud'].includes(key))
-                          .map(([key, value]) => (
-                            <Text key={key} size="xs">
-                              <Text component="span" fw={500}>{key}:</Text> {String(value)}
+              {(() => {
+                // Agrupar por lat/lon redondeados a 6 decimales (precisión ~0.1m)
+                const allExcelPoints = capasExcel
+                  .filter(capa => capa.visible)
+                  .flatMap(capa => capa.datos)
+                  .filter(dato =>
+                    typeof dato.latitud === 'number' &&
+                    typeof dato.longitud === 'number' &&
+                    !isNaN(dato.latitud) &&
+                    !isNaN(dato.longitud) &&
+                    dato.latitud >= -90 && dato.latitud <= 90 &&
+                    dato.longitud >= -180 && dato.longitud <= 180
+                  );
+                // Agrupar por key
+                const pointGroups = {};
+                allExcelPoints.forEach((p) => {
+                  const key = `${p.latitud.toFixed(6)},${p.longitud.toFixed(6)}`;
+                  if (!pointGroups[key]) pointGroups[key] = [];
+                  pointGroups[key].push(p);
+                });
+                // Renderizar con offset
+                return Object.entries(pointGroups).flatMap(([key, group]) =>
+                  group.map((dato, idx) => {
+                    const [lat, lng] = getOffsetLatLngCircle(dato.latitud, dato.longitud, idx, group.length, 5);
+                    return (
+                      <Marker
+                        key={dato.id}
+                        position={[lat, lng]}
+                        icon={L.divIcon({
+                          className: 'custom-div-icon',
+                          html: `<div style="background: ${capasExcel.find(c => c.datos.includes(dato))?.color || '#40c057'}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.4);"></div>`,
+                          iconSize: [12, 12],
+                          iconAnchor: [6, 6]
+                        })}
+                      >
+                        <Popup>
+                          <Stack gap="xs">
+                            <Text fw={500} size="sm">Datos Excel</Text>
+                            <Text size="xs" c="dimmed">
+                              {dato.latitud.toFixed(6)}, {dato.longitud.toFixed(6)}
                             </Text>
-                          ))}
-                      </Stack>
-                    </Popup>
-                  </Marker>
-                ))
-              }
+                            {Object.entries(dato)
+                              .filter(([key]) => !['id', 'latitud', 'longitud'].includes(key))
+                              .map(([key, value]) => (
+                                <Text key={key} size="xs">
+                                  <Text component="span" fw={500}>{key}:</Text> {String(value)}
+                                </Text>
+                              ))}
+                          </Stack>
+                        </Popup>
+                      </Marker>
+                    );
+                  })
+                );
+              })()}
             </LayerGroup>
 
             {/* Marcadores de GPX/KML */}
@@ -3903,98 +3985,122 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
             >
               {/* Marcadores de bitácora */}
               <LayerGroup>
-                {capasBitacora
-                  .filter(capa => capa.visible)
-                  .flatMap(capa => capa.puntos)
-                  .filter(punto => 
-                    typeof punto.latitud === 'number' && 
-                    typeof punto.longitud === 'number' &&
-                    !isNaN(punto.latitud) && 
-                    !isNaN(punto.longitud) &&
-                    punto.latitud >= -90 && 
-                    punto.latitud <= 90 &&
-                    punto.longitud >= -180 && 
-                    punto.longitud <= 180
-                  )
-                  .map(punto => (
-                    <BitacoraPunto
-                      key={punto.id}
-                      punto={punto}
-                      onSelect={setSelectedInfo}
-                    />
-                  ))
-                }
+                {(() => {
+                  // Agrupar por lat/lon redondeados a 6 decimales
+                  const allBitacoraPoints = capasBitacora
+                    .filter(capa => capa.visible)
+                    .flatMap(capa => capa.puntos)
+                    .filter(punto =>
+                      typeof punto.latitud === 'number' &&
+                      typeof punto.longitud === 'number' &&
+                      !isNaN(punto.latitud) &&
+                      !isNaN(punto.longitud) &&
+                      punto.latitud >= -90 && punto.latitud <= 90 &&
+                      punto.longitud >= -180 && punto.longitud <= 180
+                    );
+                  const pointGroups = {};
+                  allBitacoraPoints.forEach((p) => {
+                    const key = `${p.latitud.toFixed(6)},${p.longitud.toFixed(6)}`;
+                    if (!pointGroups[key]) pointGroups[key] = [];
+                    pointGroups[key].push(p);
+                  });
+                  return Object.entries(pointGroups).flatMap(([key, group]) =>
+                    group.map((punto, idx) => {
+                      const [lat, lng] = getOffsetLatLngCircle(punto.latitud, punto.longitud, idx, group.length, 5);
+                      return (
+                        <BitacoraPunto
+                          key={punto.id}
+                          punto={{ ...punto, latitud: lat, longitud: lng }}
+                          onSelect={setSelectedInfo}
+                        />
+                      );
+                    })
+                  );
+                })()}
               </LayerGroup>
 
               {/* Marcadores de Excel */}
               <LayerGroup>
-                {capasExcel
+                {(() => {
+                  // Agrupar por lat/lon redondeados a 6 decimales (precisión ~0.1m)
+                  const allExcelPoints = capasExcel
+                    .filter(capa => capa.visible)
+                    .flatMap(capa => capa.datos)
+                    .filter(dato =>
+                      typeof dato.latitud === 'number' &&
+                      typeof dato.longitud === 'number' &&
+                      !isNaN(dato.latitud) &&
+                      !isNaN(dato.longitud) &&
+                      dato.latitud >= -90 && dato.latitud <= 90 &&
+                      dato.longitud >= -180 && dato.longitud <= 180
+                    );
+                  // Agrupar por key
+                  const pointGroups = {};
+                  allExcelPoints.forEach((p) => {
+                    const key = `${p.latitud.toFixed(6)},${p.longitud.toFixed(6)}`;
+                    if (!pointGroups[key]) pointGroups[key] = [];
+                    pointGroups[key].push(p);
+                  });
+                  // Renderizar con offset
+                  return Object.entries(pointGroups).flatMap(([key, group]) =>
+                    group.map((dato, idx) => {
+                      const [lat, lng] = getOffsetLatLngCircle(dato.latitud, dato.longitud, idx, group.length, 5);
+                      return (
+                        <Marker
+                          key={dato.id}
+                          position={[lat, lng]}
+                          icon={L.divIcon({
+                            className: 'custom-div-icon',
+                            html: `<div style="background: ${capasExcel.find(c => c.datos.includes(dato))?.color || '#40c057'}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.4);"></div>`,
+                            iconSize: [12, 12],
+                            iconAnchor: [6, 6]
+                          })}
+                        >
+                          <Popup>
+                            <Stack gap="xs">
+                              <Text fw={500} size="sm">Datos Excel</Text>
+                              <Text size="xs" c="dimmed">
+                                {dato.latitud.toFixed(6)}, {dato.longitud.toFixed(6)}
+                              </Text>
+                              {Object.entries(dato)
+                                .filter(([key]) => !['id', 'latitud', 'longitud'].includes(key))
+                                .map(([key, value]) => (
+                                  <Text key={key} size="xs">
+                                    <Text component="span" fw={500}>{key}:</Text> {String(value)}
+                                  </Text>
+                                ))}
+                            </Stack>
+                          </Popup>
+                        </Marker>
+                      );
+                    })
+                  );
+                })()}
+              </LayerGroup>
+
+              {/* Marcadores de GPX/KML */}
+              <LayerGroup>
+                {capasGpx
                   .filter(capa => capa.visible)
                   .flatMap(capa => capa.datos)
                   .filter(dato => 
-                    typeof dato.latitud === 'number' && 
-                    typeof dato.longitud === 'number' &&
-                    !isNaN(dato.latitud) && 
-                    !isNaN(dato.longitud) &&
-                    dato.latitud >= -90 && 
-                    dato.latitud <= 90 &&
-                    dato.longitud >= -180 && 
-                    dato.longitud <= 180
+                    typeof dato.lat === 'number' && 
+                    typeof dato.lon === 'number' &&
+                    !isNaN(dato.lat) && 
+                    !isNaN(dato.lon) &&
+                    dato.lat >= -90 && 
+                    dato.lat <= 90 &&
+                    dato.lon >= -180 && 
+                    dato.lon <= 180
                   )
-                  .map(dato => (
-                    <Marker
-                      key={dato.id}
-                      position={[dato.latitud, dato.longitud]}
-                      icon={L.divIcon({
-                        className: 'custom-div-icon',
-                        html: `<div style="background: ${capasExcel.find(c => c.datos.includes(dato))?.color || '#40c057'}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.4);"></div>`,
-                        iconSize: [12, 12],
-                        iconAnchor: [6, 6]
-                      })}
-                    >
-                      <Popup>
-                        <Stack gap="xs">
-                          <Text fw={500} size="sm">Datos Excel</Text>
-                          <Text size="xs" c="dimmed">
-                            {dato.latitud.toFixed(6)}, {dato.longitud.toFixed(6)}
-                          </Text>
-                          {Object.entries(dato)
-                            .filter(([key]) => !['id', 'latitud', 'longitud'].includes(key))
-                            .map(([key, value]) => (
-                              <Text key={key} size="xs">
-                                <Text component="span" fw={500}>{key}:</Text> {String(value)}
-                              </Text>
-                            ))}
-                        </Stack>
-                      </Popup>
-                    </Marker>
-                                  ))
-              }
-            </LayerGroup>
-
-            {/* Marcadores de GPX/KML */}
-            <LayerGroup>
-              {capasGpx
-                .filter(capa => capa.visible)
-                .flatMap(capa => capa.datos)
-                .filter(dato => 
-                  typeof dato.lat === 'number' && 
-                  typeof dato.lon === 'number' &&
-                  !isNaN(dato.lat) && 
-                  !isNaN(dato.lon) &&
-                  dato.lat >= -90 && 
-                  dato.lat <= 90 &&
-                  dato.lon >= -180 && 
-                  dato.lon <= 180
-                )
-                .map((dato, index) => {
-                  const capa = capasGpx.find(c => c.datos.includes(dato));
-                  const shouldShowPoint = capa?.tipoVisualizacion === 'puntos' || capa?.tipoVisualizacion === 'ambos';
-                  
-                  if (!shouldShowPoint) return null;
-                  
-                  return (
-                    <Marker
+                  .map((dato, index) => {
+                    const capa = capasGpx.find(c => c.datos.includes(dato));
+                    const shouldShowPoint = capa?.tipoVisualizacion === 'puntos' || capa?.tipoVisualizacion === 'ambos';
+                    
+                    if (!shouldShowPoint) return null;
+                    
+                    return (
+                      <Marker
                                              key={`gpx-normal-${index}`}
                        position={[dato.lat, dato.lon]}
                        icon={L.divIcon({
@@ -4302,6 +4408,185 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
           }}
         />
       )}
+
+      {/* Leyenda flotante de capas externas */}
+      <div style={{
+        position: 'absolute',
+        bottom: '20px',
+        left: '460px', // Ajuste solicitado
+        backgroundColor: 'rgba(255, 255, 255, 0.2)', // 20% opacidad
+        backdropFilter: 'blur(8px)',
+        border: '1px solid rgba(255, 255, 255, 0.3)',
+        borderRadius: '8px',
+        padding: legendCollapsed ? '8px 12px' : '12px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        zIndex: 1000,
+        width: legendCollapsed ? 'auto' : '700px',
+        maxHeight: legendCollapsed ? 'auto' : '300px',
+        overflowY: legendCollapsed ? 'visible' : 'auto',
+        transition: 'all 0.3s ease'
+      }}>
+        {/* Header colapsable */}
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between',
+          cursor: 'pointer',
+          marginBottom: legendCollapsed ? '0' : '8px'
+        }} onClick={() => setLegendCollapsed(!legendCollapsed)}>
+          <div style={{ fontWeight: 'bold', fontSize: '14px' }}>
+            Capas Externas
+          </div>
+          <div style={{ fontSize: '12px', color: '#666' }}>
+            {legendCollapsed ? '▼' : '▲'}
+          </div>
+        </div>
+        {/* Contenido colapsable */}
+        {!legendCollapsed && (
+          <div style={{ display: 'flex', gap: '20px' }}>
+            {/* Tres columnas */}
+            {[0, 1, 2].map(col => (
+              <div style={{ flex: 1 }} key={col}>
+                {/* Capas Excel */}
+                {capasExcel.length > 0 && (
+                  <div style={{ marginBottom: '8px' }}>
+                    {col === 0 && <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px', fontWeight: 'bold' }}>Excel</div>}
+                    {capasExcel.filter((_, i) => i % 3 === col).map((capa) => (
+                      <div key={`excel-${capa.id}`} style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                        <div style={{
+                          width: '12px',
+                          height: '12px',
+                          backgroundColor: capa.color,
+                          borderRadius: '50%',
+                          marginRight: '8px',
+                          border: '1px solid #ccc'
+                        }} />
+                        {editLegend?.tipo === 'excel' && editLegend.id === capa.id ? (
+                          <input
+                            type="text"
+                            value={editLegend.nombre}
+                            onChange={(e) => setEditLegend({ ...editLegend, nombre: e.target.value })}
+                            onBlur={handleLegendSave}
+                            onKeyDown={handleLegendKeyPress}
+                            style={{
+                              fontSize: '12px',
+                              border: '1px solid #007bff',
+                              borderRadius: '3px',
+                              padding: '2px 4px',
+                              flex: 1
+                            }}
+                            autoFocus
+                          />
+                        ) : (
+                          <span
+                            style={{ fontSize: '12px', cursor: 'pointer', flex: 1 }}
+                            onClick={() => handleLegendEdit('excel', capa.id, capa.nombre)}
+                            title="Clic para editar"
+                          >
+                            {capa.nombre}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* Capas Bitácora */}
+                {capasBitacora.length > 0 && (
+                  <div style={{ marginBottom: '8px' }}>
+                    {col === 0 && <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px', fontWeight: 'bold' }}>Bitácora</div>}
+                    {capasBitacora.filter((_, i) => i % 3 === col).map((capa) => (
+                      <div key={`bitacora-${capa.id}`} style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                        <div style={{
+                          width: '12px',
+                          height: '12px',
+                          backgroundColor: capa.color || '#228be6',
+                          borderRadius: '50%',
+                          marginRight: '8px',
+                          border: '1px solid #ccc'
+                        }} />
+                        {editLegend?.tipo === 'bitacora' && editLegend.id === capa.id ? (
+                          <input
+                            type="text"
+                            value={editLegend.nombre}
+                            onChange={(e) => setEditLegend({ ...editLegend, nombre: e.target.value })}
+                            onBlur={handleLegendSave}
+                            onKeyDown={handleLegendKeyPress}
+                            style={{
+                              fontSize: '12px',
+                              border: '1px solid #007bff',
+                              borderRadius: '3px',
+                              padding: '2px 4px',
+                              flex: 1
+                            }}
+                            autoFocus
+                          />
+                        ) : (
+                          <span
+                            style={{ fontSize: '12px', cursor: 'pointer', flex: 1 }}
+                            onClick={() => handleLegendEdit('bitacora', capa.id, capa.nombre)}
+                            title="Clic para editar"
+                          >
+                            {capa.nombre}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* Capas GPX/KML */}
+                {capasGpx.length > 0 && (
+                  <div style={{ marginBottom: '8px' }}>
+                    {col === 0 && <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px', fontWeight: 'bold' }}>GPX/KML</div>}
+                    {capasGpx.filter((_, i) => i % 3 === col).map((capa) => (
+                      <div key={`gpx-${capa.id}`} style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                        <div style={{
+                          width: '12px',
+                          height: '12px',
+                          backgroundColor: capa.color,
+                          borderRadius: '50%',
+                          marginRight: '8px',
+                          border: '1px solid #ccc'
+                        }} />
+                        {editLegend?.tipo === 'gpx' && editLegend.id === capa.id ? (
+                          <input
+                            type="text"
+                            value={editLegend.nombre}
+                            onChange={(e) => setEditLegend({ ...editLegend, nombre: e.target.value })}
+                            onBlur={handleLegendSave}
+                            onKeyDown={handleLegendKeyPress}
+                            style={{
+                              fontSize: '12px',
+                              border: '1px solid #007bff',
+                              borderRadius: '3px',
+                              padding: '2px 4px',
+                              flex: 1
+                            }}
+                            autoFocus
+                          />
+                        ) : (
+                          <span
+                            style={{ fontSize: '12px', cursor: 'pointer', flex: 1 }}
+                            onClick={() => handleLegendEdit('gpx', capa.id, capa.nombre)}
+                            title="Clic para editar"
+                          >
+                            {capa.nombre}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+        {/* Mensaje si no hay capas */}
+        {!legendCollapsed && capasExcel.length === 0 && capasBitacora.length === 0 && capasGpx.length === 0 && (
+          <div style={{ fontSize: '12px', color: '#999', fontStyle: 'italic' }}>
+            No hay capas externas cargadas
+          </div>
+        )}
+      </div>
     </Box>
   );
 };
