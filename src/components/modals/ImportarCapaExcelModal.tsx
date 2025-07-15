@@ -12,9 +12,15 @@ import {
   Loader, 
   Divider, 
   Table, 
-  ScrollArea 
+  ScrollArea,
+  Switch,
+  Title,
+  SimpleGrid,
+  ActionIcon,
+  TextInput as MantineTextInput,
+  Stepper
 } from '@mantine/core';
-import { IconAlertCircle } from '@tabler/icons-react';
+import { IconAlertCircle, IconColumns, IconSearch, IconCheck, IconX } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import * as XLSX from 'xlsx';
 
@@ -23,6 +29,7 @@ export interface ExcelImportConfig {
   columnaLongitud: string;
   nombreCapa: string;
   color: string;
+  columnasSeleccionadas: string[]; // Nuevas columnas seleccionadas
 }
 
 interface ImportarCapaExcelModalProps {
@@ -38,17 +45,19 @@ export const ImportarCapaExcelModal: React.FC<ImportarCapaExcelModalProps> = ({
   file, 
   onImport 
 }) => {
-  const [step, setStep] = useState<'upload' | 'mapping' | 'preview'>('upload');
+  const [currentStep, setCurrentStep] = useState(0);
   const [fileColumns, setFileColumns] = useState<string[]>([]);
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [config, setConfig] = useState<ExcelImportConfig>({
     columnaLatitud: '',
     columnaLongitud: '',
     nombreCapa: '',
-    color: '#40c057'
+    color: '#40c057',
+    columnasSeleccionadas: []
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Cargar y procesar el archivo Excel
   useEffect(() => {
@@ -80,7 +89,8 @@ export const ImportarCapaExcelModal: React.FC<ImportarCapaExcelModalProps> = ({
           // Inicializar configuración con nombre del archivo
           setConfig(prev => ({
             ...prev,
-            nombreCapa: file.name.replace(/\.(xlsx|xls|csv)$/i, '')
+            nombreCapa: file.name.replace(/\.(xlsx|xls|csv)$/i, ''),
+            columnasSeleccionadas: [] // Inicializar sin columnas seleccionadas
           }));
           
           // Auto-detectar columnas de coordenadas
@@ -108,7 +118,7 @@ export const ImportarCapaExcelModal: React.FC<ImportarCapaExcelModalProps> = ({
           });
           
           setPreviewData(sampleData);
-          setStep('mapping');
+          setCurrentStep(1);
         } else {
           throw new Error('El archivo está vacío o no contiene datos válidos.');
         }
@@ -127,6 +137,48 @@ export const ImportarCapaExcelModal: React.FC<ImportarCapaExcelModalProps> = ({
 
     reader.readAsArrayBuffer(file);
   }, [file]);
+
+  // Obtener columnas disponibles (excluyendo las de coordenadas)
+  const columnasDisponibles = fileColumns.filter(col => 
+    col !== config.columnaLatitud && col !== config.columnaLongitud
+  );
+
+  // Filtrar columnas por término de búsqueda
+  const columnasFiltradas = columnasDisponibles.filter(columna =>
+    columna.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Funciones para selección masiva
+  const handleSelectAll = () => {
+    setConfig(prev => ({
+      ...prev,
+      columnasSeleccionadas: [...columnasFiltradas]
+    }));
+  };
+
+  const handleDeselectAll = () => {
+    setConfig(prev => ({
+      ...prev,
+      columnasSeleccionadas: []
+    }));
+  };
+
+  const handleSelectVisible = () => {
+    setConfig(prev => ({
+      ...prev,
+      columnasSeleccionadas: [...new Set([...prev.columnasSeleccionadas, ...columnasFiltradas])]
+    }));
+  };
+
+  // Manejar selección/deselección de columnas
+  const handleColumnToggle = (columna: string) => {
+    setConfig(prev => ({
+      ...prev,
+      columnasSeleccionadas: prev.columnasSeleccionadas.includes(columna)
+        ? prev.columnasSeleccionadas.filter(c => c !== columna)
+        : [...prev.columnasSeleccionadas, columna]
+    }));
+  };
 
   // Procesar y enviar la importación
   const handleImport = async () => {
@@ -172,17 +224,43 @@ export const ImportarCapaExcelModal: React.FC<ImportarCapaExcelModalProps> = ({
   };
 
   const handleModalClose = () => {
-    setStep('upload');
+    setCurrentStep(0);
     setFileColumns([]);
     setPreviewData([]);
     setConfig({
       columnaLatitud: '',
       columnaLongitud: '',
       nombreCapa: '',
-      color: '#40c057'
+      color: '#40c057',
+      columnasSeleccionadas: []
     });
     setError(null);
+    setSearchTerm('');
     onClose();
+  };
+
+  const handleNextStep = () => {
+    if (currentStep === 1) {
+      if (!config.columnaLatitud || !config.columnaLongitud || !config.nombreCapa) {
+        notifications.show({
+          title: 'Campos requeridos',
+          message: 'Por favor, completa todos los campos obligatorios.',
+          color: 'red'
+        });
+        return;
+      }
+      setCurrentStep(2);
+    } else if (currentStep === 2) {
+      setCurrentStep(3);
+    }
+  };
+
+  const handlePreviousStep = () => {
+    if (currentStep === 2) {
+      setCurrentStep(1);
+    } else if (currentStep === 3) {
+      setCurrentStep(2);
+    }
   };
 
   return (
@@ -190,25 +268,52 @@ export const ImportarCapaExcelModal: React.FC<ImportarCapaExcelModalProps> = ({
       opened={opened}
       onClose={handleModalClose}
       title="Importar datos desde Excel"
-      size="lg"
+      size="90%"
       centered
+      styles={{
+        body: {
+          maxHeight: '80vh',
+          overflow: 'hidden'
+        }
+      }}
     >
-      <Stack gap="md">
-        {error && (
-          <Alert icon={<IconAlertCircle size={16} />} color="red">
-            {error}
-          </Alert>
-        )}
+      <Stepper active={currentStep} onStepClick={setCurrentStep}>
+        <Stepper.Step label="Archivo" description="Procesar archivo Excel">
+          <Stack gap="md" mt="md">
+            {error && (
+              <Alert icon={<IconAlertCircle size={16} />} color="red">
+                {error}
+              </Alert>
+            )}
 
-        {isLoading && (
-          <Group justify="center" p="xl">
-            <Loader size="lg" />
-            <Text>Procesando archivo...</Text>
-          </Group>
-        )}
+            {isLoading && (
+              <Group justify="center" style={{ padding: '2rem' }}>
+                <Loader size="lg" />
+                <Text>Procesando archivo...</Text>
+              </Group>
+            )}
 
-        {!isLoading && step === 'mapping' && (
-          <>
+            {!isLoading && file && (
+              <Alert icon={<IconColumns size={16} />} color="blue">
+                <Text size="sm">
+                  Archivo procesado: <strong>{file.name}</strong>
+                </Text>
+                <Text size="xs" c="dimmed" mt="xs">
+                  {fileColumns.length} columnas detectadas
+                </Text>
+              </Alert>
+            )}
+          </Stack>
+        </Stepper.Step>
+
+        <Stepper.Step label="Coordenadas" description="Mapear coordenadas">
+          <Stack gap="md" mt="md">
+            {error && (
+              <Alert icon={<IconAlertCircle size={16} />} color="red">
+                {error}
+              </Alert>
+            )}
+
             <Text size="sm" c="dimmed">
               Configura cómo importar los datos de <strong>{file?.name}</strong>
             </Text>
@@ -247,26 +352,182 @@ export const ImportarCapaExcelModal: React.FC<ImportarCapaExcelModalProps> = ({
               searchable
               required
             />
+          </Stack>
+        </Stepper.Step>
+
+        <Stepper.Step label="Columnas" description="Seleccionar columnas adicionales">
+          <Stack gap="md" mt="md">
+            {error && (
+              <Alert icon={<IconAlertCircle size={16} />} color="red">
+                {error}
+              </Alert>
+            )}
+
+            <Title order={4}>Seleccionar columnas adicionales</Title>
+            <Text size="sm" c="dimmed">
+              Elige qué columnas adicionales quieres incluir en la capa. Estas columnas se mostrarán en la tabla flotante.
+            </Text>
+
+            {columnasDisponibles.length > 0 ? (
+              <div style={{ flex: 1, minHeight: 0 }}>
+                {/* Barra de búsqueda y controles */}
+                <Group justify="space-between" style={{ marginBottom: '0.5rem' }}>
+                  <MantineTextInput
+                    placeholder="Buscar columnas..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    leftSection={<IconSearch size={16} />}
+                    style={{ flex: 1 }}
+                    size="sm"
+                  />
+                  <Group gap="xs">
+                    <ActionIcon 
+                      variant="light" 
+                      color="blue" 
+                      onClick={handleSelectVisible}
+                      title="Seleccionar visibles"
+                      size="sm"
+                    >
+                      <IconCheck size={16} />
+                    </ActionIcon>
+                    <ActionIcon 
+                      variant="light" 
+                      color="red" 
+                      onClick={handleDeselectAll}
+                      title="Deseleccionar todas"
+                      size="sm"
+                    >
+                      <IconX size={16} />
+                    </ActionIcon>
+                  </Group>
+                </Group>
+
+                <ScrollArea 
+                  style={{ 
+                    height: '45vh',
+                    maxHeight: '350px'
+                  }}
+                  type="auto"
+                  offsetScrollbars
+                >
+                  <Stack gap={0} p="xs">
+                    {columnasFiltradas.length > 0 ? (
+                      columnasFiltradas.map((columna, index) => (
+                        <Group 
+                          key={columna} 
+                          justify="space-between" 
+                          style={{ 
+                            padding: '8px 12px',
+                            backgroundColor: index % 2 === 0 ? 'var(--mantine-color-gray-0)' : 'transparent',
+                            borderRadius: '4px',
+                            border: '1px solid transparent',
+                            transition: 'all 0.2s ease'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = 'var(--mantine-color-blue-0)';
+                            e.currentTarget.style.borderColor = 'var(--mantine-color-blue-2)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = index % 2 === 0 ? 'var(--mantine-color-gray-0)' : 'transparent';
+                            e.currentTarget.style.borderColor = 'transparent';
+                          }}
+                        >
+                          <Text 
+                            size="sm" 
+                            style={{ 
+                              flex: 1,
+                              wordBreak: 'break-word',
+                              cursor: 'pointer',
+                              fontWeight: config.columnasSeleccionadas.includes(columna) ? 500 : 400
+                            }}
+                            onClick={() => handleColumnToggle(columna)}
+                          >
+                            {columna}
+                          </Text>
+                          <Switch
+                            checked={config.columnasSeleccionadas.includes(columna)}
+                            onChange={() => handleColumnToggle(columna)}
+                            size="sm"
+                            color="blue"
+                            onLabel="ON"
+                            offLabel="OFF"
+                          />
+                        </Group>
+                      ))
+                    ) : (
+                      <Text size="sm" c="dimmed" ta="center" py="md">
+                        No se encontraron columnas que coincidan con "{searchTerm}"
+                      </Text>
+                    )}
+                  </Stack>
+                </ScrollArea>
+                
+                <Group justify="space-between" style={{ marginTop: '0.5rem' }}>
+                  <Text size="xs" c="dimmed">
+                    {config.columnasSeleccionadas.length} de {columnasDisponibles.length} columnas seleccionadas
+                  </Text>
+                  {searchTerm && (
+                    <Text size="xs" c="dimmed">
+                      {columnasFiltradas.length} resultados de búsqueda
+                    </Text>
+                  )}
+                </Group>
+              </div>
+            ) : (
+              <Alert icon={<IconColumns size={16} />} color="blue">
+                No hay columnas adicionales disponibles. Solo se importarán las coordenadas.
+              </Alert>
+            )}
+          </Stack>
+        </Stepper.Step>
+
+        <Stepper.Step label="Vista Previa" description="Revisar datos">
+          <Stack gap="md" mt="md">
+            {error && (
+              <Alert icon={<IconAlertCircle size={16} />} color="red">
+                {error}
+              </Alert>
+            )}
+
+            <Title order={4}>Vista previa de la importación</Title>
+            <Text size="sm" c="dimmed">
+              Revisa cómo se verán los datos importados con las columnas seleccionadas.
+            </Text>
 
             {previewData.length > 0 && (
               <>
                 <Divider />
                 <Text size="sm" fw={500}>Vista previa de datos</Text>
-                <ScrollArea>
+                <ScrollArea 
+                  style={{ 
+                    height: '40vh',
+                    maxHeight: '300px'
+                  }}
+                  type="auto"
+                  offsetScrollbars
+                >
                   <Table>
                     <Table.Thead>
                       <Table.Tr>
-                        {fileColumns.map((col) => (
-                          <Table.Th key={col}>{col}</Table.Th>
+                        <Table.Th>Coordenadas</Table.Th>
+                        {config.columnasSeleccionadas.map((col) => (
+                          <Table.Th key={col} style={{ minWidth: '120px', maxWidth: '200px' }}>
+                            <Text size="xs" truncate="end">{col}</Text>
+                          </Table.Th>
                         ))}
                       </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>
                       {previewData.map((row, index) => (
                         <Table.Tr key={index}>
-                          {fileColumns.map((col) => (
-                            <Table.Td key={col}>
-                              <Text size="xs">{String(row[col] || '')}</Text>
+                          <Table.Td>
+                            <Text size="xs" c="dimmed">
+                              {row[config.columnaLatitud]}, {row[config.columnaLongitud]}
+                            </Text>
+                          </Table.Td>
+                          {config.columnasSeleccionadas.map((col) => (
+                            <Table.Td key={col} style={{ minWidth: '120px', maxWidth: '200px' }}>
+                              <Text size="xs" truncate="end">{String(row[col] || '')}</Text>
                             </Table.Td>
                           ))}
                         </Table.Tr>
@@ -276,22 +537,39 @@ export const ImportarCapaExcelModal: React.FC<ImportarCapaExcelModalProps> = ({
                 </ScrollArea>
               </>
             )}
+          </Stack>
+        </Stepper.Step>
+      </Stepper>
 
-            <Group justify="flex-end" mt="md">
-              <Button variant="light" onClick={handleModalClose}>
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleImport}
-                disabled={!config.columnaLatitud || !config.columnaLongitud || !config.nombreCapa}
-                loading={isLoading}
-              >
-                Importar
-              </Button>
-            </Group>
-          </>
-        )}
-      </Stack>
+      <Group justify="space-between" style={{ marginTop: 'var(--mantine-spacing-xl)' }}>
+        <Button
+          variant="light"
+          onClick={currentStep === 0 ? handleModalClose : handlePreviousStep}
+          disabled={isLoading}
+        >
+          {currentStep === 0 ? 'Cancelar' : 'Anterior'}
+        </Button>
+
+        <Group>
+          {currentStep < 3 && (
+            <Button
+              onClick={handleNextStep}
+              disabled={isLoading}
+            >
+              Siguiente
+            </Button>
+          )}
+          
+          {currentStep === 3 && (
+            <Button
+              onClick={handleImport}
+              loading={isLoading}
+            >
+              Importar
+            </Button>
+          )}
+        </Group>
+      </Group>
     </Modal>
   );
 }; 

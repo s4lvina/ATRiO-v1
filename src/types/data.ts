@@ -298,4 +298,14 @@ export interface CapaBitacoraImportConfig {
   columnaMes: string;
   columnaDia: string;
   columnaDireccion: string;
+}
+
+// --- NUEVA INTERFAZ PARA CAPAS EXCEL ---
+export interface CapaExcel {
+  id: number;
+  nombre: string;
+  visible: boolean;
+  datos: any[];
+  color: string;
+  columnasSeleccionadas: string[];
 } 

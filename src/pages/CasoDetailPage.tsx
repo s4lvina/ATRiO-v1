@@ -60,8 +60,8 @@ const caseSections = [
     { id: 'lecturas-relevantes', label: 'Lecturas Relevantes', icon: IconBookmark, section: 'lecturas' },
     { id: 'lanzadera', label: 'Análisis Avanzado', icon: IconFlask, section: 'lecturas' },
     { id: 'cruce-externos', label: 'Cruce de Fuentes Externas', icon: IconArrowsJoin, section: 'lecturas' },
-    { id: 'vehiculos', label: 'Vehículos', icon: IconCar, section: 'vehiculos' },
-    { id: 'mapa', label: 'Mapa', icon: IconMap, section: 'vehiculos' },
+    { id: 'vehiculos', label: 'Vehículos', icon: IconCar, section: 'lecturas' },
+    { id: 'mapa', label: 'Mapa', icon: IconMap, section: 'lecturas' },
     { id: 'analisis-gps', label: 'Mapa GPS', icon: IconRoute, section: 'gps' },
     { id: 'datos-gps', label: 'Datos GPS', icon: IconTable, section: 'gps' },
     { id: 'archivos', label: 'Archivos Importados', icon: IconFiles, section: 'archivos' },
@@ -666,23 +666,6 @@ const handleDeleteArchivo = async (archivoId: number) => {
                                     leftSection={<section.icon size={16} />}
                                     onClick={() => setActiveMainTab(section.id)}
                                     color="#2b4fcf"
-                                >
-                                    {section.label}
-                                </Button>
-                            ))}
-                        </Group>
-                    </Box>
-                    <Divider orientation="vertical" mx="md" />
-                    <Box>
-                        <Text fw={500} c="violet" mb="xs">Análisis sobre Vehículos</Text>
-                        <Group gap="xs">
-                            {caseSections.filter(section => section.section === 'vehiculos').map((section) => (
-                                <Button
-                                    key={section.id}
-                                    variant={activeMainTab === section.id ? 'filled' : 'light'}
-                                    leftSection={<section.icon size={16} />}
-                                    onClick={() => setActiveMainTab(section.id)}
-                                    color="violet"
                                 >
                                     {section.label}
                                 </Button>

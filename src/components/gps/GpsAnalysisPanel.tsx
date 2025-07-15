@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap, LayerGroup, CircleMarke
 import L from 'leaflet';
 import { Box, Text, Paper, Stack, Group, Button, TextInput, NumberInput, Select, Switch, ActionIcon, ColorInput, Collapse, Alert, Title, Divider, Tooltip, Modal, Textarea, ColorSwatch, SimpleGrid, Card, Badge, Slider, ScrollArea, Table, Drawer, Loader, Grid } from '@mantine/core';
 import { IconPlus, IconTrash, IconEdit, IconInfoCircle, IconMaximize, IconMinimize, IconCar, IconCheck, IconX, IconListDetails, IconSearch, IconHome, IconStar, IconFlag, IconUser, IconMapPin, IconBuilding, IconBriefcase, IconAlertCircle, IconClock, IconGauge, IconCompass, IconMountain, IconRuler, IconChevronDown, IconChevronUp, IconZoomIn, IconRefresh, IconPlayerPlay, IconPlayerPause, IconPlayerStop, IconPlayerTrackNext, IconPlayerTrackPrev, IconPlayerSkipForward, IconPlayerSkipBack, IconCamera, IconDownload, IconAnalyze, IconStack, IconMovie, IconTable, IconFileExport, IconMenuDeep, IconMenu2, IconMapPinPlus, IconFilter, IconMap, IconSparkles, IconFileSpreadsheet, IconFileText, IconUpload, IconSettings } from '@tabler/icons-react';
-import type { GpsLectura, GpsCapa, LocalizacionInteres } from '../../types/data';
+import type { GpsLectura, GpsCapa, LocalizacionInteres, CapaExcel } from '../../types/data';
 import apiClient from '../../services/api';
 import dayjs from 'dayjs';
 import { useHotkeys } from '@mantine/hooks';
@@ -717,7 +717,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
   const [selectedBitacoraIndex, setSelectedBitacoraIndex] = useState<number | null>(null);
 
   // Estados para capas de Excel (datos libres)
-  const [capasExcel, setCapasExcel] = useState<any[]>([]);
+  const [capasExcel, setCapasExcel] = useState<CapaExcel[]>([]);
   const [modalExcelAbierto, setModalExcelAbierto] = useState(false);
   const [archivoExcel, setArchivoExcel] = useState<File | null>(null);
   const [excelPanelOpen, setExcelPanelOpen] = useState(false);
@@ -3874,7 +3874,9 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                     <Table.Tr>
                       <Table.Th>#</Table.Th>
                       <Table.Th>Coordenadas</Table.Th>
-                      <Table.Th>Datos</Table.Th>
+                      {capasExcel.length > 0 && capasExcel[0].columnasSeleccionadas && capasExcel[0].columnasSeleccionadas.map((col: string) => (
+                        <Table.Th key={col}>{col}</Table.Th>
+                      ))}
                     </Table.Tr>
                   </Table.Thead>
                   <Table.Tbody>
@@ -3900,15 +3902,11 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                           <Table.Td>
                             <Text size="xs" c="dimmed">{dato.latitud?.toFixed(6)}, {dato.longitud?.toFixed(6)}</Text>
                           </Table.Td>
-                          <Table.Td>
-                            <Stack gap={1}>
-                              {Object.entries(dato).filter(([key]) => !['latitud', 'longitud', '_capa', '_idx', 'id'].includes(key)).map(([key, value]) => (
-                                <Text key={key} size="xs" c="dimmed">
-                                  <Text component="span" fw={500}>{key}:</Text> {String(value)}
-                                </Text>
-                              ))}
-                            </Stack>
-                          </Table.Td>
+                          {dato._capa.columnasSeleccionadas && dato._capa.columnasSeleccionadas.map((col: string) => (
+                            <Table.Td key={col}>
+                              <Text size="xs" c="dimmed">{String(dato[col] || '')}</Text>
+                            </Table.Td>
+                          ))}
                         </Table.Tr>
                       ))}
                   </Table.Tbody>
@@ -4360,14 +4358,14 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                 return null;
               }
               
-              // Crear objeto con todas las columnas excepto las de coordenadas
+              // Crear objeto solo con las columnas seleccionadas
               const datoCompleto = {
                 id: Date.now() + index,
                 latitud: latitud,
                 longitud: longitud,
                 ...Object.fromEntries(
                   Object.entries(row).filter(([key]) => 
-                    key !== config.columnaLatitud && key !== config.columnaLongitud
+                    config.columnasSeleccionadas.includes(key)
                   )
                 )
               };
@@ -4399,7 +4397,8 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
               nombre: config.nombreCapa || archivoExcel?.name || 'Nueva capa Excel',
               visible: true,
               datos: datosValidos,
-              color: config.color || '#40c057'
+              color: config.color || '#40c057',
+              columnasSeleccionadas: config.columnasSeleccionadas || []
             };
 
             setCapasExcel(capas => [...capas, nuevaCapa]);
