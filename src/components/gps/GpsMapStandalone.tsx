@@ -705,7 +705,7 @@ const GpsMapStandalone = React.memo(forwardRef<L.Map, GpsMapStandalonePropsWithF
       case 'cartodb-light':
         return 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
       case 'cartodb-voyager':
-        return 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
+        return 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
       default:
         return 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
     }
@@ -1123,6 +1123,55 @@ const GpsMapStandalone = React.memo(forwardRef<L.Map, GpsMapStandalonePropsWithF
     }
   }, [selectedInfo, onPuntoSeleccionado]);
 
+    // Componente para actualizar manualmente la capa de tiles
+  const TileLayerUpdater = () => {
+    const map = useMap();
+    const tileLayerRef = useRef<L.TileLayer | null>(null);
+    
+    useEffect(() => {
+      console.log('=== TILE LAYER UPDATER DEBUG ===');
+      console.log('Map exists:', !!map);
+      console.log('Current visualizationType:', mapControls.visualizationType);
+      
+      if (!map) return;
+      
+      console.log('Removing old tile layer...');
+      
+      // Remover la capa anterior si existe
+      if (tileLayerRef.current) {
+        map.removeLayer(tileLayerRef.current);
+        tileLayerRef.current = null;
+      }
+      
+      // Crear nueva capa de tiles
+      const tileUrl = getTileLayer();
+      console.log('Creating new tile layer with URL:', tileUrl);
+      const newTileLayer = L.tileLayer(tileUrl, {
+        attribution: getAttribution(),
+        maxZoom: 22,
+        maxNativeZoom: 18,
+        // Forzar recarga de tiles para evitar cache
+        updateWhenIdle: false,
+        updateWhenZooming: false
+      });
+      
+      // Agregar la nueva capa al mapa
+      console.log('Adding new tile layer to map...');
+      newTileLayer.addTo(map);
+      tileLayerRef.current = newTileLayer;
+      console.log('Tile layer updated successfully!');
+      
+      return () => {
+        if (tileLayerRef.current) {
+          map.removeLayer(tileLayerRef.current);
+          tileLayerRef.current = null;
+        }
+      };
+    }, [map, mapControls.visualizationType]);
+    
+    return null;
+  };
+
   // Componente para filtrar la polilínea de recorrido
   const FilteredPolyline = () => {
     const map = useMap();
@@ -1162,12 +1211,7 @@ const GpsMapStandalone = React.memo(forwardRef<L.Map, GpsMapStandalonePropsWithF
           }
         }}
       >
-        <TileLayer
-          url={getTileLayer()}
-          attribution={getAttribution()}
-          maxZoom={22}
-          maxNativeZoom={18}
-        />
+        <TileLayerUpdater />
         <MapAutoResize />
         <DrawControl onShapeDrawn={onShapeDrawn!} onShapeDeleted={onShapeDeleted!} />
         {mapControls.showPoints && <ClusteredMarkersInternal />}

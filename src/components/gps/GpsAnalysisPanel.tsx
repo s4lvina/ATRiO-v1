@@ -659,7 +659,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
 
   // Estados para controles del mapa
   const [mapControls, setMapControls] = useState({
-    visualizationType: 'cartodb-voyager' as 'standard' | 'satellite' | 'cartodb-light' | 'cartodb-voyager',
+    visualizationType: 'standard' as 'standard' | 'satellite' | 'cartodb-light' | 'cartodb-voyager',
     showHeatmap: true,
     showPoints: false,
     optimizePoints: false,
@@ -811,31 +811,70 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
           border: '1px solid rgba(255, 255, 255, 0.4)',
           borderRadius: '12px',
           padding: '20px',
-          width: '380px',
+          width: '480px',
           height: 'auto',
-          zIndex: 50000,
+          zIndex: 99998,
           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)'
         }}
       >
         <Stack gap="md">
           <Text size="sm" fw={600} mb="xs">Controles de Mapa</Text>
           
-          <Select
-            label="Tipo de Visualización"
-            value={mapControls.visualizationType}
-            onChange={(value) => {
-              if (value === 'standard' || value === 'satellite' || value === 'cartodb-light' || value === 'cartodb-voyager') {
-                setMapControls(prev => ({ ...prev, visualizationType: value }));
-              }
-            }}
-            data={[
-              { value: 'standard', label: 'OpenStreetMap' },
-              { value: 'satellite', label: 'Satélite' },
-              { value: 'cartodb-light', label: 'CartoDB Light' },
-              { value: 'cartodb-voyager', label: 'CartoDB Voyager' }
-            ]}
-            comboboxProps={{ zIndex: 60000 }}
-          />
+          <Text size="sm" fw={600} mb="xs">Tipo de Visualización</Text>
+          <Group gap="xs" style={{ flexWrap: 'nowrap' }}>
+            <Button
+              size="xs"
+              variant={mapControls.visualizationType === 'standard' ? 'filled' : 'light'}
+              color="blue"
+              onClick={() => {
+                console.log('=== BUTTON CLICK DEBUG ===');
+                console.log('Clicking standard');
+                setMapControls(prev => ({ ...prev, visualizationType: 'standard' }));
+              }}
+              style={{ flex: 1, fontSize: '11px', padding: '4px 6px', minWidth: 'auto' }}
+            >
+              OpenStreetMap
+            </Button>
+            <Button
+              size="xs"
+              variant={mapControls.visualizationType === 'satellite' ? 'filled' : 'light'}
+              color="blue"
+              onClick={() => {
+                console.log('=== BUTTON CLICK DEBUG ===');
+                console.log('Clicking satellite');
+                setMapControls(prev => ({ ...prev, visualizationType: 'satellite' }));
+              }}
+              style={{ flex: 1, fontSize: '11px', padding: '4px 6px', minWidth: 'auto' }}
+            >
+              Satélite
+            </Button>
+            <Button
+              size="xs"
+              variant={mapControls.visualizationType === 'cartodb-light' ? 'filled' : 'light'}
+              color="blue"
+              onClick={() => {
+                console.log('=== BUTTON CLICK DEBUG ===');
+                console.log('Clicking cartodb-light');
+                setMapControls(prev => ({ ...prev, visualizationType: 'cartodb-light' }));
+              }}
+              style={{ flex: 1, fontSize: '11px', padding: '4px 6px', minWidth: 'auto' }}
+            >
+              CartoDB Light
+            </Button>
+            <Button
+              size="xs"
+              variant={mapControls.visualizationType === 'cartodb-voyager' ? 'filled' : 'light'}
+              color="blue"
+              onClick={() => {
+                console.log('=== BUTTON CLICK DEBUG ===');
+                console.log('Clicking cartodb-voyager');
+                setMapControls(prev => ({ ...prev, visualizationType: 'cartodb-voyager' }));
+              }}
+              style={{ flex: 1, fontSize: '11px', padding: '4px 6px', minWidth: 'auto' }}
+            >
+              CartoDB Voyager
+            </Button>
+          </Group>
           
           <Switch
             label="Mostrar línea de recorrido"
