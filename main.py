@@ -360,7 +360,9 @@ app.include_router(auth_router, prefix="/api/auth", tags=["Autenticación"]) # M
 
 # Configurar CORS - ÚNICA CONFIGURACIÓN
 origins = [
-    "http://localhost:5173",  # Origen del frontend de desarrollo
+    "http://localhost:5173",  # Origen del frontend de desarrollo local
+    "http://127.0.0.1:5173",  # Origen del frontend de desarrollo local (alternativo)
+    "http://192.168.1.128:5173",  # Origen del frontend en red local
     # Puedes añadir aquí otros orígenes permitidos en producción, por ejemplo:
     # "https://tu-dominio-de-produccion.com",
 ]
