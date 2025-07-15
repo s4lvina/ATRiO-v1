@@ -659,7 +659,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
 
   // Estados para controles del mapa
   const [mapControls, setMapControls] = useState({
-    visualizationType: 'standard' as 'standard' | 'satellite' | 'cartodb-light' | 'cartodb-voyager',
+    visualizationType: 'cartodb-voyager' as 'standard' | 'satellite' | 'cartodb-light' | 'cartodb-voyager',
     showHeatmap: true,
     showPoints: false,
     optimizePoints: false,
@@ -891,10 +891,13 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
           />
 
           <Switch
-            label="Agrupar puntos cercanos"
+            label={`Agrupar puntos cercanos${lecturasFiltradas.length > 2000 ? ' (Automático)' : ''}`}
             checked={mapControls.enableClustering}
             onChange={e => setMapControls(prev => ({ ...prev, enableClustering: e.currentTarget.checked }))}
-            description="Agrupa puntos cercanos en clusters para mejor visualización"
+            description={lecturasFiltradas.length > 2000 
+              ? `Activado automáticamente por rendimiento (${lecturasFiltradas.length} puntos). Puedes desactivarlo manualmente.`
+              : "Agrupa puntos cercanos en clusters para mejor visualización"
+            }
           />
 
           <Switch
@@ -1737,6 +1740,25 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
     if (primero && mapRef.current) {
       console.log(`Centrando mapa en primer punto: Lat ${primero.Coordenada_Y}, Lng ${primero.Coordenada_X}`);
       mapRef.current.flyTo([primero.Coordenada_Y, primero.Coordenada_X], 16);
+    }
+  }, [lecturasFiltradas]);
+
+  // Efecto para activar automáticamente clustering cuando hay muchos puntos
+  useEffect(() => {
+    if (lecturasFiltradas.length > 2000) {
+      // Activar clustering automáticamente
+      setMapControls(prev => {
+        if (!prev.enableClustering) {
+          notifications.show({
+            title: 'Clustering Automático Activado',
+            message: `Se ha activado automáticamente el clustering debido a la gran cantidad de datos (${lecturasFiltradas.length} puntos). Puedes desactivarlo desde los controles del mapa si lo deseas.`,
+            color: 'blue',
+            autoClose: 5000
+          });
+          return { ...prev, enableClustering: true };
+        }
+        return prev;
+      });
     }
   }, [lecturasFiltradas]);
 
