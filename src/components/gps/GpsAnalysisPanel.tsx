@@ -536,19 +536,52 @@ const procesarCoordenada = (valor: any): number => {
 
   // Si es string, limpiar y convertir
   if (typeof valor === 'string') {
-    // Reemplazar comas por puntos
-    let procesado = valor.replace(',', '.');
-    // Eliminar espacios
-    procesado = procesado.trim();
-    // Convertir a número
+    let procesado = valor.replace(',', '.').trim();
+    // Intentar parseo decimal normal
     const numero = parseFloat(procesado);
-    
-    if (isNaN(numero)) {
-      console.error('No se pudo convertir la coordenada:', valor);
-      return 0;
+    if (!isNaN(numero) && !/[NSWOE]/i.test(procesado)) {
+      return numero;
     }
-    
-    return numero;
+
+    // Solo log para depuración si contiene N/S/W/O/E
+    if (/[NSWOE]/i.test(procesado)) {
+      console.log('[DEBUG] procesarCoordenada: valor de entrada:', valor);
+    }
+
+    // Regex flexible: acepta minutos y segundos de 1 o 2 dígitos, decimales opcionales, con o sin espacios
+    // Ejemplo: 40N2336.34, 40N2336, 40 N 23 36.34, 02W3958.694, 2 W 9 8.5
+    let match = procesado.match(/^\s*(\d{1,3})\s*([NSWE])\s*(\d{1,2})\s*(\d{1,2}(?:\.[0-9]+)?)\s*$/i);
+    if (!match) {
+      // Intentar sin espacios, minutos y segundos de 1 o 2 dígitos
+      match = procesado.match(/^\s*(\d{1,3})([NSWE])(\d{1,2})(\d{1,2}(?:\.[0-9]+)?)\s*$/i);
+    }
+    if (match) {
+      if (/[NSWOE]/i.test(procesado)) {
+        console.log('[DEBUG] procesarCoordenada: regex match:', match);
+      }
+      const grados = parseInt(match[1], 10);
+      const direccion = match[2].toUpperCase();
+      const minutos = parseInt(match[3], 10);
+      const segundos = parseFloat(match[4]);
+      if (isNaN(grados) || isNaN(minutos) || isNaN(segundos)) {
+        console.error('No se pudo convertir la coordenada (DMS):', valor);
+        return 0;
+      }
+      let decimal = grados + minutos / 60 + segundos / 3600;
+      if (direccion === 'S' || direccion === 'W' || direccion === 'O') {
+        decimal = -decimal;
+      }
+      if (/[NSWOE]/i.test(procesado)) {
+        console.log('[DEBUG] procesarCoordenada: decimal calculado:', decimal);
+      }
+      return decimal;
+    }
+
+    // Si no se reconoce el formato
+    if (/[NSWOE]/i.test(procesado)) {
+      console.error('[DEBUG] procesarCoordenada: No se pudo convertir la coordenada:', valor);
+    }
+    return 0;
   }
 
   console.error('Formato de coordenada no soportado:', valor);

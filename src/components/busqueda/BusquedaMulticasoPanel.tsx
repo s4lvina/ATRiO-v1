@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Text, Select, Button, Alert, Table, LoadingOverlay, Group, Stack, MultiSelect, Paper, SimpleGrid, Badge, Divider, ActionIcon, Pagination, TextInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconAlertCircle, IconSearch, IconFileExcel, IconFileWord } from '@tabler/icons-react';
+import { IconAlertCircle, IconSearch, IconFile } from '@tabler/icons-react';
 import apiClient from '../../services/api';
 import dayjs from 'dayjs';
 import * as XLSX from 'xlsx';
@@ -300,7 +300,7 @@ function BusquedaMulticasoPanel() {
                         onClick={() => exportarMatriculaExcel(vehiculo)}
                         title="Exportar a Excel"
                       >
-                        <IconFileExcel size={20} />
+                        <IconFile size={20} />
                       </ActionIcon>
                       <ActionIcon
                         variant="light"
@@ -308,7 +308,7 @@ function BusquedaMulticasoPanel() {
                         onClick={() => exportarMatriculaWord(vehiculo)}
                         title="Exportar a Word (Arial 12)"
                       >
-                        <IconFileWord size={20} />
+                        <IconFile size={20} />
                       </ActionIcon>
                     </Group>
                   </Group>

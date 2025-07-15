@@ -24,7 +24,7 @@
     "@mantine/modals": "^7.17.7",
     "@mantine/notifications": "^7.17.7",
     "@mui/material": "^7.0.2",
-    "@tabler/icons-react": "^3.33.0",
+    "@tabler/icons-react": "^2.30.0",
     "@turf/boolean-point-in-polygon": "^7.2.0",
     "@types/file-saver": "^2.0.7",
     "@types/jszip": "^3.4.0",
