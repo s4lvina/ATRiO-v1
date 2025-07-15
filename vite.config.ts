@@ -7,7 +7,16 @@ export default defineConfig({
   optimizeDeps: {
     force: true
   },
+  build: {
+    rollupOptions: {
+      input: {
+        main: './index.html'
+      }
+    }
+  },
   server: {
+    host: '0.0.0.0',
+    port: 5173,
     proxy: {
       '/api': {
         target: 'http://localhost:8000',

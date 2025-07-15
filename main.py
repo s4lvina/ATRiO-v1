@@ -3957,13 +3957,14 @@ class SystemConfig(BaseModel):
     is_remote: bool
 
 @system_config_router.get("/system/host-config", response_model=SystemConfig)
-def get_host_config():
+def get_host_config_endpoint():
     """Obtiene la configuración actual del host"""
     try:
-        with open("system_config.json", "r") as f:
-            config = json.load(f)
+        from system_config import get_host_config as get_system_config
+        config = get_system_config()
         return SystemConfig(**config)
-    except FileNotFoundError:
+    except Exception as e:
+        logger.error(f"Error obteniendo configuración del host: {e}")
         # Configuración por defecto
         default_config = {
             "host": "localhost",
@@ -3977,6 +3978,8 @@ def get_network_info(current_user: models.Usuario = Depends(get_current_active_s
     """Obtiene información de red del sistema para conexiones remotas"""
     import socket
     import platform
+    import psutil
+    from datetime import datetime
     
     try:
         # Obtener IP local básica
@@ -3984,10 +3987,37 @@ def get_network_info(current_user: models.Usuario = Depends(get_current_active_s
         local_ip = socket.gethostbyname(hostname)
         
         # Obtener configuración actual
-        config = get_host_config()
+        from system_config import get_host_config as get_system_config
+        config = get_system_config()
         
         # Lista simple de IPs disponibles (por ahora solo la IP principal)
         available_ips = [local_ip] if local_ip and local_ip != '127.0.0.1' else []
+        
+        # Obtener conexiones activas
+        active_connections = []
+        try:
+            connections = psutil.net_connections(kind='tcp')
+            for conn in connections:
+                if conn.laddr.port in [8000, 5173] and conn.status == 'ESTABLISHED':
+                    # Intentar resolver el hostname del cliente
+                    try:
+                        client_hostname = socket.gethostbyaddr(conn.raddr.ip)[0]
+                    except:
+                        client_hostname = "Desconocido"
+                    
+                    # Determinar el servicio
+                    service = "Backend" if conn.laddr.port == 8000 else "Frontend"
+                    
+                    active_connections.append({
+                        "client_ip": conn.raddr.ip,
+                        "client_hostname": client_hostname,
+                        "client_port": conn.raddr.port,
+                        "service": service,
+                        "status": conn.status,
+                        "connected_since": datetime.now().strftime("%H:%M:%S")  # Simplificado por ahora
+                    })
+        except Exception as conn_error:
+            logger.warning(f"Error obteniendo conexiones: {conn_error}")
         
         return {
             "hostname": hostname,
@@ -4000,15 +4030,16 @@ def get_network_info(current_user: models.Usuario = Depends(get_current_active_s
                 }
             ] if local_ip and local_ip != '127.0.0.1' else [],
             "current_config": {
-                "host": config.host,
-                "port": config.port,
-                "is_remote": config.is_remote
+                "host": config["host"],
+                "port": config["port"],
+                "is_remote": config["is_remote"]
             },
             "access_urls": [
-                f"http://{ip}:{config.port}" for ip in available_ips
-            ] if config.is_remote else [f"http://localhost:{config.port}"],
+                f"http://{ip}:{config['port']}" for ip in available_ips
+            ] if config["is_remote"] else [f"http://localhost:{config['port']}"],
             "platform": platform.system(),
-            "python_version": platform.python_version()
+            "python_version": platform.python_version(),
+            "active_connections": active_connections
         }
     except Exception as e:
         logger.error(f"Error obteniendo información de red: {e}")
@@ -4017,7 +4048,8 @@ def get_network_info(current_user: models.Usuario = Depends(get_current_active_s
 @system_config_router.post("/system/host-config", response_model=SystemConfig)
 def update_host_config_endpoint(config: SystemConfig, current_user: models.Usuario = Depends(get_current_active_superadmin)):
     """Actualiza la configuración del host y reinicia el servidor"""
-    if update_host_config(config.model_dump()):
+    from system_config import update_host_config as update_system_config
+    if update_system_config(config.model_dump()):
         # Iniciar el proceso de reinicio en segundo plano
         import subprocess
         subprocess.Popen([sys.executable, "restart_server.py"])

@@ -1419,6 +1419,68 @@ function AdminPage() {
                 )}
               </Card>
 
+              {/* Conexiones Activas */}
+              <Card withBorder p="sm">
+                <Group justify="space-between" mb="xs">
+                  <Text fw={600}>Conexiones Activas</Text>
+                  <Badge color="green">{networkInfo.active_connections?.length || 0} conectados</Badge>
+                </Group>
+                {networkInfo.active_connections && networkInfo.active_connections.length > 0 ? (
+                  <Table>
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th>Dispositivo</Table.Th>
+                        <Table.Th>IP</Table.Th>
+                        <Table.Th>Servicio</Table.Th>
+                        <Table.Th>Estado</Table.Th>
+                        <Table.Th>Hora</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {networkInfo.active_connections.map((conn: any, index: number) => (
+                        <Table.Tr key={index}>
+                          <Table.Td>
+                            <Text size="sm" fw={500}>
+                              {conn.client_hostname}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm" style={{ fontFamily: 'monospace' }}>
+                              {conn.client_ip}:{conn.client_port}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Badge 
+                              color={conn.service === "Frontend" ? "blue" : "green"}
+                              size="sm"
+                            >
+                              {conn.service}
+                            </Badge>
+                          </Table.Td>
+                          <Table.Td>
+                            <Badge 
+                              color={conn.status === "ESTABLISHED" ? "green" : "yellow"}
+                              size="sm"
+                            >
+                              {conn.status}
+                            </Badge>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm" c="dimmed">
+                              {conn.connected_since}
+                            </Text>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                ) : (
+                  <Text size="sm" c="dimmed" ta="center" py="md">
+                    No hay conexiones activas en este momento
+                  </Text>
+                )}
+              </Card>
+
               {/* Instrucciones de Conexión */}
               {config.is_remote && (
                 <Card withBorder p="sm">
