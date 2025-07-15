@@ -13,6 +13,7 @@ const helpSections = [
   { key: 'vehiculos', label: 'Vehículos' },
   { key: 'mapa', label: 'Mapa' },
   { key: 'mapa-gps', label: 'Mapa GPS' },
+  { key: 'mapa-gps-capas-externas', label: 'Mapa GPS - Capas Externas' },
   { key: 'datos-gps', label: 'Datos GPS' },
   { key: 'busqueda-multicaso', label: 'Búsqueda Multi-Caso' },
   { key: 'gestion-lectores', label: 'Gestión de Lectores' },
@@ -34,6 +35,7 @@ const HelpCenterModal: React.FC<HelpCenterModalProps> = ({ opened, onClose }) =>
       centered
       overlayProps={{ opacity: 0.55, blur: 2 }}
       styles={{ content: { maxWidth: '1200px', width: '90%' } }}
+      zIndex={999998}
     >
       <Accordion chevronPosition="left" variant="separated" multiple>
         {helpSections.map(section => (

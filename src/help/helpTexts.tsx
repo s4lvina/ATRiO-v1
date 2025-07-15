@@ -4,7 +4,7 @@ import { IconPencil, IconEye, IconTrash, IconRefresh, IconBookmark, IconStarOff,
 
 const helpTexts = {
   'analisis-lpr': (
-    <Box maw={900}>
+    <Box style={{ maxWidth: 900 }}>
       <Text fw={700} mb="sm" size="lg" c="blue.8">¿Cómo funciona la pestaña Lecturas LPR en ATRiO 1.0?</Text>
       <Stack gap="xs">
         <Text size="md" fw={700} mb={2}>¿Qué es esta pestaña?</Text>
@@ -82,7 +82,7 @@ const helpTexts = {
     </Box>
   ),
   'lanzadera': (
-    <Box maw={900}>
+    <Box style={{ maxWidth: 900 }}>
       <Text fw={700} mb="sm" size="lg" c="blue.8">¿Cómo funciona la pestaña Análisis Avanzado?</Text>
       <Stack gap="xs">
         <Text size="md" fw={700} mb={2}>¿Qué es esta pestaña?</Text>
@@ -161,7 +161,7 @@ const helpTexts = {
     </Box>
   ),
   'lecturas-relevantes': (
-    <Box maw={900}>
+    <Box style={{ maxWidth: 900 }}>
       <Text fw={700} mb="sm" size="lg" c="blue.8">¿Cómo funciona la pestaña Lecturas Relevantes?</Text>
       <Stack gap="xs">
         <Text size="md" fw={700} mb={2}>¿Qué es esta pestaña?</Text>
@@ -596,6 +596,107 @@ const helpTexts = {
             <li><b>Notificaciones informativas:</b> El sistema muestra notificaciones cuando las fechas se autocompletan exitosamente</li>
           </ul>
         </Text>
+      </Stack>
+    </Box>
+  ),
+  'mapa-gps-capas-externas': (
+    <Box maw={900}>
+      <Text fw={700} mb="sm" size="lg" c="blue.8">¿Cómo funcionan las Capas Externas en el Mapa GPS?</Text>
+      <Stack gap="xs">
+        <Text size="md" fw={700} mb={2}>¿Qué son las Capas Externas?</Text>
+        <Text size="sm" mb="xs">
+          Las Capas Externas te permiten importar y visualizar datos adicionales en el mapa GPS, enriqueciendo el análisis con información de fuentes externas como registros de bitácora, archivos Excel, archivos GPX/KML y shapefiles.
+        </Text>
+        
+        <Text size="md" fw={700} mb={2}>Tipos de Capas Disponibles</Text>
+        <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
+          <li><strong>📋 Capas de Bitácora:</strong> Importa registros de hechos delictivos desde archivos Excel o CSV con coordenadas geográficas.</li>
+          <li><strong>📊 Capas Excel:</strong> Importa cualquier archivo Excel con datos georreferenciados y columnas personalizables.</li>
+          <li><strong>📍 Capas GPX/KML:</strong> Importa rutas, waypoints y tracks desde archivos GPS estándar.</li>
+          <li><strong>🗺️ Shapefiles:</strong> Importa datos geográficos vectoriales en formato .shp.</li>
+        </ul>
+
+        <Text size="md" fw={700} mb={2}>Importación de Capas de Bitácora</Text>
+        <Text size="sm" mb="xs">
+          <ol style={{ paddingLeft: '20px', margin: '4px 0' }}>
+            <li><strong>Selecciona archivo:</strong> Haz clic en "Seleccionar archivo de Bitácora" y elige tu archivo Excel o CSV.</li>
+            <li><strong>Configura mapeo:</strong> En el modal que aparece, asigna las columnas del archivo a los campos requeridos:
+              <ul style={{ margin: '4px 0 4px 20px' }}>
+                <li>Columna de Latitud y Longitud</li>
+                <li>Columna del Atestado</li>
+                <li>Columnas de fecha (Año, Mes, Día)</li>
+                <li>Columna de Dirección</li>
+              </ul>
+            </li>
+            <li><strong>Personaliza:</strong> Asigna un nombre a la capa y selecciona un color para los puntos.</li>
+            <li><strong>Vista previa:</strong> Revisa los datos en la tabla de vista previa antes de importar.</li>
+            <li><strong>Importa:</strong> Haz clic en "Importar Capa" para añadirla al mapa.</li>
+          </ol>
+        </Text>
+
+        <Text size="md" fw={700} mb={2}>Importación de Capas Excel</Text>
+        <Text size="sm" mb="xs">
+          <ol style={{ paddingLeft: '20px', margin: '4px 0' }}>
+            <li><strong>Selecciona archivo:</strong> Haz clic en "Seleccionar archivo Excel" y elige tu archivo.</li>
+            <li><strong>Mapea coordenadas:</strong> Asigna las columnas de latitud y longitud.</li>
+            <li><strong>Selecciona columnas:</strong> Elige qué columnas adicionales quieres mostrar en los tooltips.</li>
+            <li><strong>Personaliza:</strong> Asigna nombre y color a la capa.</li>
+            <li><strong>Vista previa:</strong> Revisa los datos antes de importar.</li>
+            <li><strong>Importa:</strong> Finaliza la importación.</li>
+          </ol>
+        </Text>
+
+        <Text size="md" fw={700} mb={2}>Importación de Capas GPX/KML</Text>
+        <Text size="sm" mb="xs">
+          <ol style={{ paddingLeft: '20px', margin: '4px 0' }}>
+            <li><strong>Selecciona archivo:</strong> Haz clic en "Seleccionar archivo GPX/KML" y elige tu archivo.</li>
+            <li><strong>Configura visualización:</strong> Elige si quieres mostrar puntos, líneas o ambos.</li>
+            <li><strong>Personaliza:</strong> Asigna nombre y color a la capa.</li>
+            <li><strong>Importa:</strong> Finaliza la importación.</li>
+          </ol>
+        </Text>
+
+        <Text size="md" fw={700} mb={2}>Gestión de Capas</Text>
+        <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
+          <li><strong>Visibilidad:</strong> Activa/desactiva cada capa usando el switch correspondiente.</li>
+          <li><strong>Edición:</strong> Haz clic en el icono de editar para modificar nombre y color de la capa.</li>
+          <li><strong>Eliminación:</strong> Usa el icono de eliminar para quitar una capa del mapa.</li>
+          <li><strong>Leyenda:</strong> La leyenda muestra todas las capas activas con sus colores.</li>
+        </ul>
+
+        <Text size="md" fw={700} mb={2}>Visualización en el Mapa</Text>
+        <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
+          <li><strong>Puntos:</strong> Cada registro se muestra como un punto en el mapa con el color asignado.</li>
+          <li><strong>Tooltips profesionales:</strong> Al hacer clic en un punto, se muestra un tooltip con toda la información del registro.</li>
+          <li><strong>Tablas flotantes:</strong> Accede a las tablas de datos haciendo clic en los botones correspondientes en el panel lateral.</li>
+          <li><strong>Centrado automático:</strong> Al seleccionar una fila en la tabla, el mapa se centra automáticamente en ese punto.</li>
+        </ul>
+
+        <Text size="md" fw={700} mb={2}>Análisis Avanzado</Text>
+        <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
+          <li><strong>Correlación espacial:</strong> Superpone capas GPS con datos externos para identificar patrones.</li>
+          <li><strong>Análisis temporal:</strong> Compara movimientos GPS con eventos externos en el tiempo.</li>
+          <li><strong>Exportación:</strong> Exporta las capas externas junto con los datos GPS para informes.</li>
+        </ul>
+
+        <Text size="md" fw={700} mb={2}>Consejos de Uso</Text>
+        <Text size="sm" mb="xs">
+          <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
+            <li><strong>Organización:</strong> Usa nombres descriptivos para las capas (ej: "Robos Madrid Centro - Enero 2024").</li>
+            <li><strong>Colores:</strong> Asigna colores diferentes a cada capa para facilitar la identificación visual.</li>
+            <li><strong>Validación:</strong> Siempre revisa la vista previa antes de importar para asegurar que los datos se mapean correctamente.</li>
+            <li><strong>Coordenadas:</strong> Asegúrate de que las coordenadas estén en formato decimal (ej: 40.4168, -3.7038).</li>
+            <li><strong>Rendimiento:</strong> Para archivos muy grandes, considera dividirlos en capas más pequeñas.</li>
+          </ul>
+        </Text>
+
+        <Text size="md" fw={700} mb={2}>Casos de Uso Típicos</Text>
+        <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
+          <li><strong>Análisis de patrones:</strong> Superponer rutas GPS con puntos de delitos para identificar patrones de movimiento sospechosos.</li>
+          <li><strong>Observación BTS:</strong> Cruza capas de posicionamiento BTS y busca coincidencias con hechos delictivos o posiciones GPS de un vehículo para relacionar a un sujeto con él, o conseguir su identificación.</li>
+          <li><strong>Análisis de zonas:</strong> Importar shapefiles de zonas de interés para contextualizar los movimientos GPS.</li>
+          <li><strong>Documentación:</strong> Crear mapas completos con todos los datos relevantes para informes y presentaciones.</li>
+        </ul>
       </Stack>
     </Box>
   ),
