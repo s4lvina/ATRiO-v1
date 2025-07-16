@@ -2246,6 +2246,60 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
     }
   };
 
+  // Exportar tabla Excel flotante
+  const exportarExcelTabla = () => {
+    try {
+      // Obtener todas las filas mostradas en la tabla flotante (todas las capas visibles)
+      const filas = capasExcel
+        .filter(c => c.visible)
+        .flatMap(capa => capa.datos.map((dato, idx) => ({ ...dato, _capa: capa, _idx: idx })));
+      if (filas.length === 0) {
+        notifications.show({
+          title: 'Sin datos',
+          message: 'No hay datos visibles para exportar.',
+          color: 'yellow'
+        });
+        return;
+      }
+      // Columnas: #, Coordenadas, ...columnas seleccionadas (de la primera capa visible)
+      const primeraCapa = capasExcel.find(c => c.visible && c.columnasSeleccionadas && c.columnasSeleccionadas.length > 0);
+      const columnas = [
+        '#',
+        'Coordenadas',
+        ...(primeraCapa?.columnasSeleccionadas || [])
+      ];
+      // Construir datos para exportar
+      const datosExportar = filas.map((dato, idx) => {
+        const fila: any = {
+          '#': idx + 1,
+          'Coordenadas': `${dato.latitud?.toFixed(6)}, ${dato.longitud?.toFixed(6)}`
+        };
+        (dato._capa.columnasSeleccionadas || []).forEach(col => {
+          fila[col] = dato[col];
+        });
+        return fila;
+      });
+      // Crear hoja y libro
+      const ws = XLSX.utils.json_to_sheet(datosExportar, { header: columnas });
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Datos Excel');
+      const filename = `datos_excel_tabla_${dayjs().format('YYYYMMDD_HHmmss')}.xlsx`;
+      XLSX.writeFile(wb, filename);
+      notifications.show({
+        title: 'Exportación completada',
+        message: 'La tabla se ha exportado correctamente a Excel',
+        color: 'green'
+      });
+    } catch (error) {
+      console.error('Error al exportar tabla Excel:', error);
+      notifications.show({
+        title: 'Error en la exportación',
+        message: 'No se pudo generar el archivo Excel. Por favor, inténtelo de nuevo.',
+        color: 'red'
+      });
+    }
+  };
+
   // Modifica renderInformeCompleto para aceptar un parámetro showExportButtons (por defecto true)
   const renderInformeCompleto = (showExportButtons = true) => {
     if (!analisisData) return null;
@@ -4404,7 +4458,18 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
               }}
             >
               <Group justify="space-between" align="center" px="md" py={8} style={{ borderBottom: '1px solid #e0e0e0', background: 'rgba(255,255,255,0.92)' }}>
-                <Text fw={600} size="md">Datos Excel</Text>
+                <Group gap={8}>
+                  <Text fw={600} size="md">Datos Excel</Text>
+                  <ActionIcon
+                    color="green"
+                    variant="light"
+                    size="sm"
+                    title="Exportar tabla a Excel"
+                    onClick={exportarExcelTabla}
+                  >
+                    <IconFileSpreadsheet size={18} />
+                  </ActionIcon>
+                </Group>
                 <ActionIcon color="green" variant="subtle" onClick={() => setExcelPanelOpen(false)}>
                   <IconX size={20} />
                 </ActionIcon>
