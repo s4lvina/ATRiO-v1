@@ -754,7 +754,7 @@ function AdminPage() {
     <Grid gutter="xl">
       <Grid.Col span={{ base: 12, md: 6, lg: 4 }}>
         <Paper p="md" withBorder radius="md" style={{ height: '100%' }}>
-          <Group justify="space-between" mb="md">
+          <Group justify="space-between" style={{ marginBottom: '0.5rem' }}>
             <Group>
               <ThemeIcon size="lg" radius="md" color="blue">
                 <IconDatabase size={20} />
@@ -796,7 +796,7 @@ function AdminPage() {
 
       <Grid.Col span={{ base: 12, md: 6, lg: 8 }}>
         <Paper p="md" withBorder radius="md">
-          <Group justify="space-between" mb="md">
+          <Group justify="space-between" style={{ marginBottom: '0.5rem' }}>
             <Group>
               <ThemeIcon size="lg" radius="md" color="blue">
                 <IconSettings size={20} />
@@ -914,7 +914,7 @@ function AdminPage() {
   // Groups Panel Component
   const GroupsPanel = () => (
     <Paper p="md" withBorder radius="md">
-      <Group justify="space-between" mb="md">
+      <Group justify="space-between" style={{ marginBottom: '0.5rem' }}>
         <Group>
           <ThemeIcon size="lg" radius="md" color="blue">
             <IconUsers size={20} />
@@ -987,7 +987,7 @@ function AdminPage() {
 
     return (
       <Paper p="md" withBorder radius="md">
-        <Group justify="space-between" mb="md">
+        <Group justify="space-between" style={{ marginBottom: '0.5rem' }}>
           <Group>
             <ThemeIcon size="lg" radius="md" color="blue">
               <IconUsers size={20} />
@@ -1118,7 +1118,7 @@ function AdminPage() {
 
     return (
       <Paper p="md" withBorder radius="md">
-        <Group justify="space-between" mb="md">
+        <Group justify="space-between" style={{ marginBottom: '0.5rem' }}>
           <Group>
             <ThemeIcon size="lg" radius="md" color="blue">
               <IconFolder size={20} />
@@ -1272,7 +1272,7 @@ function AdminPage() {
       <Stack gap="lg">
         {/* Configuración del Sistema */}
         <Paper p="md" withBorder radius="md">
-          <Group justify="space-between" mb="md">
+          <Group justify="space-between" style={{ marginBottom: '0.5rem' }}>
             <Group>
               <ThemeIcon size="lg" radius="md" color="blue">
                 <IconServer size={20} />
@@ -1282,13 +1282,13 @@ function AdminPage() {
           </Group>
 
           {error && (
-            <Alert icon={<IconAlertCircle size={16} />} color="red" mb="md">
+            <Alert icon={<IconAlertCircle size={16} />} color="red" style={{ marginBottom: '0.5rem' }}>
               {error}
             </Alert>
           )}
 
           {success && (
-            <Alert icon={<IconAlertCircle size={16} />} color="green" mb="md">
+            <Alert icon={<IconAlertCircle size={16} />} color="green" style={{ marginBottom: '0.5rem' }}>
               {success}
             </Alert>
           )}
@@ -1337,7 +1337,7 @@ function AdminPage() {
 
         {/* Información de Red */}
         <Paper p="md" withBorder radius="md">
-          <Group justify="space-between" mb="md">
+          <Group justify="space-between" style={{ marginBottom: '0.5rem' }}>
             <Group>
               <ThemeIcon size="lg" radius="md" color="green">
                 <IconMapPin size={20} />
@@ -1421,64 +1421,142 @@ function AdminPage() {
 
               {/* Conexiones Activas */}
               <Card withBorder p="sm">
-                <Group justify="space-between" mb="xs">
+                <Group justify="space-between" style={{ marginBottom: '0.5rem' }}>
                   <Text fw={600}>Conexiones Activas</Text>
-                  <Badge color="green">{networkInfo.active_connections?.length || 0} conectados</Badge>
+                  {(() => {
+                    // Filtrar y agrupar conexiones externas por IP
+                    const externalConnections = (networkInfo.active_connections || []).filter((conn: any) =>
+                      conn.client_ip !== '127.0.0.1' && conn.client_ip !== '::1'
+                    );
+                    const groupedByIp: { [ip: string]: any[] } = {};
+                    externalConnections.forEach((conn: any) => {
+                      if (!groupedByIp[conn.client_ip]) groupedByIp[conn.client_ip] = [];
+                      groupedByIp[conn.client_ip].push(conn);
+                    });
+                    const uniqueConnections = Object.values(groupedByIp).map((group: any[]) => group[0]);
+                    return (
+                      <Badge color="green">{uniqueConnections.length} conectados</Badge>
+                    );
+                  })()}
                 </Group>
-                {networkInfo.active_connections && networkInfo.active_connections.length > 0 ? (
-                  <Table>
-                    <Table.Thead>
-                      <Table.Tr>
-                        <Table.Th>Dispositivo</Table.Th>
-                        <Table.Th>IP</Table.Th>
-                        <Table.Th>Servicio</Table.Th>
-                        <Table.Th>Estado</Table.Th>
-                        <Table.Th>Hora</Table.Th>
-                      </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                      {networkInfo.active_connections.map((conn: any, index: number) => (
-                        <Table.Tr key={index}>
-                          <Table.Td>
-                            <Text size="sm" fw={500}>
-                              {conn.client_hostname}
-                            </Text>
-                          </Table.Td>
-                          <Table.Td>
-                            <Text size="sm" style={{ fontFamily: 'monospace' }}>
-                              {conn.client_ip}:{conn.client_port}
-                            </Text>
-                          </Table.Td>
-                          <Table.Td>
-                            <Badge 
-                              color={conn.service === "Frontend" ? "blue" : "green"}
-                              size="sm"
-                            >
-                              {conn.service}
-                            </Badge>
-                          </Table.Td>
-                          <Table.Td>
-                            <Badge 
-                              color={conn.status === "ESTABLISHED" ? "green" : "yellow"}
-                              size="sm"
-                            >
-                              {conn.status}
-                            </Badge>
-                          </Table.Td>
-                          <Table.Td>
-                            <Text size="sm" c="dimmed">
-                              {conn.connected_since}
-                            </Text>
-                          </Table.Td>
-                        </Table.Tr>
-                      ))}
-                    </Table.Tbody>
-                  </Table>
-                ) : (
-                  <Text size="sm" c="dimmed" ta="center" py="md">
-                    No hay conexiones activas en este momento
-                  </Text>
-                )}
+                <Grid gutter="md">
+                  <Grid.Col span={{ base: 12, md: 6 }}>
+                    {/* Tabla de conexiones por IP */}
+                    {(() => {
+                      // Filtrar y agrupar conexiones externas por IP
+                      const externalConnections = (networkInfo.active_connections || []).filter((conn: any) =>
+                        conn.client_ip !== '127.0.0.1' && conn.client_ip !== '::1'
+                      );
+                      const groupedByIp: { [ip: string]: any[] } = {};
+                      externalConnections.forEach((conn: any) => {
+                        if (!groupedByIp[conn.client_ip]) groupedByIp[conn.client_ip] = [];
+                        groupedByIp[conn.client_ip].push(conn);
+                      });
+                      const uniqueConnections = Object.values(groupedByIp).map((group: any[]) => group[0]);
+                      if (uniqueConnections.length > 0) {
+                        return (
+                          <>
+                            <Text fw={500} mb={4}>Por IP</Text>
+                            <Table>
+                              <Table.Thead>
+                                <Table.Tr>
+                                  <Table.Th>Dispositivo</Table.Th>
+                                  <Table.Th>IP</Table.Th>
+                                  <Table.Th>Servicio</Table.Th>
+                                  <Table.Th>Estado</Table.Th>
+                                  <Table.Th>Hora</Table.Th>
+                                  <Table.Th>Conexiones</Table.Th>
+                                </Table.Tr>
+                              </Table.Thead>
+                              <Table.Tbody>
+                                {Object.entries(groupedByIp).map(([ip, group], index) => {
+                                  const conn = group[0];
+                                  return (
+                                    <Table.Tr key={index}>
+                                      <Table.Td>{conn.client_hostname}</Table.Td>
+                                      <Table.Td>{conn.client_ip}</Table.Td>
+                                      <Table.Td>{conn.service}</Table.Td>
+                                      <Table.Td>{conn.status}</Table.Td>
+                                      <Table.Td>{conn.connected_since}</Table.Td>
+                                      <Table.Td>
+                                        {group.length > 1 ? (
+                                          <Badge color="gray" size="sm">{group.length} conexiones</Badge>
+                                        ) : (
+                                          <Badge color="gray" size="sm">1 conexión</Badge>
+                                        )}
+                                      </Table.Td>
+                                    </Table.Tr>
+                                  );
+                                })}
+                              </Table.Tbody>
+                            </Table>
+                          </>
+                        );
+                      } else {
+                        return (
+                          <Text size="sm" c="dimmed" ta="center" py="md">
+                            No hay conexiones activas externas en este momento
+                          </Text>
+                        );
+                      }
+                    })()}
+                  </Grid.Col>
+                  <Grid.Col span={{ base: 12, md: 6 }}>
+                    {/* Tabla de usuarios conectados */}
+                    {(() => {
+                      // Filtrar y agrupar conexiones externas por usuario
+                      const externalConnections = (networkInfo.active_connections || []).filter((conn: any) =>
+                        conn.client_ip !== '127.0.0.1' && conn.client_ip !== '::1'
+                      );
+                      // Agrupar por usuario (si existe conn.user o conn.username)
+                      const groupedByUser: { [user: string]: any[] } = {};
+                      externalConnections.forEach((conn: any) => {
+                        const user = conn.user || conn.username || 'Desconocido';
+                        if (!groupedByUser[user]) groupedByUser[user] = [];
+                        groupedByUser[user].push(conn);
+                      });
+                      const uniqueUsers = Object.keys(groupedByUser);
+                      if (uniqueUsers.length > 0) {
+                        return (
+                          <>
+                            <Text fw={500} mb={4}>Por Usuario</Text>
+                            <Table>
+                              <Table.Thead>
+                                <Table.Tr>
+                                  <Table.Th>Usuario</Table.Th>
+                                  <Table.Th>IPs</Table.Th>
+                                  <Table.Th>Conexiones</Table.Th>
+                                </Table.Tr>
+                              </Table.Thead>
+                              <Table.Tbody>
+                                {uniqueUsers.map((user, idx) => {
+                                  const group = groupedByUser[user];
+                                  // Obtener IPs únicas para este usuario
+                                  const ips = Array.from(new Set(group.map((c: any) => c.client_ip)));
+                                  return (
+                                    <Table.Tr key={idx}>
+                                      <Table.Td>{user}</Table.Td>
+                                      <Table.Td>{ips.join(', ')}</Table.Td>
+                                      <Table.Td>
+                                        <Badge color="gray" size="sm">{group.length} conexiones</Badge>
+                                      </Table.Td>
+                                    </Table.Tr>
+                                  );
+                                })}
+                              </Table.Tbody>
+                            </Table>
+                          </>
+                        );
+                      } else {
+                        return (
+                          <Text size="sm" c="dimmed" ta="center" py="md">
+                            No hay usuarios conectados externos en este momento
+                          </Text>
+                        );
+                      }
+                    })()}
+                  </Grid.Col>
+                </Grid>
               </Card>
 
               {/* Instrucciones de Conexión */}
@@ -1545,6 +1623,9 @@ function AdminPage() {
           <Tabs.Tab value="cases" leftSection={<IconFolder size={16} />}>
             Casos
           </Tabs.Tab>
+          <Tabs.Tab value="customization" leftSection={<IconEdit size={16} />}>
+            Personalización
+          </Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="database" pt="xl">
@@ -1557,6 +1638,17 @@ function AdminPage() {
 
         <Tabs.Panel value="system" pt="xl">
           <SystemConfigPanel />
+          <Divider style={{ marginTop: 32, marginBottom: 32 }} />
+          <Group justify="flex-end">
+            <Button
+              variant="light"
+              color="blue"
+              leftSection={<IconEdit size={16} />}
+              onClick={() => setFooterModalOpen(true)}
+            >
+              Editar Pie de Página
+            </Button>
+          </Group>
         </Tabs.Panel>
 
         <Tabs.Panel value="groups" pt="xl">
@@ -1569,6 +1661,22 @@ function AdminPage() {
 
         <Tabs.Panel value="cases" pt="xl">
           <CasesPanel />
+        </Tabs.Panel>
+
+        <Tabs.Panel value="customization" pt="xl">
+          <Paper p="md" withBorder radius="md" style={{ maxWidth: 500, margin: '0 auto' }}>
+            <Title order={3} mb="md">Pie de Página</Title>
+            <TextInput
+              label="Texto del Pie de Página"
+              value={footerText}
+              onChange={e => setFooterText(e.currentTarget.value)}
+              required
+              style={{ marginBottom: 16 }}
+            />
+            <Group justify="flex-end" style={{ marginTop: 16 }}>
+              <Button onClick={handleSaveFooter} leftSection={<IconDeviceFloppy size={16} />}>Guardar</Button>
+            </Group>
+          </Paper>
         </Tabs.Panel>
       </Tabs>
 
@@ -1589,7 +1697,7 @@ function AdminPage() {
             onChange={e => setResetConfirmText(e.currentTarget.value)}
             error={resetConfirmText && resetConfirmText !== 'RESETEAR' ? 'Debes escribir RESETEAR exactamente' : undefined}
           />
-          <Group justify="flex-end" mt="md">
+          <Group justify="flex-end" style={{ marginTop: '0.5rem' }}>
             <Button variant="light" onClick={() => setResetModalOpen(false)}>
               Cancelar
             </Button>
@@ -1617,7 +1725,7 @@ function AdminPage() {
             onChange={e => setClearConfirmText(e.currentTarget.value)}
             error={clearConfirmText && clearConfirmText !== 'ELIMINAR' ? 'Debes escribir ELIMINAR exactamente' : undefined}
           />
-          <Group justify="flex-end" mt="md">
+          <Group justify="flex-end" style={{ marginTop: '0.5rem' }}>
             <Button variant="light" onClick={() => setClearModalOpen(false)}>
               Cancelar
             </Button>
@@ -1639,7 +1747,7 @@ function AdminPage() {
           <Alert color="blue" title="Información" icon={<IconInfoCircle size={16} />}>
             Se restaurará la base de datos desde el archivo: <b>{restoreFileName}</b>
           </Alert>
-          <Group justify="flex-end" mt="md">
+          <Group justify="flex-end" style={{ marginTop: '0.5rem' }}>
             <Button variant="light" onClick={() => setRestoreFileModalOpen(false)}>
               Cancelar
             </Button>
@@ -1661,7 +1769,7 @@ function AdminPage() {
           <Alert color="blue" title="Información" icon={<IconInfoCircle size={16} />}>
             Se restaurará la base de datos desde el backup: <b>{backupToRestore?.filename}</b>
           </Alert>
-          <Group justify="flex-end" mt="md">
+          <Group justify="flex-end" style={{ marginTop: '0.5rem' }}>
             <Button variant="light" onClick={() => setRestoreBackupModalOpen(false)}>
               Cancelar
             </Button>
@@ -1683,7 +1791,7 @@ function AdminPage() {
           <Alert color="red" title="¡ATENCIÓN!" icon={<IconAlertCircle size={16} />}>
             Se eliminará el backup: <b>{backupToDelete?.filename}</b>
           </Alert>
-          <Group justify="flex-end" mt="md">
+          <Group justify="flex-end" style={{ marginTop: '0.5rem' }}>
             <Button variant="light" onClick={() => setDeleteBackupModalOpen(false)}>
               Cancelar
             </Button>
@@ -1715,7 +1823,7 @@ function AdminPage() {
             value={newGrupoDescripcion}
             onChange={(e) => setNewGrupoDescripcion(e.currentTarget.value)}
           />
-          <Group justify="flex-end" mt="md">
+          <Group justify="flex-end" style={{ marginTop: '0.5rem' }}>
             <Button variant="light" onClick={() => setCreateGrupoModalOpen(false)}>
               Cancelar
             </Button>
@@ -1747,7 +1855,7 @@ function AdminPage() {
             value={editGrupoDescripcion}
             onChange={(e) => setEditGrupoDescripcion(e.currentTarget.value)}
           />
-          <Group justify="flex-end" mt="md">
+          <Group justify="flex-end" style={{ marginTop: '0.5rem' }}>
             <Button variant="light" onClick={() => setEditGrupoModalOpen(false)}>
               Cancelar
             </Button>
@@ -1770,7 +1878,7 @@ function AdminPage() {
             ¿Estás seguro de que quieres eliminar el grupo <b>{grupoToDelete?.Nombre}</b>?<br />
             Esta acción <span style={{ color: '#d97706' }}>no se puede deshacer</span>.
           </Alert>
-          <Group justify="flex-end" mt="md">
+          <Group justify="flex-end" style={{ marginTop: '0.5rem' }}>
             <Button variant="light" onClick={() => setDeleteGrupoModalOpen(false)}>
               Cancelar
             </Button>
@@ -1825,7 +1933,7 @@ function AdminPage() {
             onChange={e => setNewPass(e.currentTarget.value)}
             required
           />
-          <Group justify="flex-end" mt="md">
+          <Group justify="flex-end" style={{ marginTop: '0.5rem' }}>
             <Button variant="light" onClick={() => setUsuarioModalOpen(false)}>
               Cancelar
             </Button>
@@ -1872,7 +1980,7 @@ function AdminPage() {
             onChange={e => setEditPass(e.currentTarget.value)}
             placeholder="Dejar en blanco para mantener la actual"
           />
-          <Group justify="flex-end" mt="md">
+          <Group justify="flex-end" style={{ marginTop: '0.5rem' }}>
             <Button variant="light" onClick={() => setEditUsuarioModalOpen(false)}>
               Cancelar
             </Button>
@@ -1895,7 +2003,7 @@ function AdminPage() {
             ¿Estás seguro de que quieres eliminar el usuario <b>{usuarioToDelete?.User}</b>?<br />
             Esta acción <span style={{ color: '#d97706' }}>no se puede deshacer</span>.
           </Alert>
-          <Group justify="flex-end" mt="md">
+          <Group justify="flex-end" style={{ marginTop: '0.5rem' }}>
             <Button variant="light" onClick={() => setDeleteUsuarioModalOpen(false)}>
               Cancelar
             </Button>
@@ -1926,7 +2034,7 @@ function AdminPage() {
             required
             searchable
           />
-          <Group justify="flex-end" mt="md">
+          <Group justify="flex-end" style={{ marginTop: '0.5rem' }}>
             <Button variant="light" onClick={() => setReassignModalOpen(false)}>
               Cancelar
             </Button>
@@ -1951,7 +2059,7 @@ function AdminPage() {
             onChange={e => setFooterText(e.currentTarget.value)}
             required
           />
-          <Group justify="flex-end" mt="md">
+          <Group justify="flex-end" style={{ marginTop: '0.5rem' }}>
             <Button variant="light" onClick={() => setFooterModalOpen(false)}>
               Cancelar
             </Button>
