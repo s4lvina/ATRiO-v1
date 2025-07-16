@@ -45,6 +45,7 @@ interface GpsMapStandaloneProps {
   children?: React.ReactNode;
   onPuntoSeleccionado?: (info: any) => void;
   mostrarLineaRecorrido?: boolean;
+  selectedInfo?: any | null;
 }
 
 interface GpsMapStandalonePropsWithFullscreen extends GpsMapStandaloneProps {
@@ -670,9 +671,13 @@ const GpsMapStandalone = React.memo(forwardRef<L.Map, GpsMapStandalonePropsWithF
   children,
   onPuntoSeleccionado,
   mostrarLineaRecorrido = true,
+  selectedInfo: externalSelectedInfo,
 }, ref): React.ReactElement => {
   const internalMapRef = useRef<L.Map | null>(null);
-  const [selectedInfo, setSelectedInfo] = useState<any | null>(null);
+  const [internalSelectedInfo, setInternalSelectedInfo] = useState<any | null>(null);
+  
+  // Usar selectedInfo externo si está disponible, sino usar el interno
+  const selectedInfo = externalSelectedInfo !== undefined ? externalSelectedInfo : internalSelectedInfo;
   const [optimizedLecturas, setOptimizedLecturas] = useState<GpsLectura[]>([]);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [animatedPosition, setAnimatedPosition] = useState<[number, number] | null>(null);
@@ -885,13 +890,14 @@ const GpsMapStandalone = React.memo(forwardRef<L.Map, GpsMapStandalonePropsWithF
     }
 
     const newPoint = allLecturas[newIndex];
-    setSelectedInfo({ 
+    const newSelectedInfo = { 
       info: { 
         ...newPoint, 
         onGuardarLocalizacion: () => onGuardarLocalizacion(newPoint) 
       }, 
       isLocalizacion: false 
-    });
+    };
+    setInternalSelectedInfo(newSelectedInfo);
 
     // Centrar el mapa en el nuevo punto
     if (internalMapRef.current) {
@@ -995,13 +1001,14 @@ const GpsMapStandalone = React.memo(forwardRef<L.Map, GpsMapStandalonePropsWithF
         });
 
         marker.on('click', () => {
-          setSelectedInfo({ 
+          const newSelectedInfo = { 
             info: { 
               ...lectura, 
               onGuardarLocalizacion: () => onGuardarLocalizacion(lectura) 
             }, 
             isLocalizacion: false 
-          });
+          };
+          setInternalSelectedInfo(newSelectedInfo);
         });
 
         if (lectura.clusterSize && lectura.clusterSize > 1) {
@@ -1102,13 +1109,14 @@ const GpsMapStandalone = React.memo(forwardRef<L.Map, GpsMapStandalonePropsWithF
             });
 
             marker.on('click', () => {
-              setSelectedInfo({ 
+              const newSelectedInfo = { 
                 info: { 
                   ...lectura, 
                   onGuardarLocalizacion: () => onGuardarLocalizacion(lectura) 
                 }, 
                 isLocalizacion: false 
-              });
+              };
+              setInternalSelectedInfo(newSelectedInfo);
             });
 
             return marker;
@@ -1404,7 +1412,8 @@ const GpsMapStandalone = React.memo(forwardRef<L.Map, GpsMapStandalonePropsWithF
               zIndexOffset={isSelected ? 10000 : 2000}
               eventHandlers={{
                 click: () => {
-                  setSelectedInfo({ info: loc, isLocalizacion: true });
+                  const newSelectedInfo = { info: loc, isLocalizacion: true };
+                  setInternalSelectedInfo(newSelectedInfo);
                 }
               }}
             >
@@ -1470,7 +1479,7 @@ const GpsMapStandalone = React.memo(forwardRef<L.Map, GpsMapStandalonePropsWithF
       {selectedInfo && (
         <InfoBanner
           info={selectedInfo.info}
-          onClose={() => setSelectedInfo(null)}
+          onClose={() => setInternalSelectedInfo(null)}
           onEditLocalizacion={selectedInfo.isLocalizacion ? () => onGuardarLocalizacion(selectedInfo.info) : undefined}
           isLocalizacion={selectedInfo.isLocalizacion}
           onNavigate={!selectedInfo.isLocalizacion ? handleNavigate : undefined}

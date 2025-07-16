@@ -618,7 +618,7 @@ const procesarCoordenada = (valor: any): number => {
       const segundos = parseFloat(match[4]);
       if (isNaN(grados) || isNaN(minutos) || isNaN(segundos)) {
         console.error('No se pudo convertir la coordenada (DMS):', valor);
-        return 0;
+      return 0;
       }
       let decimal = grados + minutos / 60 + segundos / 3600;
       if (direccion === 'S' || direccion === 'W' || direccion === 'O') {
@@ -1827,13 +1827,23 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
   const handleSelectPosition = useCallback((index: number, lectura: GpsLectura) => {
     setSelectedPositionIndex(index);
     setLecturaSeleccionada(lectura);
+    
+    // Establecer selectedInfo para destacar el punto visualmente (igual que al hacer clic en el mapa)
+    setSelectedInfo({ 
+      info: { 
+        ...lectura, 
+        onGuardarLocalizacion: () => handleAbrirModalLocalizacion(lectura) 
+      }, 
+      isLocalizacion: false 
+    });
+    
     if (mapRef.current && typeof lectura.Coordenada_Y === 'number' && typeof lectura.Coordenada_X === 'number') {
       mapRef.current.flyTo([lectura.Coordenada_Y, lectura.Coordenada_X], 16, {
         duration: 1.5,
         easeLinearity: 0.25
       });
     }
-  }, []);
+  }, [handleAbrirModalLocalizacion]);
 
   // Configuración de pestañas
   const tabs = [
@@ -3781,13 +3791,13 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
               {(() => {
                 // Agrupar por lat/lon redondeados a 6 decimales
                 const allBitacoraPoints = capasBitacora
-                  .filter(capa => capa.visible)
-                  .flatMap(capa => capa.puntos)
-                  .filter(punto =>
-                    typeof punto.latitud === 'number' &&
-                    typeof punto.longitud === 'number' &&
-                    !isNaN(punto.latitud) &&
-                    !isNaN(punto.longitud) &&
+                .filter(capa => capa.visible)
+                .flatMap(capa => capa.puntos)
+                .filter(punto => 
+                  typeof punto.latitud === 'number' && 
+                  typeof punto.longitud === 'number' &&
+                  !isNaN(punto.latitud) && 
+                  !isNaN(punto.longitud) &&
                     punto.latitud >= -90 && punto.latitud <= 90 &&
                     punto.longitud >= -180 && punto.longitud <= 180
                   );
@@ -3802,10 +3812,10 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                       const [lat, lng] = getOffsetLatLngCircle(punto.latitud, punto.longitud, idx, (group as any[]).length, 5);
                       const capa = capasBitacora.find(c => c.puntos.includes(punto));
                       return (
-                        <BitacoraPunto
-                          key={punto.id}
+                  <BitacoraPunto
+                    key={punto.id}
                           punto={{ ...punto, latitud: lat, longitud: lng }}
-                          onSelect={setSelectedInfo}
+                    onSelect={setSelectedInfo}
                           color={capa?.color || '#000000'}
                         />
                       );
@@ -3819,13 +3829,13 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
               {(() => {
                 // Agrupar por lat/lon redondeados a 6 decimales (precisión ~0.1m)
                 const allExcelPoints = capasExcel
-                  .filter(capa => capa.visible)
-                  .flatMap(capa => capa.datos)
-                  .filter(dato =>
-                    typeof dato.latitud === 'number' &&
-                    typeof dato.longitud === 'number' &&
-                    !isNaN(dato.latitud) &&
-                    !isNaN(dato.longitud) &&
+                .filter(capa => capa.visible)
+                .flatMap(capa => capa.datos)
+                .filter(dato => 
+                  typeof dato.latitud === 'number' && 
+                  typeof dato.longitud === 'number' &&
+                  !isNaN(dato.latitud) && 
+                  !isNaN(dato.longitud) &&
                     dato.latitud >= -90 && dato.latitud <= 90 &&
                     dato.longitud >= -180 && dato.longitud <= 180
                   );
@@ -3841,17 +3851,17 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                   group.map((dato, idx) => {
                     const [lat, lng] = getOffsetLatLngCircle(dato.latitud, dato.longitud, idx, group.length, 5);
                     return (
-                      <Marker
-                        key={dato.id}
+                  <Marker
+                    key={dato.id}
                         position={[lat, lng]}
-                        icon={L.divIcon({
-                          className: 'custom-div-icon',
-                          html: `<div style="background: ${capasExcel.find(c => c.datos.includes(dato))?.color || '#40c057'}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.4);"></div>`,
-                          iconSize: [12, 12],
-                          iconAnchor: [6, 6]
-                        })}
-                      >
-                        <Popup>
+                    icon={L.divIcon({
+                      className: 'custom-div-icon',
+                      html: `<div style="background: ${capasExcel.find(c => c.datos.includes(dato))?.color || '#40c057'}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.4);"></div>`,
+                      iconSize: [12, 12],
+                      iconAnchor: [6, 6]
+                    })}
+                  >
+                    <Popup>
                           <div style={{
                             minWidth: '320px',
                             maxWidth: '400px',
@@ -3887,7 +3897,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                                 borderRadius: '4px',
                                 border: '1px solid var(--mantine-color-gray-3)'
                               }}>
-                                {dato.latitud.toFixed(6)}, {dato.longitud.toFixed(6)}
+                          {dato.latitud.toFixed(6)}, {dato.longitud.toFixed(6)}
                               </div>
                             </div>
 
@@ -3896,9 +3906,9 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                               display: 'grid',
                               gap: '4px'
                             }}>
-                              {Object.entries(dato)
-                                .filter(([key]) => !['id', 'latitud', 'longitud'].includes(key))
-                                .map(([key, value]) => (
+                        {Object.entries(dato)
+                          .filter(([key]) => !['id', 'latitud', 'longitud'].includes(key))
+                          .map(([key, value]) => (
                                   <div key={key} style={{
                                     display: 'flex',
                                     justifyContent: 'space-between',
@@ -3930,8 +3940,8 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                                 ))}
                             </div>
                           </div>
-                        </Popup>
-                      </Marker>
+                    </Popup>
+                  </Marker>
                     );
                   })
                 );
@@ -4010,7 +4020,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                               borderRadius: '4px',
                               border: '1px solid var(--mantine-color-gray-3)'
                             }}>
-                              {dato.lat.toFixed(6)}, {dato.lon.toFixed(6)}
+                            {dato.lat.toFixed(6)}, {dato.lon.toFixed(6)}
                             </div>
                           </div>
 
@@ -4019,7 +4029,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                             display: 'grid',
                             gap: '4px'
                           }}>
-                            {dato.name && (
+                          {dato.name && (
                               <div style={{
                                 display: 'flex',
                                 justifyContent: 'space-between',
@@ -4047,8 +4057,8 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                                   {dato.name}
                                 </div>
                               </div>
-                            )}
-                            {dato.elevation && (
+                          )}
+                          {dato.elevation && (
                               <div style={{
                                 display: 'flex',
                                 justifyContent: 'space-between',
@@ -4076,8 +4086,8 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                                   {dato.elevation.toFixed(1)}m
                                 </div>
                               </div>
-                            )}
-                            {dato.description && (
+                          )}
+                          {dato.description && (
                               <div style={{
                                 display: 'flex',
                                 justifyContent: 'space-between',
@@ -4104,8 +4114,8 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                                   {dato.description}
                                 </div>
                               </div>
-                            )}
-                            {dato.time && (
+                          )}
+                          {dato.time && (
                               <div style={{
                                 display: 'flex',
                                 justifyContent: 'space-between',
@@ -4459,7 +4469,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
             >
               <Group justify="space-between" align="center" px="md" py={8} style={{ borderBottom: '1px solid #e0e0e0', background: 'rgba(255,255,255,0.92)' }}>
                 <Group gap={8}>
-                  <Text fw={600} size="md">Datos Excel</Text>
+                <Text fw={600} size="md">Datos Excel</Text>
                   <ActionIcon
                     color="green"
                     variant="light"
@@ -4514,7 +4524,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                           {dato._capa.columnasSeleccionadas && dato._capa.columnasSeleccionadas.map((col: string) => (
                             <Table.Td key={col}>
                               <Text size="xs" c="dimmed">{String(dato[col] || '')}</Text>
-                            </Table.Td>
+                          </Table.Td>
                           ))}
                         </Table.Tr>
                       ))}
@@ -4653,19 +4663,20 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                 }
               }}
               mostrarLineaRecorrido={mostrarLineaRecorrido}
+              selectedInfo={selectedInfo}
             >
               {/* Marcadores de bitácora */}
               <LayerGroup>
                 {(() => {
                   // Agrupar por lat/lon redondeados a 6 decimales
                   const allBitacoraPoints = capasBitacora
-                    .filter(capa => capa.visible)
-                    .flatMap(capa => capa.puntos)
-                    .filter(punto =>
-                      typeof punto.latitud === 'number' &&
-                      typeof punto.longitud === 'number' &&
-                      !isNaN(punto.latitud) &&
-                      !isNaN(punto.longitud) &&
+                  .filter(capa => capa.visible)
+                  .flatMap(capa => capa.puntos)
+                  .filter(punto => 
+                    typeof punto.latitud === 'number' && 
+                    typeof punto.longitud === 'number' &&
+                    !isNaN(punto.latitud) && 
+                    !isNaN(punto.longitud) &&
                       punto.latitud >= -90 && punto.latitud <= 90 &&
                       punto.longitud >= -180 && punto.longitud <= 180
                     );
@@ -4680,10 +4691,10 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                       const [lat, lng] = getOffsetLatLngCircle(punto.latitud, punto.longitud, idx, group.length, 5);
                       const capa = capasBitacora.find(c => c.puntos.includes(punto));
                       return (
-                        <BitacoraPunto
-                          key={punto.id}
+                    <BitacoraPunto
+                      key={punto.id}
                           punto={{ ...punto, latitud: lat, longitud: lng }}
-                          onSelect={setSelectedInfo}
+                      onSelect={setSelectedInfo}
                           color={capa?.color || '#000000'}
                         />
                       );
@@ -4697,13 +4708,13 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                 {(() => {
                   // Agrupar por lat/lon redondeados a 6 decimales (precisión ~0.1m)
                   const allExcelPoints = capasExcel
-                    .filter(capa => capa.visible)
-                    .flatMap(capa => capa.datos)
-                    .filter(dato =>
-                      typeof dato.latitud === 'number' &&
-                      typeof dato.longitud === 'number' &&
-                      !isNaN(dato.latitud) &&
-                      !isNaN(dato.longitud) &&
+                  .filter(capa => capa.visible)
+                  .flatMap(capa => capa.datos)
+                  .filter(dato => 
+                    typeof dato.latitud === 'number' && 
+                    typeof dato.longitud === 'number' &&
+                    !isNaN(dato.latitud) && 
+                    !isNaN(dato.longitud) &&
                       dato.latitud >= -90 && dato.latitud <= 90 &&
                       dato.longitud >= -180 && dato.longitud <= 180
                     );
@@ -4719,17 +4730,17 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                     group.map((dato, idx) => {
                       const [lat, lng] = getOffsetLatLngCircle(dato.latitud, dato.longitud, idx, group.length, 5);
                       return (
-                        <Marker
-                          key={dato.id}
+                    <Marker
+                      key={dato.id}
                           position={[lat, lng]}
-                          icon={L.divIcon({
-                            className: 'custom-div-icon',
-                            html: `<div style="background: ${capasExcel.find(c => c.datos.includes(dato))?.color || '#40c057'}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.4);"></div>`,
-                            iconSize: [12, 12],
-                            iconAnchor: [6, 6]
-                          })}
-                        >
-                          <Popup>
+                      icon={L.divIcon({
+                        className: 'custom-div-icon',
+                        html: `<div style="background: ${capasExcel.find(c => c.datos.includes(dato))?.color || '#40c057'}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.4);"></div>`,
+                        iconSize: [12, 12],
+                        iconAnchor: [6, 6]
+                      })}
+                    >
+                      <Popup>
                             <div style={{
                               minWidth: '320px',
                               maxWidth: '400px',
@@ -4768,7 +4779,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                                   borderRadius: '4px',
                                   border: '1px solid var(--mantine-color-gray-3)'
                                 }}>
-                                  {dato.latitud.toFixed(6)}, {dato.longitud.toFixed(6)}
+                            {dato.latitud.toFixed(6)}, {dato.longitud.toFixed(6)}
                                 </div>
                               </div>
 
@@ -4777,9 +4788,9 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                                 display: 'grid',
                                 gap: '4px'
                               }}>
-                                {Object.entries(dato)
-                                  .filter(([key]) => !['id', 'latitud', 'longitud'].includes(key))
-                                  .map(([key, value]) => (
+                          {Object.entries(dato)
+                            .filter(([key]) => !['id', 'latitud', 'longitud'].includes(key))
+                            .map(([key, value]) => (
                                     <div key={key} style={{
                                       display: 'flex',
                                       justifyContent: 'space-between',
@@ -4811,37 +4822,37 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                                   ))}
                               </div>
                             </div>
-                          </Popup>
-                        </Marker>
+                      </Popup>
+                    </Marker>
                       );
                     })
                   );
                 })()}
-              </LayerGroup>
+            </LayerGroup>
 
-              {/* Marcadores de GPX/KML */}
-              <LayerGroup>
-                {capasGpx
-                  .filter(capa => capa.visible)
-                  .flatMap(capa => capa.datos)
-                  .filter(dato => 
-                    typeof dato.lat === 'number' && 
-                    typeof dato.lon === 'number' &&
-                    !isNaN(dato.lat) && 
-                    !isNaN(dato.lon) &&
-                    dato.lat >= -90 && 
-                    dato.lat <= 90 &&
-                    dato.lon >= -180 && 
-                    dato.lon <= 180
-                  )
-                  .map((dato, index) => {
-                    const capa = capasGpx.find(c => c.datos.includes(dato));
-                    const shouldShowPoint = capa?.tipoVisualizacion === 'puntos' || capa?.tipoVisualizacion === 'ambos';
-                    
-                    if (!shouldShowPoint) return null;
-                    
-                    return (
-                      <Marker
+            {/* Marcadores de GPX/KML */}
+            <LayerGroup>
+              {capasGpx
+                .filter(capa => capa.visible)
+                .flatMap(capa => capa.datos)
+                .filter(dato => 
+                  typeof dato.lat === 'number' && 
+                  typeof dato.lon === 'number' &&
+                  !isNaN(dato.lat) && 
+                  !isNaN(dato.lon) &&
+                  dato.lat >= -90 && 
+                  dato.lat <= 90 &&
+                  dato.lon >= -180 && 
+                  dato.lon <= 180
+                )
+                .map((dato, index) => {
+                  const capa = capasGpx.find(c => c.datos.includes(dato));
+                  const shouldShowPoint = capa?.tipoVisualizacion === 'puntos' || capa?.tipoVisualizacion === 'ambos';
+                  
+                  if (!shouldShowPoint) return null;
+                  
+                  return (
+                    <Marker
                                              key={`gpx-normal-${index}`}
                        position={[dato.lat, dato.lon]}
                        icon={L.divIcon({
@@ -4891,7 +4902,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                               borderRadius: '4px',
                               border: '1px solid var(--mantine-color-gray-3)'
                             }}>
-                              {dato.lat.toFixed(6)}, {dato.lon.toFixed(6)}
+                            {dato.lat.toFixed(6)}, {dato.lon.toFixed(6)}
                             </div>
                           </div>
 
@@ -4900,7 +4911,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                             display: 'grid',
                             gap: '4px'
                           }}>
-                            {dato.name && (
+                          {dato.name && (
                               <div style={{
                                 display: 'flex',
                                 justifyContent: 'space-between',
@@ -4928,8 +4939,8 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                                   {dato.name}
                                 </div>
                               </div>
-                            )}
-                            {dato.elevation && (
+                          )}
+                          {dato.elevation && (
                               <div style={{
                                 display: 'flex',
                                 justifyContent: 'space-between',
@@ -4957,8 +4968,8 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                                   {dato.elevation.toFixed(1)}m
                                 </div>
                               </div>
-                            )}
-                            {dato.description && (
+                          )}
+                          {dato.description && (
                               <div style={{
                                 display: 'flex',
                                 justifyContent: 'space-between',
@@ -4986,8 +4997,8 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                                   {dato.description}
                                 </div>
                               </div>
-                            )}
-                            {dato.time && (
+                          )}
+                          {dato.time && (
                               <div style={{
                                 display: 'flex',
                                 justifyContent: 'space-between',
