@@ -2,12 +2,13 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap, LayerGroup, CircleMarker } from 'react-leaflet';
 import L from 'leaflet';
 import { Box, Text, Paper, Stack, Group, Button, TextInput, NumberInput, Select, Switch, ActionIcon, ColorInput, Collapse, Alert, Title, Divider, Tooltip, Modal, Textarea, ColorSwatch, SimpleGrid, Card, Badge, Slider, ScrollArea, Table, Drawer, Loader, Grid } from '@mantine/core';
-import { IconPlus, IconTrash, IconEdit, IconInfoCircle, IconMaximize, IconMinimize, IconCar, IconCheck, IconX, IconListDetails, IconSearch, IconHome, IconStar, IconFlag, IconUser, IconMapPin, IconBuilding, IconBriefcase, IconAlertCircle, IconClock, IconGauge, IconCompass, IconMountain, IconRuler, IconChevronDown, IconChevronUp, IconZoomIn, IconRefresh, IconPlayerPlay, IconPlayerPause, IconPlayerStop, IconPlayerTrackNext, IconPlayerTrackPrev, IconPlayerSkipForward, IconPlayerSkipBack, IconCamera, IconDownload, IconAnalyze, IconStack, IconMovie, IconTable, IconFileExport, IconMenuDeep, IconMenu2, IconMapPinPlus, IconFilter, IconMap, IconSparkles, IconFileSpreadsheet, IconFileText, IconUpload, IconSettings } from '@tabler/icons-react';
+import { IconPlus, IconTrash, IconEdit, IconInfoCircle, IconMaximize, IconMinimize, IconCar, IconCheck, IconX, IconListDetails, IconSearch, IconHome, IconStar, IconFlag, IconUser, IconMapPin, IconBuilding, IconBriefcase, IconAlertCircle, IconClock, IconGauge, IconCompass, IconMountain, IconRuler, IconChevronDown, IconChevronUp, IconZoomIn, IconRefresh, IconPlayerPlay, IconPlayerPause, IconPlayerStop, IconPlayerTrackNext, IconPlayerTrackPrev, IconPlayerSkipForward, IconPlayerSkipBack, IconCamera, IconDownload, IconAnalyze, IconStack, IconMovie, IconTable, IconFileExport, IconMenuDeep, IconMenu2, IconMapPinPlus, IconFilter, IconMap, IconSparkles, IconFileSpreadsheet, IconFileText, IconUpload, IconSettings, IconBookmark, IconPlayerRecord, IconDeviceFloppy } from '@tabler/icons-react';
 import type { GpsLectura, GpsCapa, LocalizacionInteres, CapaExcel } from '../../types/data';
 import apiClient from '../../services/api';
 import dayjs from 'dayjs';
 import { useHotkeys } from '@mantine/hooks';
 import { getLecturasGps, getParadasGps, getCoincidenciasGps, getGpsCapas, createGpsCapa, updateGpsCapa, deleteGpsCapa, getLocalizacionesInteres, createLocalizacionInteres, updateLocalizacionInteres, deleteLocalizacionInteres } from '../../services/gpsApi';
+import { getMapasGuardados, createMapaGuardado, deleteMapaGuardado, type MapaGuardado as MapaGuardadoAPI } from '../../services/mapasGuardadosApi';
 import ReactDOMServer from 'react-dom/server';
 import GpsMapStandalone from './GpsMapStandalone';
 import html2canvas from 'html2canvas';
@@ -57,6 +58,57 @@ interface CapaBitacoraLayer {
   visible: boolean;
   puntos: CapaBitacora[];
   color: string;
+}
+
+// Nuevo tipo para mapas guardados
+interface MapaGuardado {
+  id: number;
+  nombre: string;
+  descripcion?: string;
+  fechaCreacion: string;
+  fechaModificacion: string;
+  thumbnail?: string;
+  estado: {
+    // Datos de capas
+    capas: CapaGps[];
+    capasBitacora: CapaBitacoraLayer[];
+    capasExcel: CapaExcel[];
+    capasGpx: any[];
+    localizaciones: LocalizacionInteres[];
+    
+    // Configuración del mapa
+    mapControls: {
+      visualizationType: 'standard' | 'satellite' | 'cartodb-light' | 'cartodb-voyager';
+      showHeatmap: boolean;
+      showPoints: boolean;
+      optimizePoints: boolean;
+      enableClustering: boolean;
+    };
+    
+    // Filtros activos
+    filters: {
+      fechaInicio: string;
+      horaInicio: string;
+      fechaFin: string;
+      horaFin: string;
+      velocidadMin: number | null;
+      velocidadMax: number | null;
+      duracionParada: number | null;
+      dia_semana: number | null;
+      zonaSeleccionada: any;
+    };
+    
+    // Configuración de visualización
+    vehiculoObjetivo: string | null;
+    mostrarLocalizaciones: boolean;
+    mostrarLineaRecorrido: boolean;
+    numerarPuntosActivos: boolean;
+    heatmapMultiplier: number;
+    
+    // Posición del mapa
+    mapCenter: [number, number];
+    mapZoom: number;
+  };
 }
 
 // Lista de iconos disponibles (puedes ampliarla)
@@ -631,8 +683,16 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
 
   // Estados para el sidebar y pestañas
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState<'filtros' | 'mapa' | 'capas' | 'pois' | 'posiciones' | 'analisis' | 'exportar' | 'shapefiles'>('filtros');
+  const [activeTab, setActiveTab] = useState<'filtros' | 'mapa' | 'capas' | 'pois' | 'posiciones' | 'analisis' | 'exportar' | 'shapefiles' | 'mapas'>('filtros');
   const [selectedPositionIndex, setSelectedPositionIndex] = useState<number | null>(null);
+
+  // Estados para mapas guardados
+  const [mapasGuardados, setMapasGuardados] = useState<MapaGuardado[]>([]);
+  const [loadingMapas, setLoadingMapas] = useState(false);
+  const [modalGuardarMapa, setModalGuardarMapa] = useState(false);
+  const [nombreNuevoMapa, setNombreNuevoMapa] = useState('');
+  const [descripcionNuevoMapa, setDescripcionNuevoMapa] = useState('');
+  const [cargandoMapa, setCargandoMapa] = useState(false);
 
   // Nuevos estados para el modal de advertencia
   const [showWarningModal, setShowWarningModal] = useState(false);
@@ -1783,7 +1843,8 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
     { id: 'posiciones' as const, icon: IconTable, label: 'Tabla de Posiciones', color: '#6741d9' },
     { id: 'analisis' as const, icon: IconSparkles, label: 'Análisis IA', color: '#10a37f' },
     { id: 'exportar' as const, icon: IconFileExport, label: 'Exportar', color: '#e64980' },
-    { id: 'shapefiles' as const, icon: IconUpload, label: 'Capas Externas', color: '#7950f2' }
+    { id: 'shapefiles' as const, icon: IconUpload, label: 'Capas Externas', color: '#7950f2' },
+    { id: 'mapas' as const, icon: IconBookmark, label: 'Mapas Guardados', color: '#37b24d' }
   ];
 
   // Tipos para el análisis inteligente
@@ -1897,6 +1958,145 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
       fechaFin: ''
     }));
   }, []);
+
+  // Funciones para mapas guardados
+  const obtenerEstadoActual = useCallback((): MapaGuardado['estado'] => {
+    const currentCenter = mapRef.current?.getCenter();
+    const currentZoom = mapRef.current?.getZoom();
+    
+    return {
+      capas,
+      capasBitacora,
+      capasExcel,
+      capasGpx,
+      localizaciones,
+      mapControls,
+      filters,
+      vehiculoObjetivo,
+      mostrarLocalizaciones,
+      mostrarLineaRecorrido,
+      numerarPuntosActivos,
+      heatmapMultiplier,
+      mapCenter: currentCenter ? [currentCenter.lat, currentCenter.lng] as [number, number] : [initialCenter[0], initialCenter[1]] as [number, number],
+      mapZoom: currentZoom || 10
+    };
+  }, [capas, capasBitacora, capasExcel, capasGpx, localizaciones, mapControls, filters, vehiculoObjetivo, mostrarLocalizaciones, mostrarLineaRecorrido, numerarPuntosActivos, heatmapMultiplier, initialCenter]);
+
+  const guardarMapa = useCallback(async () => {
+    if (!nombreNuevoMapa.trim()) return;
+    
+    const estadoActual = obtenerEstadoActual();
+    const nuevoMapa: Omit<MapaGuardado, 'id'> = {
+      nombre: nombreNuevoMapa.trim(),
+      descripcion: descripcionNuevoMapa.trim() || undefined,
+      fechaCreacion: new Date().toISOString(),
+      fechaModificacion: new Date().toISOString(),
+      estado: estadoActual
+    };
+
+    try {
+      const mapaGuardado = await createMapaGuardado(casoId, nuevoMapa);
+      
+      setMapasGuardados(prev => [...prev, mapaGuardado]);
+      setModalGuardarMapa(false);
+      setNombreNuevoMapa('');
+      setDescripcionNuevoMapa('');
+      
+      notifications.show({
+        title: 'Mapa guardado',
+        message: `El mapa "${nombreNuevoMapa}" se ha guardado correctamente`,
+        color: 'green'
+      });
+    } catch (error) {
+      console.error('Error al guardar el mapa:', error);
+      notifications.show({
+        title: 'Error',
+        message: 'No se pudo guardar el mapa. Inténtalo de nuevo.',
+        color: 'red'
+      });
+    }
+  }, [nombreNuevoMapa, descripcionNuevoMapa, obtenerEstadoActual, casoId]);
+
+  const cargarMapa = useCallback(async (mapa: MapaGuardado) => {
+    setCargandoMapa(true);
+    try {
+      const { estado } = mapa;
+      
+      // Restaurar todas las capas y configuraciones
+      setCapas(estado.capas);
+      setCapasBitacora(estado.capasBitacora);
+      setCapasExcel(estado.capasExcel);
+      setCapasGpx(estado.capasGpx);
+      setLocalizaciones(estado.localizaciones);
+      setMapControls(estado.mapControls);
+      setFilters(estado.filters);
+      setVehiculoObjetivo(estado.vehiculoObjetivo);
+      setMostrarLocalizaciones(estado.mostrarLocalizaciones);
+      setMostrarLineaRecorrido(estado.mostrarLineaRecorrido);
+      setNumerarPuntosActivos(estado.numerarPuntosActivos);
+      setHeatmapMultiplier(estado.heatmapMultiplier);
+      
+      // Restaurar posición del mapa
+      setTimeout(() => {
+        if (mapRef.current) {
+          mapRef.current.setView(estado.mapCenter, estado.mapZoom);
+        }
+      }, 100);
+      
+      notifications.show({
+        title: 'Mapa cargado',
+        message: `El mapa "${mapa.nombre}" se ha cargado correctamente`,
+        color: 'green'
+      });
+    } catch (error) {
+      console.error('Error al cargar el mapa:', error);
+      notifications.show({
+        title: 'Error',
+        message: 'No se pudo cargar el mapa. Inténtalo de nuevo.',
+        color: 'red'
+      });
+    } finally {
+      setCargandoMapa(false);
+    }
+  }, []);
+
+  const eliminarMapa = useCallback(async (id: number) => {
+    try {
+      await deleteMapaGuardado(casoId, id);
+      setMapasGuardados(prev => prev.filter(m => m.id !== id));
+      
+      notifications.show({
+        title: 'Mapa eliminado',
+        message: 'El mapa se ha eliminado correctamente',
+        color: 'green'
+      });
+    } catch (error) {
+      console.error('Error al eliminar el mapa:', error);
+      notifications.show({
+        title: 'Error',
+        message: 'No se pudo eliminar el mapa. Inténtalo de nuevo.',
+        color: 'red'
+      });
+    }
+  }, [casoId]);
+
+  // Cargar mapas guardados al montar el componente
+  useEffect(() => {
+    const cargarMapasGuardados = async () => {
+      setLoadingMapas(true);
+      try {
+        const mapas = await getMapasGuardados(casoId);
+        setMapasGuardados(mapas);
+      } catch (error) {
+        console.error('Error al cargar mapas guardados:', error);
+        setMapasGuardados([]);
+      } finally {
+        setLoadingMapas(false);
+      }
+    };
+    
+    cargarMapasGuardados();
+  }, [casoId]);
 
 
 
@@ -2649,7 +2849,6 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
             <Alert
               icon={<IconInfoCircle size={16} />}
               color="blue"
-              variant="light"
               style={{ display: creatingManualPOI ? 'block' : 'none' }}
             >
               Haz clic en cualquier punto del mapa para crear un nuevo POI
@@ -3286,6 +3485,138 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
           </Stack>
         );
 
+      case 'mapas':
+        return (
+          <Stack gap="md">
+            <Box style={{ height: 16 }} />
+            
+            {/* Botón para guardar el mapa actual */}
+            <Button
+              fullWidth
+              variant="filled"
+              color="green"
+              leftSection={<IconDeviceFloppy size={18} />}
+              onClick={() => setModalGuardarMapa(true)}
+              disabled={capas.length === 0 && capasBitacora.length === 0 && capasExcel.length === 0 && capasGpx.length === 0}
+            >
+              Guardar Mapa Actual
+            </Button>
+
+            <Divider />
+
+            {/* Lista de mapas guardados */}
+            <Stack gap="md">
+              <Group justify="space-between" align="center">
+                <Text fw={600}>Mapas Guardados</Text>
+                <Badge variant="light" color="gray">
+                  {mapasGuardados.length}
+                </Badge>
+              </Group>
+
+              {loadingMapas ? (
+                <Stack align="center" gap="md" py="xl">
+                  <Loader size="md" color="blue" />
+                  <Text size="sm" c="dimmed">Cargando mapas guardados...</Text>
+                </Stack>
+              ) : mapasGuardados.length === 0 ? (
+                <Paper p="xl" style={{ textAlign: 'center' }}>
+                  <IconBookmark size={48} style={{ color: 'var(--mantine-color-gray-5)', marginBottom: '16px' }} />
+                  <Text size="sm" c="dimmed">
+                    No hay mapas guardados. Configura tu mapa con capas y filtros, luego guárdalo para poder restaurarlo más tarde.
+                  </Text>
+                </Paper>
+              ) : (
+                <Stack gap="xs">
+                  {mapasGuardados.map((mapa) => (
+                    <Paper key={mapa.id} p="md" withBorder style={{ opacity: cargandoMapa ? 0.6 : 1 }}>
+                      <Stack gap="sm">
+                        <Group justify="space-between" align="flex-start">
+                          <Stack gap={2}>
+                            <Text fw={600} size="sm">{mapa.nombre}</Text>
+                            {mapa.descripcion && (
+                              <Text size="xs" c="dimmed">{mapa.descripcion}</Text>
+                            )}
+                          </Stack>
+                          <Badge size="sm" variant="light" color="blue">
+                            {(mapa.estado.capas?.length || 0) + (mapa.estado.capasBitacora?.length || 0) + (mapa.estado.capasExcel?.length || 0) + (mapa.estado.capasGpx?.length || 0)} capas
+                          </Badge>
+                        </Group>
+                        
+                        <Group justify="space-between" align="center">
+                          <Text size="xs" c="dimmed">
+                            Creado: {dayjs(mapa.fechaCreacion).format('DD/MM/YYYY HH:mm')}
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            Modificado: {dayjs(mapa.fechaModificacion).format('DD/MM/YYYY HH:mm')}
+                          </Text>
+                        </Group>
+
+                        {/* Información resumida del mapa */}
+                        <Group gap="xs" wrap="wrap">
+                          {(mapa.estado.capas?.filter(c => c.activa)?.length || 0) > 0 && (
+                            <Badge size="xs" variant="light" color="blue">
+                              {mapa.estado.capas?.filter(c => c.activa)?.length || 0} GPS
+                            </Badge>
+                          )}
+                          {(mapa.estado.capasBitacora?.filter(c => c.visible)?.length || 0) > 0 && (
+                            <Badge size="xs" variant="light" color="cyan">
+                              {mapa.estado.capasBitacora?.filter(c => c.visible)?.length || 0} Bitácora
+                            </Badge>
+                          )}
+                          {(mapa.estado.capasExcel?.filter(c => c.visible)?.length || 0) > 0 && (
+                            <Badge size="xs" variant="light" color="green">
+                              {mapa.estado.capasExcel?.filter(c => c.visible)?.length || 0} Excel
+                            </Badge>
+                          )}
+                          {(mapa.estado.capasGpx?.filter(c => c.visible)?.length || 0) > 0 && (
+                            <Badge size="xs" variant="light" color="orange">
+                              {mapa.estado.capasGpx?.filter(c => c.visible)?.length || 0} GPX
+                            </Badge>
+                          )}
+                          {(mapa.estado.localizaciones?.length || 0) > 0 && (
+                            <Badge size="xs" variant="light" color="grape">
+                              {mapa.estado.localizaciones?.length || 0} POIs
+                            </Badge>
+                          )}
+                          {mapa.estado.vehiculoObjetivo && (
+                            <Badge size="xs" variant="light" color="yellow">
+                              {mapa.estado.vehiculoObjetivo}
+                            </Badge>
+                          )}
+                        </Group>
+
+                        <Group justify="flex-end" gap="xs">
+                          <Button
+                            size="xs"
+                            variant="light"
+                            color="blue"
+                            leftSection={<IconPlayerRecord size={14} />}
+                            onClick={() => cargarMapa(mapa)}
+                            disabled={cargandoMapa}
+                            loading={cargandoMapa}
+                          >
+                            Cargar
+                          </Button>
+                          <Button
+                            size="xs"
+                            variant="light"
+                            color="red"
+                            leftSection={<IconTrash size={14} />}
+                            onClick={() => eliminarMapa(mapa.id)}
+                            disabled={cargandoMapa}
+                          >
+                            Eliminar
+                          </Button>
+                        </Group>
+                      </Stack>
+                    </Paper>
+                  ))}
+                </Stack>
+              )}
+            </Stack>
+          </Stack>
+        );
+
       default:
         return null;
     }
@@ -3413,8 +3744,8 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                   pointGroups[key].push(p);
                 });
                 return Object.entries(pointGroups).flatMap(([key, group]) =>
-                                      group.map((punto, idx) => {
-                      const [lat, lng] = getOffsetLatLngCircle(punto.latitud, punto.longitud, idx, group.length, 5);
+                                      (group as any[]).map((punto, idx) => {
+                      const [lat, lng] = getOffsetLatLngCircle(punto.latitud, punto.longitud, idx, (group as any[]).length, 5);
                       const capa = capasBitacora.find(c => c.puntos.includes(punto));
                       return (
                         <BitacoraPunto
@@ -4892,6 +5223,93 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
           }}
         />
       )}
+
+      {/* Modal para guardar mapa */}
+      <Modal
+        opened={modalGuardarMapa}
+        onClose={() => {
+          setModalGuardarMapa(false);
+          setNombreNuevoMapa('');
+          setDescripcionNuevoMapa('');
+        }}
+        title={
+          <Group>
+            <IconDeviceFloppy size={24} color="var(--mantine-color-green-6)" />
+            <Title order={3}>Guardar Mapa</Title>
+          </Group>
+        }
+        size="md"
+        centered
+      >
+        <Stack gap="md">
+          <Text size="sm" c="dimmed">
+            Guarda el estado actual del mapa incluyendo todas las capas activas, filtros, configuración de visualización y localizaciones.
+          </Text>
+          
+          <TextInput
+            label="Nombre del mapa"
+            placeholder="Ej: Análisis GPS Caso 123"
+            value={nombreNuevoMapa}
+            onChange={(e) => setNombreNuevoMapa(e.currentTarget.value)}
+            required
+          />
+          
+          <Textarea
+            label="Descripción (opcional)"
+            placeholder="Descripción del mapa y su propósito..."
+            value={descripcionNuevoMapa}
+            onChange={(e) => setDescripcionNuevoMapa(e.currentTarget.value)}
+            minRows={3}
+          />
+
+          {/* Resumen de lo que se va a guardar */}
+          <Paper p="md" withBorder style={{ backgroundColor: 'var(--mantine-color-gray-0)' }}>
+            <Text size="sm" fw={500} mb="sm">Se guardará:</Text>
+            <Group gap="xs" wrap="wrap">
+              <Badge variant="light" color="blue">
+                {capas.filter(c => c.activa).length} Capas GPS
+              </Badge>
+              <Badge variant="light" color="cyan">
+                {capasBitacora.filter(c => c.visible).length} Capas Bitácora
+              </Badge>
+              <Badge variant="light" color="green">
+                {capasExcel.filter(c => c.visible).length} Capas Excel
+              </Badge>
+              <Badge variant="light" color="orange">
+                {capasGpx.filter(c => c.visible).length} Capas GPX/KML
+              </Badge>
+              <Badge variant="light" color="grape">
+                {localizaciones.length} Localizaciones
+              </Badge>
+              <Badge variant="light" color="yellow">
+                Filtros y Configuración
+              </Badge>
+            </Group>
+          </Paper>
+
+          <Group justify="flex-end" gap="sm">
+            <Button
+              variant="light"
+              color="gray"
+              onClick={() => {
+                setModalGuardarMapa(false);
+                setNombreNuevoMapa('');
+                setDescripcionNuevoMapa('');
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              color="green"
+              onClick={guardarMapa}
+              disabled={!nombreNuevoMapa.trim()}
+              leftSection={<IconDeviceFloppy size={18} />}
+            >
+              Guardar Mapa
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
 
       {/* Leyenda flotante de capas externas */}
       <div style={{

@@ -197,6 +197,20 @@ class LocalizacionInteres(Base):
     coordenada_x = Column(Float, nullable=False)
     coordenada_y = Column(Float, nullable=False)
 
+class MapaGuardado(Base):
+    __tablename__ = "mapas_guardados"
+    id = Column(Integer, primary_key=True, index=True)
+    caso_id = Column(Integer, ForeignKey("Casos.ID_Caso"), nullable=False, index=True)
+    nombre = Column(String(200), nullable=False)
+    descripcion = Column(Text, nullable=True)
+    fecha_creacion = Column(DateTime, nullable=False, default=func.now())
+    fecha_modificacion = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
+    thumbnail = Column(String(500), nullable=True)  # URL o path del thumbnail
+    estado = Column(JSON, nullable=False)  # Estado completo del mapa serializado
+    
+    # Relación con Caso
+    caso = relationship("Caso")
+
 class RolUsuarioEnum(enum.Enum):
     superadmin = "superadmin"
     admingrupo = "admingrupo"

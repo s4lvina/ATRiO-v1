@@ -45,6 +45,7 @@ from schemas import LocalizacionInteresCreate, LocalizacionInteresUpdate, Locali
 from admin.database_manager import router as admin_database_router
 from backend.routers.gps_analysis import router as gps_analysis_router
 from backend.routers.external_data import router as external_data_router
+from backend.routers.mapas_guardados import router as mapas_guardados_router
 
 from auth_utils import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, create_access_token, create_refresh_token, verify_password, get_password_hash, decode_token # ADDED
 from jose import JWTError, jwt # ADDED
@@ -324,6 +325,7 @@ app.include_router(gps_capas_router)
 app.include_router(admin_database_router)
 app.include_router(gps_analysis_router, prefix="/api/gps")
 app.include_router(external_data_router)
+app.include_router(mapas_guardados_router)
 
 # Imprimir todas las rutas registradas
 @app.on_event("startup")
