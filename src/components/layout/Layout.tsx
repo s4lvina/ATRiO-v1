@@ -1,6 +1,6 @@
 import React from 'react';
 import { Stack, Text, UnstyledButton, useMantineTheme, Box, AppShell, Burger, Group, Button, ActionIcon } from '@mantine/core';
-import { IconHome2, IconFolder, IconUsers, IconFileImport, IconSearch, IconDeviceCctv, IconArrowsExchange, IconChevronLeft, IconChevronRight, IconX, IconFolderOpen } from '@tabler/icons-react';
+import { IconHome2, IconFolder, IconUsers, IconFileImport, IconSearch, IconDeviceCctv, IconArrowsExchange, IconChevronLeft, IconChevronRight, IconX, IconFolderOpen, IconSettings, IconHelp, IconLogout, IconPlus } from '@tabler/icons-react';
 import { useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { useDisclosure } from '@mantine/hooks';
 import { useAuth } from '../../context/AuthContext';
@@ -22,12 +22,13 @@ const navItems = [
 function MainLayout() {
   const navigate = useNavigate();
   const [opened, { toggle }] = useDisclosure(true);
-  const [collapsed, setCollapsed] = React.useState(true);
+  const [collapsed, setCollapsed] = React.useState(false);
   const { user, logout } = useAuth();
   const [helpOpen, setHelpOpen] = React.useState(false);
   const { activeCase, setActiveCase } = useActiveCase();
   const [currentTaskId, setCurrentTaskId] = React.useState<string | null>(null);
   const { RenewalModal } = useSessionRenewal();
+  const location = useLocation();
 
   const handleLogout = () => {
     logout();
@@ -40,86 +41,28 @@ function MainLayout() {
     navigate('/casos');
   };
 
+
+
   return (
     <AppShell
-      header={{ height: 60 }}
-      navbar={{ width: collapsed ? 70 : 260, breakpoint: 'sm', collapsed: { mobile: !opened } }}
-      padding="md"
+      navbar={{ 
+        width: collapsed ? 80 : 280, 
+        breakpoint: 'sm', 
+        collapsed: { mobile: !opened } 
+      }}
+      padding={0}
     >
-      <AppShell.Header style={{ background: '#f5f6fa', color: '#222' }}>
-        <Group h="100%" px="md" justify="space-between">
-          <Group>
-            <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
-            <Text size="xl" fw={700} c="#222">ATRiO 1.0</Text>
-            {activeCase && (
-              <Button
-                variant="light"
-                color="blue"
-                leftSection={<IconFolderOpen size={16} />}
-                onClick={() => navigate(`/casos/${activeCase.id}`)}
-                rightSection={
-                  <ActionIcon
-                    size="xs"
-                    color="blue"
-                    variant="transparent"
-                    onClick={handleCloseActiveCase}
-                    aria-label="Cerrar pestaña del caso activo"
-                  >
-                    <IconX size={12} />
-                  </ActionIcon>
-                }
-              >
-                {activeCase.nombre}
-              </Button>
-            )}
-          </Group>
-          {user && (
-            <Group>
-              <Text size="sm" c="#222">
-                {user.User} - {user.grupo?.Nombre || 'Sin grupo'}
-              </Text>
-              <Button variant="default" size="xs" onClick={() => setHelpOpen(true)}>
-                Mostrar ayuda
-              </Button>
-              <Button variant="light" color="red" size="xs" onClick={handleLogout}>
-                Cerrar sesión
-              </Button>
-            </Group>
-          )}
-        </Group>
-        {currentTaskId && (
-          <Box style={{ 
-            position: 'absolute', 
-            top: '60px', 
-            left: 0, 
-            right: 0, 
-            background: 'white', 
-            padding: '12px 16px', 
-            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-            borderBottom: '1px solid #eee',
-            zIndex: 1000
-          }}>
-            <Group justify="space-between" align="center">
-              <Text size="sm" fw={500}>Procesando tarea en segundo plano...</Text>
-              <TaskStatusMonitor
-                taskId={currentTaskId}
-                onComplete={() => setCurrentTaskId(null)}
-                onError={() => setCurrentTaskId(null)}
-                pollingInterval={2000}
-              />
-            </Group>
-          </Box>
-        )}
-      </AppShell.Header>
-
-      <AppShell.Navbar p={0}>
+      {/* Sidebar Completa */}
+      <AppShell.Navbar style={{ height: '100vh', top: 0 }}>
         <Box style={{ 
-          width: collapsed ? 70 : 260, 
-          height: '100%', 
+          width: collapsed ? 80 : 280, 
+          height: '100vh', 
           position: 'relative',
           transition: 'width 0.3s ease-in-out'
         }}>
           <Navbar collapsed={collapsed} />
+          
+          {/* Botón de colapsar/expandir */}
           <Box style={{ 
             position: 'absolute', 
             top: 12, 
@@ -142,9 +85,114 @@ function MainLayout() {
         </Box>
       </AppShell.Navbar>
 
-      <AppShell.Main>
-        <Outlet />
+      {/* Contenido Principal */}
+      <AppShell.Main style={{ marginLeft: 0, paddingLeft: 0 }}>
+        <Box style={{ 
+          marginLeft: collapsed ? 80 : 280, 
+          transition: 'margin-left 0.3s ease-in-out',
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column'
+        }}>
+          {/* Header Minimalista */}
+          <Box style={{
+            height: 60,
+            background: 'white',
+            borderBottom: '1px solid #e9ecef',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0 24px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+            position: 'sticky',
+            top: 0,
+            zIndex: 100
+          }}>
+            {/* Título de la Página */}
+            <Box>
+              {location.pathname.includes('/casos/') && location.pathname.split('/').length > 2 ? (
+                <Text size="lg" fw={600} c="dark">
+                  Panel de Investigación
+                </Text>
+              ) : (
+                <Text size="lg" fw={600} c="dark">
+                  {location.pathname === '/' && 'Dashboard'}
+                  {location.pathname === '/casos' && 'Investigaciones'}
+                  {location.pathname === '/importar' && 'Importar Datos'}
+                  {location.pathname === '/busqueda' && 'Búsqueda Multi-Caso'}
+                  {location.pathname === '/lectores' && 'Gestión de Lectores'}
+                  {location.pathname === '/admin' && 'Panel de Administración'}
+                </Text>
+              )}
+            </Box>
+
+            {/* Acciones */}
+            <Group gap="sm">
+              <Button
+                variant="subtle"
+                size="xs"
+                leftSection={<IconHelp size={14} />}
+                onClick={() => setHelpOpen(true)}
+              >
+                Ayuda
+              </Button>
+              
+              {location.pathname === '/casos' && (
+                <Button
+                  variant="filled"
+                  size="xs"
+                  leftSection={<IconPlus size={14} />}
+                  onClick={() => navigate('/casos')}
+                >
+                  Nuevo Caso
+                </Button>
+              )}
+              
+              <Button
+                variant="light"
+                color="red"
+                size="xs"
+                leftSection={<IconLogout size={14} />}
+                onClick={handleLogout}
+              >
+                Cerrar Sesión
+              </Button>
+            </Group>
+          </Box>
+
+          {/* Monitor de Tareas */}
+          {currentTaskId && (
+            <Box style={{ 
+              background: 'white', 
+              padding: '12px 24px', 
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              borderBottom: '1px solid #eee',
+              margin: '0 24px 20px',
+              borderRadius: '8px'
+            }}>
+              <Group justify="space-between" align="center">
+                <Text size="sm" fw={500}>Procesando tarea en segundo plano...</Text>
+                <TaskStatusMonitor
+                  taskId={currentTaskId}
+                  onComplete={() => setCurrentTaskId(null)}
+                  onError={() => setCurrentTaskId(null)}
+                  pollingInterval={2000}
+                />
+              </Group>
+            </Box>
+          )}
+
+          {/* Contenido de la Página */}
+          <Box style={{ 
+            flex: 1, 
+            padding: '0 24px 24px',
+            overflowY: 'auto'
+          }}>
+            <Outlet />
+          </Box>
+        </Box>
       </AppShell.Main>
+
       <HelpCenterModal opened={helpOpen} onClose={() => setHelpOpen(false)} />
       <RenewalModal />
     </AppShell>

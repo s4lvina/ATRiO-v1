@@ -629,18 +629,19 @@ const handleDeleteArchivo = async (archivoId: number) => {
 
   return (
     <MapHighlightProvider>
-      <Container fluid style={{ paddingLeft: 32, paddingRight: 32 }}>
-          <Group justify="space-between" mb="md">
-            <Text size="xl" fw={700} mt="md">Panel de Investigación: {caso.Nombre_del_Caso} ({caso.Año})</Text>
+      <Container fluid style={{ paddingLeft: 32, paddingRight: 32, paddingTop: 10 }}>
+          {/* Botón para mostrar navegación cuando está colapsada */}
+          {!isNavigationExpanded && (
             <Button
-              variant="subtle"
+              variant="light"
               size="sm"
-              onClick={() => setIsNavigationExpanded(!isNavigationExpanded)}
-              leftSection={isNavigationExpanded ? <IconChevronUp size={16} /> : <IconChevronDown size={16} />}
+              onClick={() => setIsNavigationExpanded(true)}
+              leftSection={<IconChevronDown size={16} />}
+              style={{ marginBottom: '1rem' }}
             >
-              {isNavigationExpanded ? 'Ocultar navegación' : 'Mostrar navegación'}
+              Mostrar navegación
             </Button>
-          </Group>
+          )}
 
           {/* --- NUEVO: Panel de Navegación Colapsable --- */}
           <Collapse in={isNavigationExpanded} transitionDuration={200}>
@@ -651,9 +652,24 @@ const handleDeleteArchivo = async (archivoId: number) => {
               style={{ 
                 borderRadius: '8px',
                 border: '1px solid #e9ecef',
-                background: '#f8f9fa'
+                background: '#f8f9fa',
+                position: 'relative'
               }}
             >
+              {/* Botón de cerrar navegación en la esquina superior derecha */}
+              <ActionIcon
+                variant="subtle"
+                size="sm"
+                onClick={() => setIsNavigationExpanded(false)}
+                style={{
+                  position: 'absolute',
+                  top: '8px',
+                  right: '8px',
+                  zIndex: 10
+                }}
+              >
+                <IconChevronUp size={16} />
+              </ActionIcon>
               <Stack gap="xs">
                 <Group gap={0} align="flex-start">
                     <Box>
