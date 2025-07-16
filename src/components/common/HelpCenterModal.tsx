@@ -14,6 +14,7 @@ const helpSections = [
   { key: 'mapa', label: 'Mapa' },
   { key: 'mapa-gps', label: 'Mapa GPS' },
   { key: 'mapa-gps-capas-externas', label: 'Mapa GPS - Capas Externas' },
+  { key: 'mapa-gps-mapas-guardados', label: 'Mapa GPS - Mapas Guardados' },
   { key: 'datos-gps', label: 'Datos GPS' },
   { key: 'busqueda-multicaso', label: 'Búsqueda Multi-Caso' },
   { key: 'gestion-lectores', label: 'Gestión de Lectores' },
@@ -37,7 +38,7 @@ const HelpCenterModal: React.FC<HelpCenterModalProps> = ({ opened, onClose }) =>
       styles={{ content: { maxWidth: '1200px', width: '90%' } }}
       zIndex={999998}
     >
-      <Accordion chevronPosition="left" variant="separated" multiple>
+      <Accordion chevronPosition="left" multiple>
         {helpSections.map(section => (
           <Accordion.Item value={section.key} key={section.key}>
             <Accordion.Control>{section.label}</Accordion.Control>
@@ -45,7 +46,7 @@ const HelpCenterModal: React.FC<HelpCenterModalProps> = ({ opened, onClose }) =>
           </Accordion.Item>
         ))}
       </Accordion>
-      <Group justify="flex-end" mt="md">
+      <Group justify="flex-end" style={{ marginTop: 'var(--mantine-spacing-md)' }}>
         <Button onClick={onClose} variant="light">Cerrar</Button>
       </Group>
     </Modal>

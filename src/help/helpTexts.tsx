@@ -197,7 +197,7 @@ const helpTexts = {
     </Box>
   ),
   'vehiculos': (
-    <Box maw={900}>
+    <Box style={{ maxWidth: 900 }}>
       <Text fw={700} mb="sm" size="lg" c="blue.8">¿Cómo funciona la pestaña Vehículos?</Text>
       <Stack gap="xs">
         <Text size="md" fw={700} mb={2}>¿Qué es este panel?</Text>
@@ -227,7 +227,7 @@ const helpTexts = {
     </Box>
   ),
   'mapa': (
-    <Box maw={900}>
+    <Box style={{ maxWidth: 900 }}>
       <Text fw={700} mb="sm" size="lg" c="blue.8">¿Cómo funciona la pestaña Mapa?</Text>
       <Stack gap="xs">
         <Text size="md" fw={700} mb={2}>¿Qué es esta pestaña?</Text>
@@ -257,7 +257,7 @@ const helpTexts = {
     </Box>
   ),
   'archivos': (
-    <Box maw={900}>
+    <Box style={{ maxWidth: 900 }}>
       <Text fw={700} mb="sm" size="lg" c="blue.8">¿Cómo funciona la pestaña Importar Datos?</Text>
       <Stack gap="xs">
         <Text size="md" fw={700} mb={2}>¿Qué es esta pestaña?</Text>
@@ -303,7 +303,7 @@ const helpTexts = {
     </Box>
   ),
   'gestion-lectores': (
-    <Box maw={900}>
+    <Box style={{ maxWidth: 900 }}>
       <Text fw={700} mb="sm" size="lg" c="blue.8">¿Cómo funciona la gestión de lectores?</Text>
       <Stack gap="xs">
         <Text size="md" fw={700} mb={2}>¿Qué es un lector?</Text>
@@ -335,7 +335,7 @@ const helpTexts = {
     </Box>
   ),
   'busqueda-multicaso': (
-    <Box maw={900}>
+    <Box style={{ maxWidth: 900 }}>
       <Text fw={700} mb="sm" size="lg" c="blue.8">¿Cómo funciona la Búsqueda Multi-Caso?</Text>
       <Stack gap="xs">
         <Text size="md" fw={700} mb={2}>¿Qué es la búsqueda multi-caso?</Text>
@@ -369,7 +369,7 @@ const helpTexts = {
     </Box>
   ),
   'investigaciones': (
-    <Box maw={900}>
+    <Box style={{ maxWidth: 900 }}>
       <Text fw={700} mb="sm" size="lg" c="blue.8">¿Qué es el panel de Investigaciones?</Text>
       <Stack gap="xs">
         <Text size="md" fw={700} mb={2}>¿Para qué sirve esta sección?</Text>
@@ -397,7 +397,7 @@ const helpTexts = {
     </Box>
   ),
   'datos-gps': (
-    <Box maw={900}>
+    <Box style={{ maxWidth: 900 }}>
       <Text fw={700} mb="sm" size="lg" c="blue.8">¿Cómo funciona la pestaña Datos GPS?</Text>
       <Stack gap="xs">
         <Text size="md" fw={700} mb={2}>¿Qué es esta pestaña?</Text>
@@ -428,7 +428,7 @@ const helpTexts = {
   ),
 
 'mapa-gps': (
-    <Box maw={900}>
+    <Box style={{ maxWidth: 900 }}>
       <Text fw={700} mb="sm" size="lg" c="blue.8">¿Cómo funciona la pestaña Mapa GPS?</Text>
       <Stack gap="xs">
         <Text size="md" fw={700} mb={2}>¿Qué es esta pestaña?</Text>
@@ -600,7 +600,7 @@ const helpTexts = {
     </Box>
   ),
   'mapa-gps-capas-externas': (
-    <Box maw={900}>
+    <Box style={{ maxWidth: 900 }}>
       <Text fw={700} mb="sm" size="lg" c="blue.8">¿Cómo funcionan las Capas Externas en el Mapa GPS?</Text>
       <Stack gap="xs">
         <Text size="md" fw={700} mb={2}>¿Qué son las Capas Externas?</Text>
@@ -701,7 +701,7 @@ const helpTexts = {
     </Box>
   ),
   'dashboard': (
-    <Box maw={900}>
+    <Box style={{ maxWidth: 900 }}>
       <Text fw={700} mb="sm" size="lg" c="blue.8">¿Cómo funciona el Dashboard?</Text>
       <Stack gap="xs">
         <Text size="sm" mb="xs">
@@ -718,7 +718,7 @@ const helpTexts = {
     </Box>
   ),
   'admin-panel': (
-    <Box maw={900}>
+    <Box style={{ maxWidth: 900 }}>
       <Text fw={700} mb="sm" size="lg" c="blue.8">¿Cómo funciona el Panel de Administración?</Text>
       <Stack gap="xs">
         <Text size="md" fw={700} mb={2}>¿Qué es este panel?</Text>
@@ -840,7 +840,7 @@ const helpTexts = {
     </Box>
   ),
   'cruce-fuentes-externas': (
-    <Box maw={900}>
+    <Box style={{ maxWidth: 900 }}>
       <Text fw={700} mb="sm" size="lg" c="blue.8">¿Cómo funciona el Cruce de Fuentes Externas en ATRiO 1.0?</Text>
       <Stack gap="xs">
         <Text size="md" fw={700} mb={2}>¿Qué es esta funcionalidad?</Text>
@@ -914,6 +914,68 @@ const helpTexts = {
             <li>Si hay más coincidencias, usa filtros más específicos para ver resultados completos</li>
             <li>El formato de archivo soportado es Excel (.xlsx, .xls)</li>
             <li>La columna de matrícula es obligatoria en todos los archivos importados</li>
+          </ul>
+        </Text>
+      </Stack>
+    </Box>
+  ),
+  'mapa-gps-mapas-guardados': (
+    <Box style={{ maxWidth: 900 }}>
+      <Text fw={700} mb="sm" size="lg" c="blue.8">¿Cómo funciona la funcionalidad de Mapas Guardados?</Text>
+      <Stack gap="xs">
+        <Text size="md" fw={700} mb={2}>¿Qué son los Mapas Guardados?</Text>
+        <Text size="sm" mb="xs">
+          La funcionalidad de <b>Mapas Guardados</b> te permite almacenar el estado completo del mapa GPS, incluyendo todas las capas (GPS, LPR, externas), filtros aplicados, configuración de visualización, localizaciones, zoom y posición del mapa. Así puedes recuperar y compartir configuraciones complejas de análisis con un solo clic.
+        </Text>
+        <Text size="md" fw={700} mb={2}>¿Cómo guardar un mapa?</Text>
+        <Text size="sm" mb="xs">
+          <ol style={{ paddingLeft: '20px', margin: '4px 0' }}>
+            <li>Configura el mapa con las capas, filtros y visualización que desees.</li>
+            <li>Haz clic en la pestaña <b>Mapas Guardados</b> dentro del panel de análisis GPS.</li>
+            <li>Pulsa <b>Guardar nuevo mapa</b> y asigna un nombre y descripción opcional.</li>
+            <li>El mapa se guardará y aparecerá en la lista de mapas guardados para el caso.</li>
+          </ol>
+        </Text>
+        <Text size="md" fw={700} mb={2}>¿Cómo cargar o restaurar un mapa guardado?</Text>
+        <Text size="sm" mb="xs">
+          <ol style={{ paddingLeft: '20px', margin: '4px 0' }}>
+            <li>Abre la pestaña <b>Mapas Guardados</b>.</li>
+            <li>Selecciona el mapa que quieras cargar y pulsa <b>Cargar</b>.</li>
+            <li>El estado del mapa (capas, filtros, posición, etc.) se restaurará exactamente como estaba al guardarlo.</li>
+          </ol>
+        </Text>
+        <Text size="md" fw={700} mb={2}>¿Cómo eliminar o duplicar mapas guardados?</Text>
+        <Text size="sm" mb="xs">
+          <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
+            <li><b>Eliminar:</b> Haz clic en el icono de papelera junto al mapa que quieras borrar. Se pedirá confirmación antes de eliminarlo definitivamente.</li>
+            <li><b>Duplicar:</b> Haz clic en el icono de duplicar para crear una copia del mapa guardado, que podrás renombrar y modificar.</li>
+          </ul>
+        </Text>
+        <Text size="md" fw={700} mb={2}>Buenas prácticas y consejos</Text>
+        <Text size="sm" mb="xs">
+          <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
+            <li>Utiliza nombres descriptivos para identificar rápidamente la configuración guardada.</li>
+            <li>Guarda mapas antes de realizar cambios importantes, para poder volver atrás fácilmente.</li>
+            <li>Comparte el nombre y descripción del mapa con tu equipo para facilitar el trabajo colaborativo.</li>
+            <li>El sistema almacena todos los parámetros relevantes, pero si se han importado nuevas capas o datos desde que se guardó el mapa, revisa que todo esté actualizado al cargarlo.</li>
+          </ul>
+        </Text>
+        <Text size="md" fw={700} mb={2}>¿Qué incluye un mapa guardado?</Text>
+        <Text size="sm" mb="xs">
+          <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
+            <li>Capas GPS, LPR y externas activas y su configuración.</li>
+            <li>Filtros aplicados (fechas, matrículas, zonas, velocidad, etc.).</li>
+            <li>Posición y zoom del mapa.</li>
+            <li>Visualización (clustering, heatmap, rutas, etc.).</li>
+            <li>Notas, localizaciones y cualquier personalización visual.</li>
+          </ul>
+        </Text>
+        <Text size="md" fw={700} mb={2}>Limitaciones</Text>
+        <Text size="sm" mb="xs">
+          <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
+            <li>Los mapas guardados son específicos de cada caso y usuario.</li>
+            <li>Si se eliminan capas o datos externos después de guardar un mapa, puede que algunos elementos no se restauren completamente.</li>
+            <li>La funcionalidad está pensada para análisis y documentación, no para compartir mapas entre diferentes casos.</li>
           </ul>
         </Text>
       </Stack>
