@@ -71,11 +71,19 @@ const Navbar: React.FC<NavbarProps> = ({ collapsed }) => {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '20px',
-            fontWeight: 'bold',
-            flexShrink: 0
+            flexShrink: 0,
+            overflow: 'hidden'
           }}>
-            🚗
+            <img 
+              src="/logo.png" 
+              alt="ATRiO Logo" 
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain',
+                padding: '4px'
+              }}
+            />
           </Box>
           {!collapsed && (
             <Box>
