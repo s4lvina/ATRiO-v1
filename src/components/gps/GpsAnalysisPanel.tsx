@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap, LayerGroup, CircleMarker } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, LayerGroup, CircleMarker, Circle } from 'react-leaflet';
 import L from 'leaflet';
 import { Box, Text, Paper, Stack, Group, Button, TextInput, NumberInput, Select, Switch, ActionIcon, ColorInput, Collapse, Alert, Title, Divider, Tooltip, Modal, Textarea, ColorSwatch, SimpleGrid, Card, Badge, Slider, ScrollArea, Table, Drawer, Loader, Grid } from '@mantine/core';
-import { IconPlus, IconTrash, IconEdit, IconInfoCircle, IconMaximize, IconMinimize, IconCar, IconCheck, IconX, IconListDetails, IconSearch, IconHome, IconStar, IconFlag, IconUser, IconMapPin, IconBuilding, IconBriefcase, IconAlertCircle, IconClock, IconGauge, IconCompass, IconMountain, IconRuler, IconChevronDown, IconChevronUp, IconZoomIn, IconRefresh, IconPlayerPlay, IconPlayerPause, IconPlayerStop, IconPlayerTrackNext, IconPlayerTrackPrev, IconPlayerSkipForward, IconPlayerSkipBack, IconCamera, IconDownload, IconAnalyze, IconStack, IconMovie, IconTable, IconFileExport, IconMenuDeep, IconMenu2, IconMapPinPlus, IconFilter, IconMap, IconSparkles, IconFileSpreadsheet, IconFileText, IconUpload, IconSettings, IconBookmark, IconPlayerRecord, IconDeviceFloppy } from '@tabler/icons-react';
+import { IconPlus, IconTrash, IconEdit, IconInfoCircle, IconMaximize, IconMinimize, IconCar, IconCheck, IconX, IconListDetails, IconSearch, IconHome, IconStar, IconFlag, IconUser, IconMapPin, IconBuilding, IconBriefcase, IconAlertCircle, IconClock, IconGauge, IconCompass, IconMountain, IconRuler, IconChevronDown, IconChevronUp, IconZoomIn, IconRefresh, IconPlayerPlay, IconPlayerPause, IconPlayerStop, IconPlayerTrackNext, IconPlayerTrackPrev, IconPlayerSkipForward, IconPlayerSkipBack, IconCamera, IconDownload, IconAnalyze, IconStack, IconMovie, IconTable, IconFileExport, IconMenuDeep, IconMenu2, IconMapPinPlus, IconFilter, IconMap, IconSparkles, IconFileSpreadsheet, IconFileText, IconUpload, IconSettings, IconBookmark, IconPlayerRecord, IconDeviceFloppy, IconDeviceCctv } from '@tabler/icons-react';
 import type { GpsLectura, GpsCapa, LocalizacionInteres, CapaExcel } from '../../types/data';
 import apiClient from '../../services/api';
 import dayjs from 'dayjs';
@@ -26,6 +26,10 @@ import { FileInput } from '@mantine/core';
 import { BitacoraPunto } from './BitacoraPunto';
 import { ImportarCapaExcelModal } from '../modals/ImportarCapaExcelModal';
 import ImportarCapaGpxModal from '../modals/ImportarCapaGpxModal';
+import LprFiltersPanel, { type LprFilterState, type LprCapa } from '../filters/LprFiltersPanel';
+
+import type { Lectura, LectorCoordenadas } from '../../types/data';
+import MapControlsPanel, { type GpsMapControls, type LprMapControls } from './MapControlsPanel';
 
 // Estilos CSS en línea para el contenedor del mapa
 const mapContainerStyle = {
@@ -683,7 +687,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
 
   // Estados para el sidebar y pestañas
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState<'filtros' | 'mapa' | 'capas' | 'pois' | 'posiciones' | 'analisis' | 'exportar' | 'shapefiles' | 'mapas'>('filtros');
+  const [activeTab, setActiveTab] = useState<'filtros' | 'filtros-lpr' | 'mapa' | 'capas' | 'pois' | 'posiciones' | 'lecturas-lpr' | 'analisis' | 'exportar' | 'shapefiles' | 'mapas' | 'controles'>('filtros');
   const [selectedPositionIndex, setSelectedPositionIndex] = useState<number | null>(null);
 
   // Estados para mapas guardados
@@ -795,14 +799,66 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
   const [activeExternalTab, setActiveExternalTab] = useState<'bitacora' | 'excel' | 'shapefiles' | 'gpx-kmz'>('bitacora');
 
   // 1. Añadir estado para mostrar la línea de recorrido
-  const [mostrarLineaRecorrido, setMostrarLineaRecorrido] = useState(true);
+  const [mostrarLineaRecorrido, setMostrarLineaRecorrido] = useState(false);
 
   // Estado para la leyenda editable
   const [editLegend, setEditLegend] = useState<{ tipo: string; id: number | string; nombre: string } | null>(null);
   const [legendCollapsed, setLegendCollapsed] = useState(false);
 
-  // Añadir estado para controlar la visibilidad del panel flotante
-  const [showMapControls, setShowMapControls] = useState(false);
+
+
+  // Estados para funcionalidades LPR
+  const [lprFilters, setLprFilters] = useState<LprFilterState>({
+    fechaInicio: '',
+    horaInicio: '',
+    fechaFin: '',
+    horaFin: '',
+    lectorId: '',
+    selectedMatricula: null
+  });
+
+  // Estado para controlar todas las capas externas
+  const [todasCapasExternasActivas, setTodasCapasExternasActivas] = useState(true);
+  const [lprCapas, setLprCapas] = useState<LprCapa[]>([]);
+  const [nuevaLprCapa, setNuevaLprCapa] = useState<Partial<LprCapa>>({ nombre: '', color: '#40c057' });
+  const [mostrarFormularioLprCapa, setMostrarFormularioLprCapa] = useState(false);
+  const [editandoLprCapa, setEditandoLprCapa] = useState<LprCapa | null>(null);
+  const [guardandoLprCapa, setGuardandoLprCapa] = useState(false);
+  const [lprResultadosFiltro, setLprResultadosFiltro] = useState<{
+    lecturas: Lectura[];
+    lectores: LectorCoordenadas[];
+  }>({ lecturas: [], lectores: [] });
+  const [lprLoading, setLprLoading] = useState(false);
+  const [lprLectores, setLprLectores] = useState<LectorCoordenadas[]>([]);
+  const [lprMapControls, setLprMapControls] = useState({
+    showCaseReaders: false,
+    showAllReaders: false,
+    showCoincidencias: true
+  });
+  const [lprSelectedLecturaIndex, setLprSelectedLecturaIndex] = useState<number | null>(null);
+  const [lprAllSystemReaders, setLprAllSystemReaders] = useState<LectorCoordenadas[]>([]);
+  const [lprSelectedLectura, setLprSelectedLectura] = useState<Lectura | null>(null);
+  const [lprInfoBanner, setLprInfoBanner] = useState<any | null>(null);
+  const [lprShowLPRTable, setLprShowLPRTable] = useState(false);
+
+  // Cargar lectores del caso al montar o cambiar casoId
+  useEffect(() => {
+    if (!casoId) return;
+    apiClient.get<LectorCoordenadas[]>(`/casos/${casoId}/lectores`)
+      .then(res => {
+        setLprLectores(res.data.filter(l => l.Coordenada_X != null && l.Coordenada_Y != null));
+      })
+      .catch(() => setLprLectores([]));
+  }, [casoId]);
+
+  // Cargar todos los lectores del sistema al montar
+  useEffect(() => {
+    apiClient.get<LectorCoordenadas[]>(`/lectores`)
+      .then(res => {
+        setLprAllSystemReaders(res.data.filter(l => l.Coordenada_X != null && l.Coordenada_Y != null));
+      })
+      .catch(() => setLprAllSystemReaders([]));
+  }, []);
 
   // Funciones para manejar la edición de la leyenda
   const handleLegendEdit = (tipo: string, id: number | string, nombre: string) => {
@@ -837,178 +893,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
     }
   };
 
-  // Crear el componente MapControlsPanel
-  const MapControlsPanel = () => {
-    const panelRef = useRef<HTMLDivElement>(null);
 
-    // Cerrar al hacer clic fuera del panel
-    useEffect(() => {
-      const handleClickOutside = (event: MouseEvent) => {
-        if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
-          setShowMapControls(false);
-        }
-      };
-
-      if (showMapControls) {
-        document.addEventListener('mousedown', handleClickOutside);
-      }
-
-      return () => {
-        document.removeEventListener('mousedown', handleClickOutside);
-      };
-    }, [showMapControls]);
-
-    if (!showMapControls) return null;
-
-    return (
-      <div
-        ref={panelRef}
-        style={{
-          position: 'absolute',
-          bottom: '20px',
-          left: '20px',
-          backgroundColor: 'rgba(255, 255, 255, 0.6)',
-          backdropFilter: 'blur(12px)',
-          border: '1px solid rgba(255, 255, 255, 0.4)',
-          borderRadius: '12px',
-          padding: '20px',
-          width: '480px',
-          height: 'auto',
-          zIndex: 99998,
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)'
-        }}
-      >
-        <Stack gap="md">
-          <Text size="sm" fw={600} mb="xs">Controles de Mapa</Text>
-          
-          <Text size="sm" fw={600} mb="xs">Tipo de Visualización</Text>
-          <Group gap="xs" style={{ flexWrap: 'nowrap' }}>
-            <Button
-              size="xs"
-              variant={mapControls.visualizationType === 'standard' ? 'filled' : 'light'}
-              color="blue"
-              onClick={() => {
-                console.log('=== BUTTON CLICK DEBUG ===');
-                console.log('Clicking standard');
-                setMapControls(prev => ({ ...prev, visualizationType: 'standard' }));
-              }}
-              style={{ flex: 1, fontSize: '11px', padding: '4px 6px', minWidth: 'auto' }}
-            >
-              OpenStreetMap
-            </Button>
-            <Button
-              size="xs"
-              variant={mapControls.visualizationType === 'satellite' ? 'filled' : 'light'}
-              color="blue"
-              onClick={() => {
-                console.log('=== BUTTON CLICK DEBUG ===');
-                console.log('Clicking satellite');
-                setMapControls(prev => ({ ...prev, visualizationType: 'satellite' }));
-              }}
-              style={{ flex: 1, fontSize: '11px', padding: '4px 6px', minWidth: 'auto' }}
-            >
-              Satélite
-            </Button>
-            <Button
-              size="xs"
-              variant={mapControls.visualizationType === 'cartodb-light' ? 'filled' : 'light'}
-              color="blue"
-              onClick={() => {
-                console.log('=== BUTTON CLICK DEBUG ===');
-                console.log('Clicking cartodb-light');
-                setMapControls(prev => ({ ...prev, visualizationType: 'cartodb-light' }));
-              }}
-              style={{ flex: 1, fontSize: '11px', padding: '4px 6px', minWidth: 'auto' }}
-            >
-              CartoDB Light
-            </Button>
-            <Button
-              size="xs"
-              variant={mapControls.visualizationType === 'cartodb-voyager' ? 'filled' : 'light'}
-              color="blue"
-              onClick={() => {
-                console.log('=== BUTTON CLICK DEBUG ===');
-                console.log('Clicking cartodb-voyager');
-                setMapControls(prev => ({ ...prev, visualizationType: 'cartodb-voyager' }));
-              }}
-              style={{ flex: 1, fontSize: '11px', padding: '4px 6px', minWidth: 'auto' }}
-            >
-              CartoDB Voyager
-            </Button>
-          </Group>
-          
-          <Switch
-            label="Mostrar línea de recorrido"
-            checked={mostrarLineaRecorrido}
-            onChange={e => setMostrarLineaRecorrido(e.currentTarget.checked)}
-            description="Dibuja una línea que conecta los puntos GPS en orden cronológico"
-          />
-
-          <Switch
-            label="Mostrar puntos"
-            checked={mapControls.showPoints}
-            onChange={e => setMapControls(prev => ({ ...prev, showPoints: e.currentTarget.checked }))}
-            description="Muestra los puntos GPS individuales"
-          />
-
-          <Switch
-            label={`Agrupar puntos cercanos${lecturasFiltradas.length > 2000 ? ' (Automático)' : ''}`}
-            checked={mapControls.enableClustering}
-            onChange={e => setMapControls(prev => ({ ...prev, enableClustering: e.currentTarget.checked }))}
-            description={lecturasFiltradas.length > 2000 
-              ? `Activado automáticamente por rendimiento (${lecturasFiltradas.length} puntos). Puedes desactivarlo manualmente.`
-              : "Agrupa puntos cercanos en clusters para mejor visualización"
-            }
-          />
-
-          <Switch
-            label="Optimizar puntos"
-            checked={mapControls.optimizePoints}
-            onChange={e => setMapControls(prev => ({ ...prev, optimizePoints: e.currentTarget.checked }))}
-            description="Optimiza la visualización de puntos para mejor rendimiento"
-          />
-
-          <Switch
-            label="Numerar puntos activos"
-            checked={numerarPuntosActivos}
-            onChange={e => setNumerarPuntosActivos(e.currentTarget.checked)}
-            description="Muestra números en los puntos de las capas activas"
-          />
-
-          <Switch
-            label="Mostrar localizaciones"
-            checked={mostrarLocalizaciones}
-            onChange={e => setMostrarLocalizaciones(e.currentTarget.checked)}
-            description="Muestra las localizaciones en el mapa"
-          />
-
-          <Switch
-            label="Mostrar mapa de calor"
-            checked={mapControls.showHeatmap}
-            onChange={e => setMapControls(prev => ({ ...prev, showHeatmap: e.currentTarget.checked }))}
-            description="Muestra un mapa de calor de densidad de lecturas"
-          />
-
-          <div>
-            <Text size="sm" mb="xs">Intensidad del mapa de calor: {heatmapMultiplier}</Text>
-            <Slider
-              min={1.25}
-              max={5}
-              step={0.01}
-              value={heatmapMultiplier}
-              onChange={setHeatmapMultiplier}
-              marks={[
-                { value: 1.25, label: '1.25' },
-                { value: 1.65, label: '1.65' },
-                { value: 3, label: '3' },
-                { value: 5, label: '5' }
-              ]}
-            />
-          </div>
-        </Stack>
-      </div>
-    );
-  };
 
   const centrarMapa = useCallback((lat: number, lon: number, zoom: number = 16) => {
     if (mapRef.current) {
@@ -1847,14 +1732,18 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
 
   // Configuración de pestañas
   const tabs = [
-    { id: 'filtros' as const, icon: IconFilter, label: 'Filtros', color: '#228be6' },
-    { id: 'capas' as const, icon: IconStack, label: 'Capas', color: '#fd7e14' },
+    { id: 'filtros' as const, icon: IconFilter, label: 'Filtros GPS', color: '#228be6' },
+    { id: 'filtros-lpr' as const, icon: IconDeviceCctv, label: 'Filtros LPR', color: '#40c057' },
+    { id: 'capas' as const, icon: IconStack, label: 'Capas GPS', color: '#fd7e14' },
+    
     { id: 'pois' as const, icon: IconMapPin, label: 'Puntos de Interés', color: '#7c2d12' },
     { id: 'posiciones' as const, icon: IconTable, label: 'Tabla de Posiciones', color: '#6741d9' },
+    { id: 'lecturas-lpr' as const, icon: IconTable, label: 'Tabla LPR', color: '#40c057' },
     { id: 'analisis' as const, icon: IconSparkles, label: 'Análisis IA', color: '#10a37f' },
     { id: 'exportar' as const, icon: IconFileExport, label: 'Exportar', color: '#e64980' },
     { id: 'shapefiles' as const, icon: IconUpload, label: 'Capas Externas', color: '#7950f2' },
-    { id: 'mapas' as const, icon: IconBookmark, label: 'Mapas Guardados', color: '#37b24d' }
+    { id: 'mapas' as const, icon: IconBookmark, label: 'Mapas Guardados', color: '#37b24d' },
+    { id: 'controles' as const, icon: IconSettings, label: 'Controles Mapa', color: '#7950f2' }
   ];
 
   // Tipos para el análisis inteligente
@@ -1968,6 +1857,181 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
       fechaFin: ''
     }));
   }, []);
+
+  // Funciones para funcionalidades LPR
+  const handleLprFilterChange = useCallback((updates: Partial<LprFilterState>) => {
+    setLprFilters(prev => ({ ...prev, ...updates }));
+  }, []);
+
+  // Función para manejar el toggle de todas las capas externas
+  const handleToggleTodasCapasExternas = useCallback((value: boolean) => {
+    setTodasCapasExternasActivas(value);
+    
+    // Actualizar todas las capas bitácora
+    setCapasBitacora(prev => prev.map(capa => ({ ...capa, visible: value })));
+    
+    // Actualizar todas las capas Excel
+    setCapasExcel(prev => prev.map(capa => ({ ...capa, visible: value })));
+    
+    // Actualizar todas las capas GPX
+    setCapasGpx(prev => prev.map(capa => ({ ...capa, visible: value })));
+    
+    // Actualizar todas las capas shapefile
+    setShapefileLayers(prev => prev.map(capa => ({ ...capa, visible: value })));
+  }, []);
+
+  const handleLprFiltrar = useCallback(async () => {
+    if (!lprFilters.selectedMatricula) {
+      setLprResultadosFiltro({ lecturas: [], lectores: [] });
+      return;
+    }
+
+    setLprLoading(true);
+    try {
+      // Cargar lectores y lecturas LPR en paralelo
+      const [lectoresResponse, lecturasResponse] = await Promise.all([
+        apiClient.get<LectorCoordenadas[]>(`/casos/${casoId}/lectores`),
+        apiClient.get<Lectura[]>(`/casos/${casoId}/lecturas`, {
+          params: {
+            matricula: lprFilters.selectedMatricula,
+            fecha_inicio: lprFilters.fechaInicio,
+            hora_inicio: lprFilters.horaInicio,
+            fecha_fin: lprFilters.fechaFin,
+            hora_fin: lprFilters.horaFin,
+            lector_id: lprFilters.lectorId
+          }
+        })
+      ]);
+
+      const lectoresData = lectoresResponse.data.filter(l => l.Coordenada_X != null && l.Coordenada_Y != null);
+      const lectoresMap = new Map(lectoresData.map(l => [String(l.ID_Lector), l]));
+      
+      const lecturasData = lecturasResponse.data
+        .filter(lectura => lectura.Tipo_Fuente !== 'GPS') // Filtrar solo lecturas LPR
+        .map(lectura => {
+          const lector = lectoresMap.get(String(lectura.ID_Lector));
+          if (lector) {
+            return {
+              ...lectura,
+              Coordenada_X: lector.Coordenada_X,
+              Coordenada_Y: lector.Coordenada_Y
+            };
+          }
+          return lectura;
+        }).filter(l => l.Coordenada_X != null && l.Coordenada_Y != null);
+      
+      const lectoresFiltrados = lectoresData.filter(lector => 
+        lecturasData.some(lectura => String(lectura.ID_Lector) === String(lector.ID_Lector))
+      );
+      
+      setLprLectores(lectoresData);
+      setLprResultadosFiltro({
+        lecturas: lecturasData,
+        lectores: lectoresFiltrados
+      });
+
+      // Pre-llenar el nombre de la capa con la matrícula
+      setNuevaLprCapa(prev => ({
+        ...prev,
+        nombre: lprFilters.selectedMatricula || ''
+      }));
+    } catch (error) {
+      console.error('Error al filtrar LPR:', error);
+    } finally {
+      setLprLoading(false);
+    }
+  }, [casoId, lprFilters]);
+
+  const handleLprLimpiar = useCallback(() => {
+    setLprFilters({
+      fechaInicio: '',
+      horaInicio: '',
+      fechaFin: '',
+      horaFin: '',
+      lectorId: '',
+      selectedMatricula: null
+    });
+    setLprResultadosFiltro({ lecturas: [], lectores: [] });
+  }, []);
+
+  const handleLprGuardarResultadosEnCapa = useCallback(() => {
+    if (!nuevaLprCapa.nombre) return;
+
+    const nuevaCapaCompleta: LprCapa = {
+      id: Date.now().toString(),
+      nombre: nuevaLprCapa.nombre,
+      color: nuevaLprCapa.color || '#40c057',
+      activa: true,
+      lecturas: lprResultadosFiltro.lecturas,
+      lectores: lprResultadosFiltro.lectores,
+      filtros: { ...lprFilters }
+    };
+
+    setLprCapas(prev => [...prev, nuevaCapaCompleta]);
+    setNuevaLprCapa({ nombre: '', color: '#40c057' });
+    setMostrarFormularioLprCapa(false);
+    setLprResultadosFiltro({ lecturas: [], lectores: [] });
+    setLprFilters(prev => ({ ...prev, selectedMatricula: null }));
+  }, [nuevaLprCapa, lprResultadosFiltro, lprFilters]);
+
+  const handleLprEditarCapa = useCallback((id: string) => {
+    const capa = lprCapas.find(c => c.id === id);
+    if (!capa) return;
+
+    setNuevaLprCapa({
+      nombre: capa.nombre,
+      color: capa.color
+    });
+    setEditandoLprCapa(capa);
+    setMostrarFormularioLprCapa(true);
+  }, [lprCapas]);
+
+  const handleLprActualizarCapa = useCallback(() => {
+    if (!editandoLprCapa || !nuevaLprCapa.nombre) return;
+
+    setLprCapas(prev => prev.map(capa => 
+      capa.id === editandoLprCapa.id
+        ? { ...capa, nombre: nuevaLprCapa.nombre!, color: nuevaLprCapa.color || capa.color }
+        : capa
+    ));
+
+    setNuevaLprCapa({ nombre: '', color: '#40c057' });
+    setEditandoLprCapa(null);
+    setMostrarFormularioLprCapa(false);
+  }, [editandoLprCapa, nuevaLprCapa]);
+
+  const handleLprToggleCapa = useCallback((id: string) => {
+    setLprCapas(prev => prev.map(capa => 
+      capa.id === id ? { ...capa, activa: !capa.activa } : capa
+    ));
+  }, []);
+
+  const handleLprEliminarCapa = useCallback((id: string) => {
+    setLprCapas(prev => prev.filter(capa => capa.id !== id));
+  }, []);
+
+  const handleLprCenterMapOnLectura = useCallback((lectura: Lectura) => {
+    setLprSelectedLectura(lectura);
+    setLprInfoBanner({ ...lectura, tipo: 'lectura' });
+    
+    if (mapRef.current && lectura.Coordenada_X && lectura.Coordenada_Y) {
+      setTimeout(() => {
+        if (mapRef.current) {
+          mapRef.current.setView(
+            [lectura.Coordenada_Y!, lectura.Coordenada_X!],
+            16,
+            { animate: true, duration: 1 }
+          );
+        }
+      }, 50);
+    }
+  }, []);
+
+  const handleLprSelectLectura = useCallback((index: number, lectura: Lectura) => {
+    setLprSelectedLecturaIndex(index);
+    setLprSelectedLectura(lectura);
+    handleLprCenterMapOnLectura(lectura);
+  }, [handleLprCenterMapOnLectura]);
 
   // Funciones para mapas guardados
   const obtenerEstadoActual = useCallback((): MapaGuardado['estado'] => {
@@ -2769,6 +2833,31 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
           </Stack>
         );
 
+      case 'filtros-lpr':
+        return (
+          <LprFiltersPanel
+            filters={lprFilters}
+            onFilterChange={handleLprFilterChange}
+            onFiltrar={handleLprFiltrar}
+            onLimpiar={handleLprLimpiar}
+            loading={lprLoading}
+            casoId={casoId}
+            capas={lprCapas}
+            onToggleCapa={handleLprToggleCapa}
+            onEditarCapa={handleLprEditarCapa}
+            onEliminarCapa={handleLprEliminarCapa}
+            onGuardarResultadosEnCapa={handleLprGuardarResultadosEnCapa}
+            nuevaCapa={nuevaLprCapa}
+            onNuevaCapaChange={setNuevaLprCapa}
+            mostrarFormularioCapa={mostrarFormularioLprCapa}
+            onMostrarFormularioCapa={setMostrarFormularioLprCapa}
+            editandoCapa={editandoLprCapa}
+            onActualizarCapa={handleLprActualizarCapa}
+            guardandoCapa={guardandoLprCapa}
+            resultadosFiltro={lprResultadosFiltro}
+          />
+        );
+
       case 'capas':
         return (
           <Stack gap="md">
@@ -3041,6 +3130,96 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
           </Stack>
         );
 
+      case 'lecturas-lpr':
+        return (
+          <Stack gap="md">
+            <Box style={{ height: 16 }} />
+            <Group justify="space-between">
+              <Badge variant="light" color="green">
+                {lprResultadosFiltro.lecturas.length} lecturas LPR
+              </Badge>
+            </Group>
+            
+            {lprResultadosFiltro.lecturas.length === 0 ? (
+              <Text size="sm" c="dimmed" ta="center" py="xl">
+                No hay lecturas LPR para mostrar. Aplica filtros para cargar datos LPR.
+              </Text>
+            ) : (
+              <ScrollArea h="90%">
+                <Table striped highlightOnHover withTableBorder>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>#</Table.Th>
+                      <Table.Th>Fecha/Hora</Table.Th>
+                      <Table.Th>Matrícula</Table.Th>
+                      <Table.Th>Lector</Table.Th>
+                      <Table.Th>Coordenadas</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {lprResultadosFiltro.lecturas
+                      .filter(l => l.Coordenada_X != null && l.Coordenada_Y != null)
+                      .map((lectura, index) => (
+                        <Table.Tr 
+                          key={`${lectura.ID_Lectura}-${index}`}
+                          onClick={() => handleLprSelectLectura(index, lectura)}
+                          style={{ 
+                            cursor: 'pointer',
+                            backgroundColor: lprSelectedLecturaIndex === index ? 'var(--mantine-color-green-0)' : undefined
+                          }}
+                        >
+                          <Table.Td>
+                            <Badge 
+                              size="sm" 
+                              variant={lprSelectedLecturaIndex === index ? 'filled' : 'light'}
+                              color={lprSelectedLecturaIndex === index ? 'green' : 'gray'}
+                            >
+                              {index + 1}
+                            </Badge>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm">
+                              {dayjs(lectura.Fecha_y_Hora).format('DD/MM HH:mm:ss')}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Badge variant="outline" color="green" size="sm">
+                              {lectura.Matricula}
+                            </Badge>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm">
+                              {lectura.ID_Lector || '-'}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="xs" c="dimmed">
+                              {lectura.Coordenada_Y?.toFixed(6)}, {lectura.Coordenada_X?.toFixed(6)}
+                            </Text>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))}
+                  </Table.Tbody>
+                </Table>
+              </ScrollArea>
+            )}
+            
+            {lprSelectedLecturaIndex !== null && (
+              <Paper p="sm" withBorder>
+                <Text size="sm" fw={500}>Lectura LPR {lprSelectedLecturaIndex + 1} seleccionada</Text>
+                <Button 
+                  size="xs" 
+                  variant="light" 
+                  onClick={() => setLprSelectedLecturaIndex(null)}
+                  mt="xs"
+                >
+                  Deseleccionar
+                </Button>
+              </Paper>
+            )}
+          </Stack>
+        );
+
       case 'analisis':
         return (
           <Stack gap="md">
@@ -3168,6 +3347,40 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
               </Stack>
             </Stack>
           </Stack>
+        );
+
+      case 'controles':
+        return (
+          <MapControlsPanel
+            gpsControls={{
+              visualizationType: mapControls.visualizationType,
+              showHeatmap: mapControls.showHeatmap,
+              showPoints: mapControls.showPoints,
+              optimizePoints: mapControls.optimizePoints,
+              enableClustering: mapControls.enableClustering
+            }}
+            onGpsControlsChange={(updates) => {
+              setMapControls(prev => ({ ...prev, ...updates }));
+            }}
+            heatmapMultiplier={heatmapMultiplier}
+            onHeatmapMultiplierChange={setHeatmapMultiplier}
+            lprControls={{
+              showCaseReaders: lprMapControls.showCaseReaders,
+              showAllReaders: lprMapControls.showAllReaders,
+              showCoincidencias: lprMapControls.showCoincidencias
+            }}
+            onLprControlsChange={(updates) => {
+              setLprMapControls(prev => ({ ...prev, ...updates }));
+            }}
+            mostrarLineaRecorrido={mostrarLineaRecorrido}
+            onMostrarLineaRecorridoChange={setMostrarLineaRecorrido}
+            numerarPuntosActivos={numerarPuntosActivos}
+            onNumerarPuntosActivosChange={setNumerarPuntosActivos}
+            mostrarLocalizaciones={mostrarLocalizaciones}
+            onMostrarLocalizacionesChange={setMostrarLocalizaciones}
+            todasCapasExternasActivas={todasCapasExternasActivas}
+            onToggleTodasCapasExternas={handleToggleTodasCapasExternas}
+          />
         );
 
       case 'shapefiles':
@@ -3726,7 +3939,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
               justifyContent: 'center',
               padding: 0
             }}
-            onClick={() => setShowMapControls((v) => !v)}
+            onClick={() => setActiveTab('controles')}
             aria-label="Controles de mapa"
           >
             <IconSettings size={18} color="#234be7" />
@@ -3754,8 +3967,6 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
             </ActionIcon>
         </div>
         <Paper withBorder style={{ height: '100vh', minHeight: 400, width: '100vw', position: 'relative' }}>
-          {/* Panel flotante de controles */}
-          <MapControlsPanel />
 
           <GpsMapStandalone
             ref={mapRef}
@@ -3785,6 +3996,13 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
               }
             }}
             mostrarLineaRecorrido={mostrarLineaRecorrido}
+            // Props LPR
+            lprResultadosFiltro={lprResultadosFiltro}
+            lprCapas={lprCapas}
+            lprAllSystemReaders={lprAllSystemReaders}
+            lprMapControls={lprMapControls}
+            lprSelectedLectura={lprSelectedLectura}
+            onLprCenterMapOnLectura={handleLprCenterMapOnLectura}
           >
             {/* Marcadores de bitácora */}
             <LayerGroup>
@@ -3795,7 +4013,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                 .flatMap(capa => capa.puntos)
                 .filter(punto => 
                   typeof punto.latitud === 'number' && 
-                  typeof punto.longitud === 'number' &&
+                  typeof punto.longitud === 'number' && 
                   !isNaN(punto.latitud) && 
                   !isNaN(punto.longitud) &&
                     punto.latitud >= -90 && punto.latitud <= 90 &&
@@ -4153,6 +4371,208 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                 .filter(Boolean)
               }
             </LayerGroup>
+
+            {/* Resultados del filtro LPR actual */}
+            <LayerGroup>
+              {lprResultadosFiltro.lecturas.length > 0 && 
+               !mostrarFormularioLprCapa && 
+               !lprCapas.some(capa => capa.activa && capa.filtros.selectedMatricula === lprFilters.selectedMatricula) && 
+               lprResultadosFiltro.lecturas
+                 .filter(l => l.Coordenada_X && l.Coordenada_Y)
+                 .map((lectura) => {
+                   const isSelected = lprSelectedLectura?.ID_Lectura === lectura.ID_Lectura;
+                   return (
+                     <React.Fragment key={`lpr-filtro-lectura-${lectura.ID_Lectura}`}>
+                       {/* Círculo de resaltado para la lectura seleccionada */}
+                       {isSelected && (
+                         <Circle
+                           center={[lectura.Coordenada_Y!, lectura.Coordenada_X!]}
+                           radius={50}
+                           pathOptions={{
+                             color: '#e03131',
+                             fillColor: '#e03131',
+                             fillOpacity: 0.15,
+                             weight: 3,
+                             dashArray: '5, 5'
+                           }}
+                         />
+                       )}
+                       <CircleMarker
+                         center={[lectura.Coordenada_Y!, lectura.Coordenada_X!]}
+                         radius={isSelected ? 12 : 8}
+                         pathOptions={{
+                           color: isSelected ? '#e03131' : '#40c057',
+                           fillColor: isSelected ? '#e03131' : '#40c057',
+                           fillOpacity: isSelected ? 0.8 : 0.7,
+                           weight: isSelected ? 3 : 2
+                         }}
+                         eventHandlers={{
+                           click: () => handleLprCenterMapOnLectura(lectura),
+                         }}
+                       >
+                         <Popup>
+                           <div style={{ minWidth: 220 }}>
+                             <div style={{ fontWeight: 700, fontSize: 16, color: '#40c057', marginBottom: 4 }}>
+                               Matrícula: {lectura.Matricula}
+                             </div>
+                             <div style={{ fontSize: 13, marginBottom: 2 }}>
+                               <b>Fecha:</b> {dayjs(lectura.Fecha_y_Hora).format('DD/MM/YYYY HH:mm:ss')}
+                             </div>
+                             <div style={{ fontSize: 13, marginBottom: 2 }}>
+                               <b>Lector:</b> {lectura.ID_Lector || '-'}
+                             </div>
+                             <div style={{ fontSize: 13, marginBottom: 2 }}>
+                               <b>Tipo:</b> LPR
+                             </div>
+                           </div>
+                         </Popup>
+                       </CircleMarker>
+                     </React.Fragment>
+                   );
+                 })}
+            </LayerGroup>
+
+            {/* Capas LPR */}
+            <LayerGroup>
+              {lprCapas.filter(capa => capa.activa).flatMap((capa) =>
+                capa.lecturas.map((lectura, idx) => {
+                  const isSelected = lprSelectedLectura?.ID_Lectura === lectura.ID_Lectura;
+                  return (
+                    <React.Fragment key={`lpr-${capa.id}-${lectura.ID_Lectura || idx}`}>
+                      {isSelected && (
+                        <Circle
+                          center={[lectura.Coordenada_Y!, lectura.Coordenada_X!]}
+                          radius={50}
+                          pathOptions={{
+                            color: '#e03131',
+                            fillColor: '#e03131',
+                            fillOpacity: 0.15,
+                            weight: 3,
+                            dashArray: '5, 5'
+                          }}
+                        />
+                      )}
+                      <CircleMarker
+                        center={[lectura.Coordenada_Y, lectura.Coordenada_X]}
+                        radius={isSelected ? 12 : 8}
+                        pathOptions={{ 
+                          color: isSelected ? '#e03131' : (capa.color || '#40c057'), 
+                          fillColor: isSelected ? '#e03131' : (capa.color || '#40c057'), 
+                          fillOpacity: isSelected ? 0.8 : 0.7,
+                          weight: isSelected ? 3 : 2
+                        }}
+                        eventHandlers={{
+                          click: () => handleLprCenterMapOnLectura(lectura),
+                        }}
+                      >
+                        <Popup>
+                          <div style={{ minWidth: 220 }}>
+                            <div style={{ fontWeight: 700, fontSize: 16, color: capa.color || '#40c057', marginBottom: 4 }}>
+                              Matrícula: {lectura.Matricula}
+                            </div>
+                            <div style={{ fontSize: 13, marginBottom: 2 }}>
+                              <b>Fecha:</b> {dayjs(lectura.Fecha_y_Hora).format('DD/MM/YYYY HH:mm:ss')}
+                            </div>
+                            <div style={{ fontSize: 13, marginBottom: 2 }}>
+                              <b>Lector:</b> {lectura.ID_Lector || '-'}
+                            </div>
+                            <div style={{ fontSize: 13, marginBottom: 2 }}>
+                              <b>Capa:</b> {capa.nombre}
+                            </div>
+                            <div style={{ fontSize: 13, marginBottom: 2 }}>
+                              <b>Tipo:</b> LPR
+                            </div>
+                          </div>
+                        </Popup>
+                      </CircleMarker>
+                    </React.Fragment>
+                  );
+                })
+              )}
+            </LayerGroup>
+
+            {/* Lectores LPR */}
+            <LayerGroup>
+              {/* Lectores del caso */}
+              {lprMapControls.showCaseReaders && lprLectores.map((lector) => {
+                // Si mostrar coincidencias, resaltar si el lector tiene lecturas en capas activas
+                const isCoincidencia = lprMapControls.showCoincidencias && lprCapas.filter(c => c.activa).some(capa =>
+                  capa.lecturas.some(lectura => String(lectura.ID_Lector) === String(lector.ID_Lector))
+                );
+                return (
+                  <Marker
+                    key={`lpr-case-reader-${lector.ID_Lector}`}
+                    position={[lector.Coordenada_Y, lector.Coordenada_X]}
+                    icon={L.divIcon({
+                      className: 'custom-div-icon',
+                      html: `
+                        <div style="
+                          background-color: white;
+                          width: 16px;
+                          height: 16px;
+                          border-radius: 50%;
+                          border: 3px solid ${isCoincidencia ? '#ffd700' : '#3b5bdb'};
+                          box-shadow: 0 0 8px rgba(0,0,0,0.4);
+                          position: relative;
+                        ">
+                          <div style="
+                            position: absolute;
+                            top: 50%;
+                            left: 50%;
+                            transform: translate(-50%, -50%);
+                            width: 6px;
+                            height: 6px;
+                            background-color: ${isCoincidencia ? '#ffd700' : '#3b5bdb'};
+                            border-radius: 50%;
+                          "></div>
+                        </div>
+                      `,
+                      iconSize: [16, 16],
+                      iconAnchor: [8, 8]
+                    })}
+                    zIndexOffset={200}
+                  >
+                    <Popup>
+                      <div style={{ minWidth: 180 }}>
+                        <div style={{ fontWeight: 700, fontSize: 15, color: isCoincidencia ? '#ffd700' : '#3b5bdb', marginBottom: 4 }}>
+                          Lector del Caso
+                        </div>
+                        <div><b>ID:</b> {lector.ID_Lector}</div>
+                        <div><b>Ubicación:</b> {lector.Coordenada_Y?.toFixed(6)}, {lector.Coordenada_X?.toFixed(6)}</div>
+                        {isCoincidencia && <div style={{ color: '#ffd700', fontWeight: 600 }}>Coincidencia</div>}
+                      </div>
+                    </Popup>
+                  </Marker>
+                );
+              })}
+              {/* Todos los lectores del sistema */}
+              {lprMapControls.showAllReaders && lprAllSystemReaders.map((lector) => {
+                // No resaltar coincidencias aquí
+                return (
+                  <CircleMarker
+                    key={`lpr-all-reader-${lector.ID_Lector}`}
+                    center={[lector.Coordenada_Y, lector.Coordenada_X]}
+                    radius={8}
+                    pathOptions={{
+                      color: '#888',
+                      fillColor: '#bbb',
+                      fillOpacity: 0.4,
+                      weight: 2
+                    }}
+                  >
+                    <Popup>
+                      <div style={{ minWidth: 160 }}>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: '#888', marginBottom: 4 }}>
+                          Lector del Sistema
+                        </div>
+                        <div><b>ID:</b> {lector.ID_Lector}</div>
+                        <div><b>Ubicación:</b> {lector.Coordenada_Y}, {lector.Coordenada_X}</div>
+                      </div>
+                    </Popup>
+                  </CircleMarker>
+                );
+              })}
+            </LayerGroup>
           </GpsMapStandalone>
         </Paper>
       </div>
@@ -4342,7 +4762,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                 justifyContent: 'center',
                 padding: 0
               }}
-              onClick={() => setShowMapControls((v) => !v)}
+              onClick={() => setActiveTab('controles')}
               aria-label="Controles de mapa"
             >
               <IconSettings size={18} color="#234be7" />
@@ -4369,7 +4789,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
               <IconMaximize size={18} color="#234be7" />
             </ActionIcon>
           </div>
-          {showMapControls && <MapControlsPanel />}
+
           {/* Panel flotante bitácora */}
           {capasBitacora.length > 0 && bitacoraPanelOpen && (
             <Paper
@@ -4664,6 +5084,13 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
               }}
               mostrarLineaRecorrido={mostrarLineaRecorrido}
               selectedInfo={selectedInfo}
+              // Props LPR
+              lprResultadosFiltro={lprResultadosFiltro}
+              lprCapas={lprCapas}
+              lprAllSystemReaders={lprAllSystemReaders}
+              lprMapControls={lprMapControls}
+              lprSelectedLectura={lprSelectedLectura}
+              onLprCenterMapOnLectura={handleLprCenterMapOnLectura}
             >
               {/* Marcadores de bitácora */}
               <LayerGroup>
@@ -4828,6 +5255,61 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                     })
                   );
                 })()}
+            </LayerGroup>
+
+            {/* Lectores del caso */}
+            <LayerGroup>
+              {lprMapControls.showCaseReaders && lprLectores.map((lector) => {
+                // Si mostrar coincidencias, resaltar si el lector tiene lecturas en capas activas
+                const isCoincidencia = lprMapControls.showCoincidencias && lprCapas.filter(c => c.activa).some(capa =>
+                  capa.lecturas.some(lectura => String(lectura.ID_Lector) === String(lector.ID_Lector))
+                );
+                return (
+                  <Marker
+                    key={`lpr-case-reader-${lector.ID_Lector}`}
+                    position={[lector.Coordenada_Y, lector.Coordenada_X]}
+                    icon={L.divIcon({
+                      className: 'custom-div-icon',
+                      html: `
+                        <div style="
+                          background-color: white;
+                          width: 16px;
+                          height: 16px;
+                          border-radius: 50%;
+                          border: 3px solid ${isCoincidencia ? '#ffd700' : '#3b5bdb'};
+                          box-shadow: 0 0 8px rgba(0,0,0,0.4);
+                          position: relative;
+                        ">
+                          <div style="
+                            position: absolute;
+                            top: 50%;
+                            left: 50%;
+                            transform: translate(-50%, -50%);
+                            width: 6px;
+                            height: 6px;
+                            background-color: ${isCoincidencia ? '#ffd700' : '#3b5bdb'};
+                            border-radius: 50%;
+                          "></div>
+                        </div>
+                      `,
+                      iconSize: [16, 16],
+                      iconAnchor: [8, 8]
+                    })}
+                    zIndexOffset={200}
+                  >
+                    <Popup>
+                      <div style={{ minWidth: 180 }}>
+                        <div style={{ fontWeight: 700, fontSize: 15, color: isCoincidencia ? '#ffd700' : '#3b5bdb', marginBottom: 4 }}>
+                          Lector del Caso
+                        </div>
+                        <div><b>ID:</b> {lector.ID_Lector}</div>
+                        <div><b>Ubicación:</b> {lector.Coordenada_Y?.toFixed(6)}, {lector.Coordenada_X?.toFixed(6)}</div>
+                        {isCoincidencia && <div style={{ color: '#ffd700', fontWeight: 600 }}>Coincidencia</div>}
+                      </div>
+                    </Popup>
+                  </Marker>
+                );
+              })}
             </LayerGroup>
 
             {/* Marcadores de GPX/KML */}
@@ -5413,7 +5895,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
           marginBottom: legendCollapsed ? '0' : '8px'
         }} onClick={() => setLegendCollapsed(!legendCollapsed)}>
           <div style={{ fontWeight: 'bold', fontSize: '14px' }}>
-            Capas Externas
+            Capas Activas
           </div>
           <div style={{ fontSize: '12px', color: '#666' }}>
             {legendCollapsed ? '▼' : '▲'}
@@ -5554,14 +6036,55 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                     ))}
                   </div>
                 )}
+                {/* Capas LPR */}
+                {lprCapas.filter(capa => capa.activa).length > 0 && (
+                  <div style={{ marginBottom: '8px' }}>
+                    {col === 0 && <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px', fontWeight: 'bold' }}>LPR</div>}
+                    {lprCapas.filter(capa => capa.activa).filter((_, i) => i % 3 === col).map((capa) => (
+                      <div key={`lpr-${capa.id}`} style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                        <div style={{
+                          width: '12px',
+                          height: '12px',
+                          backgroundColor: capa.color,
+                          borderRadius: '50%',
+                          marginRight: '8px',
+                          border: '1px solid #ccc'
+                        }} />
+                        <span style={{ fontSize: '12px', flex: 1 }}>
+                          {capa.nombre}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
               </div>
             ))}
           </div>
         )}
+        {/* Sección de Lecturas LPR activas - completamente separada */}
+        {!legendCollapsed && (lprResultadosFiltro.lecturas.length > 0 || lprCapas.filter(capa => capa.activa).length > 0) && (
+          <div style={{ marginTop: '12px', borderTop: '1px solid rgba(0,0,0,0.1)', paddingTop: '8px' }}>
+            <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px', fontWeight: 'bold' }}>Lecturas LPR</div>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+              <div style={{
+                width: '12px',
+                height: '12px',
+                backgroundColor: '#228be6',
+                borderRadius: '50%',
+                marginRight: '8px',
+                border: '1px solid #ccc'
+              }} />
+              <span style={{ fontSize: '12px' }}>
+                {lprResultadosFiltro.lecturas.length > 0 ? `${lprResultadosFiltro.lecturas.length} lecturas activas` : 'Capas LPR activas'}
+              </span>
+            </div>
+          </div>
+        )}
         {/* Mensaje si no hay capas */}
-        {!legendCollapsed && capasExcel.length === 0 && capasBitacora.length === 0 && capasGpx.length === 0 && (
+        {!legendCollapsed && capasExcel.length === 0 && capasBitacora.length === 0 && capasGpx.length === 0 && lprCapas.filter(capa => capa.activa).length === 0 && lprResultadosFiltro.lecturas.length === 0 && (
           <div style={{ fontSize: '12px', color: '#999', fontStyle: 'italic' }}>
-            No hay capas externas cargadas
+            No hay capas activas
           </div>
         )}
       </div>

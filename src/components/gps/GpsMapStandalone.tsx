@@ -46,6 +46,15 @@ interface GpsMapStandaloneProps {
   onPuntoSeleccionado?: (info: any) => void;
   mostrarLineaRecorrido?: boolean;
   selectedInfo?: any | null;
+  // Props para LPR
+  lprResultadosFiltro?: { lecturas: any[]; lectores: any[] };
+  lprCapas?: any[];
+  lprAllSystemReaders?: any[];
+  lprMapControls?: {
+    showAllReaders: boolean;
+  };
+  lprSelectedLectura?: any | null;
+  onLprCenterMapOnLectura?: (lectura: any) => void;
 }
 
 interface GpsMapStandalonePropsWithFullscreen extends GpsMapStandaloneProps {
@@ -672,6 +681,13 @@ const GpsMapStandalone = React.memo(forwardRef<L.Map, GpsMapStandalonePropsWithF
   onPuntoSeleccionado,
   mostrarLineaRecorrido = true,
   selectedInfo: externalSelectedInfo,
+  // Props LPR
+  lprResultadosFiltro,
+  lprCapas = [],
+  lprAllSystemReaders = [],
+  lprMapControls,
+  lprSelectedLectura,
+  onLprCenterMapOnLectura,
 }, ref): React.ReactElement => {
   const internalMapRef = useRef<L.Map | null>(null);
   const [internalSelectedInfo, setInternalSelectedInfo] = useState<any | null>(null);
@@ -1186,6 +1202,421 @@ const GpsMapStandalone = React.memo(forwardRef<L.Map, GpsMapStandalonePropsWithF
     return null;
   };
 
+    // Función para crear iconos de marcadores con contadores (igual que en MapPanel)
+  const createMarkerIcon = (count: number, tipo: 'lector' | 'gps' | 'lpr', color: string) => {
+    const size = tipo === 'lector' ? 12 : 8;
+    const uniqueClassName = `marker-${color.replace('#', '')}`;
+    
+    // Crear o actualizar el estilo dinámico
+    const styleId = 'dynamic-marker-styles';
+    let styleSheet = document.getElementById(styleId) as HTMLStyleElement;
+    if (!styleSheet) {
+      styleSheet = document.createElement('style');
+      styleSheet.id = styleId;
+      document.head.appendChild(styleSheet);
+    }
+
+    // Añadir reglas CSS para esta clase específica si no existen
+    if (!styleSheet.textContent?.includes(uniqueClassName)) {
+      const newRules = `
+        .${uniqueClassName} {
+          background-color: ${color} !important;
+          border-radius: 50%;
+          box-shadow: 0 0 4px rgba(0,0,0,0.4);
+        }
+        .${uniqueClassName}-count {
+          background-color: ${color} !important;
+          color: white;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 10px;
+          font-weight: bold;
+          box-shadow: 0 0 4px rgba(0,0,0,0.4);
+        }
+      `;
+      styleSheet.textContent += newRules;
+    }
+
+    if (count > 1) {
+      return L.divIcon({
+        className: 'custom-div-icon',
+        html: `
+          <div class="marker-container">
+            <div class="${uniqueClassName}" style="width: ${size}px; height: ${size}px; ${tipo === 'lector' ? 'border: 2px solid white;' : ''}"></div>
+            <div class="${uniqueClassName}-count" style="position: absolute; top: -8px; right: -8px; width: 16px; height: 16px;">
+              ${count}
+            </div>
+          </div>
+        `,
+        iconSize: [size + 16, size + 16],
+        iconAnchor: [(size + 16)/2, (size + 16)/2]
+      });
+    }
+
+    return L.divIcon({
+      className: 'custom-div-icon',
+      html: `
+        <div class="${uniqueClassName}" style="width: ${size}px; height: ${size}px; ${tipo === 'lector' ? 'border: 2px solid white;' : ''}"></div>
+      `,
+      iconSize: [size, size],
+      iconAnchor: [size/2, size/2]
+    });
+  };
+
+  // Componente interno para renderizar las lecturas LPR
+  const LprLayersInternal = () => {
+    const map = useMap();
+    
+    useEffect(() => {
+      if (!map) return;
+
+      const layers: L.Layer[] = [];
+
+      // Renderizar resultados del filtro LPR
+      if (lprResultadosFiltro?.lecturas && lprResultadosFiltro.lecturas.length > 0) {
+        // Agrupar lecturas por lector para mostrar contadores
+        const lecturasPorLector = new Map<string, any[]>();
+        lprResultadosFiltro.lecturas
+          .filter(l => l.Coordenada_X && l.Coordenada_Y)
+          .forEach((lectura) => {
+            const lectorKey = String(lectura.ID_Lector);
+            if (!lecturasPorLector.has(lectorKey)) {
+              lecturasPorLector.set(lectorKey, []);
+            }
+            lecturasPorLector.get(lectorKey)!.push(lectura);
+          });
+
+        // Renderizar lectores con contadores
+        lprResultadosFiltro.lectores.forEach((lector) => {
+          const lecturasEnLector = lecturasPorLector.get(String(lector.ID_Lector)) || [];
+          if (lecturasEnLector.length > 0) {
+            const marker = L.marker([lector.Coordenada_Y!, lector.Coordenada_X!], {
+              icon: createMarkerIcon(lecturasEnLector.length, 'lector', '#228be6'),
+              zIndexOffset: 500
+            });
+
+            // Popup con información del lector
+            const popupContent = `
+              <div style="min-width: 160px;">
+                <div style="font-weight: 700; font-size: 14px; color: #228be6; margin-bottom: 4px;">
+                  Lector: ${lector.ID_Lector}
+                </div>
+                <div><b>Lecturas:</b> ${lecturasEnLector.length}</div>
+                <div><b>Ubicación:</b> ${lector.Coordenada_Y?.toFixed(6)}, ${lector.Coordenada_X?.toFixed(6)}</div>
+              </div>
+            `;
+            marker.bindPopup(popupContent);
+
+            // Evento de click
+            marker.on('click', () => {
+              if (lecturasEnLector.length > 0 && onLprCenterMapOnLectura) {
+                onLprCenterMapOnLectura(lecturasEnLector[0]);
+              }
+            });
+
+            layers.push(marker);
+          }
+        });
+
+        // Renderizar lecturas individuales con el estilo de MapPanel
+        lprResultadosFiltro.lecturas
+          .filter(l => l.Coordenada_X && l.Coordenada_Y)
+          .forEach((lectura) => {
+            const isSelected = lprSelectedLectura?.ID_Lectura === lectura.ID_Lectura;
+            
+            // Círculo de resaltado para la lectura seleccionada
+            if (isSelected) {
+              const highlightCircle = L.circle([lectura.Coordenada_Y!, lectura.Coordenada_X!], {
+                radius: 50,
+                color: '#e03131',
+                fillColor: '#e03131',
+                fillOpacity: 0.15,
+                weight: 3,
+                dashArray: '5, 5'
+              });
+              layers.push(highlightCircle);
+            }
+
+            // Marcador con el estilo exacto de MapPanel
+            const marker = L.marker([lectura.Coordenada_Y!, lectura.Coordenada_X!], {
+              icon: L.divIcon({
+                className: 'custom-div-icon',
+                html: `
+                  <div style="
+                    position: relative;
+                    width: ${isSelected ? '36px' : '16px'};
+                    height: ${isSelected ? '36px' : '16px'};
+                    background: ${isSelected ? 'rgba(224,49,49,0.25)' : '#228be6'};
+                    border-radius: 50%;
+                    border: ${isSelected ? '3px solid #e03131' : '2px solid #fff'};
+                    box-shadow: 0 0 12px ${isSelected ? '#e03131' : 'rgba(34,139,230,0.5)'};
+                    animation: ${isSelected ? 'gpsPulse 1.5s infinite' : 'none'};
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                  ">
+                    ${isSelected ? `
+                      <div style="
+                        position: absolute;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%);
+                        width: 12px;
+                        height: 12px;
+                        background: #e03131;
+                        border-radius: 50%;
+                        box-shadow: 0 0 8px #e03131;
+                      "></div>
+                    ` : ''}
+                  </div>
+                  <style>
+                    @keyframes gpsPulse {
+                      0% { box-shadow: 0 0 0 0 #e03131; }
+                      70% { box-shadow: 0 0 0 16px rgba(224,49,49,0); }
+                      100% { box-shadow: 0 0 0 0 #e03131; }
+                    }
+                  </style>
+                `,
+                iconSize: [isSelected ? 36 : 16, isSelected ? 36 : 16],
+                iconAnchor: [isSelected ? 18 : 8, isSelected ? 18 : 8]
+              }),
+              zIndexOffset: isSelected ? 900 : 600
+            });
+
+            // Popup con información
+            const popupContent = `
+              <div style="min-width: 220px;">
+                <div style="font-weight: 700; font-size: 16px; color: #228be6; margin-bottom: 4px;">
+                  Matrícula: ${lectura.Matricula}
+                </div>
+                <div style="font-size: 13px; margin-bottom: 2px;">
+                  <b>Fecha:</b> ${new Date(lectura.Fecha_y_Hora).toLocaleString('es-ES')}
+                </div>
+                <div style="font-size: 13px; margin-bottom: 2px;">
+                  <b>Lector:</b> ${lectura.ID_Lector || '-'}
+                </div>
+                <div style="font-size: 13px; margin-bottom: 2px;">
+                  <b>Tipo:</b> LPR
+                </div>
+              </div>
+            `;
+            marker.bindPopup(popupContent);
+
+            // Evento de click
+            marker.on('click', () => {
+              if (onLprCenterMapOnLectura) {
+                onLprCenterMapOnLectura(lectura);
+              }
+            });
+
+            layers.push(marker);
+          });
+      }
+
+      // Renderizar capas LPR con el mismo estilo
+      lprCapas.filter(capa => capa.activa).forEach((capa) => {
+        // Agrupar lecturas por lector para mostrar contadores
+        const lecturasPorLector = new Map<string, any[]>();
+        capa.lecturas.forEach((lectura) => {
+          const lectorKey = String(lectura.ID_Lector);
+          if (!lecturasPorLector.has(lectorKey)) {
+            lecturasPorLector.set(lectorKey, []);
+          }
+          lecturasPorLector.get(lectorKey)!.push(lectura);
+        });
+
+        // Renderizar lectores de la capa con contadores
+        capa.lectores?.forEach((lector) => {
+          const lecturasEnLector = lecturasPorLector.get(String(lector.ID_Lector)) || [];
+          if (lecturasEnLector.length > 0) {
+            const marker = L.marker([lector.Coordenada_Y!, lector.Coordenada_X!], {
+              icon: createMarkerIcon(lecturasEnLector.length, 'lector', capa.color || '#228be6'),
+              zIndexOffset: 300
+            });
+
+            // Popup con información del lector
+            const popupContent = `
+              <div style="min-width: 160px;">
+                <div style="font-weight: 700; font-size: 14px; color: ${capa.color || '#228be6'}; margin-bottom: 4px;">
+                  Lector: ${lector.ID_Lector}
+                </div>
+                <div><b>Lecturas:</b> ${lecturasEnLector.length}</div>
+                <div><b>Capa:</b> ${capa.nombre}</div>
+                <div><b>Ubicación:</b> ${lector.Coordenada_Y?.toFixed(6)}, ${lector.Coordenada_X?.toFixed(6)}</div>
+              </div>
+            `;
+            marker.bindPopup(popupContent);
+
+            // Evento de click
+            marker.on('click', () => {
+              if (lecturasEnLector.length > 0 && onLprCenterMapOnLectura) {
+                onLprCenterMapOnLectura(lecturasEnLector[0]);
+              }
+            });
+
+            layers.push(marker);
+          }
+        });
+
+        // Renderizar lecturas individuales de la capa
+        capa.lecturas.forEach((lectura) => {
+          const isSelected = lprSelectedLectura?.ID_Lectura === lectura.ID_Lectura;
+          
+          // Círculo de resaltado para la lectura seleccionada
+          if (isSelected) {
+            const highlightCircle = L.circle([lectura.Coordenada_Y!, lectura.Coordenada_X!], {
+              radius: 50,
+              color: '#e03131',
+              fillColor: '#e03131',
+              fillOpacity: 0.15,
+              weight: 3,
+              dashArray: '5, 5'
+            });
+            layers.push(highlightCircle);
+          }
+
+          // Marcador con el estilo exacto de MapPanel
+          const marker = L.marker([lectura.Coordenada_Y, lectura.Coordenada_X], {
+            icon: L.divIcon({
+              className: 'custom-div-icon',
+              html: `
+                <div style="
+                  position: relative;
+                  width: ${isSelected ? '36px' : '16px'};
+                  height: ${isSelected ? '36px' : '16px'};
+                  background: ${isSelected ? 'rgba(224,49,49,0.25)' : (capa.color || '#228be6')};
+                  border-radius: 50%;
+                  border: ${isSelected ? '3px solid #e03131' : '2px solid #fff'};
+                  box-shadow: 0 0 12px ${isSelected ? '#e03131' : 'rgba(34,139,230,0.5)'};
+                  animation: ${isSelected ? 'gpsPulse 1.5s infinite' : 'none'};
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                ">
+                  ${isSelected ? `
+                    <div style="
+                      position: absolute;
+                      top: 50%;
+                      left: 50%;
+                      transform: translate(-50%, -50%);
+                      width: 12px;
+                      height: 12px;
+                      background: #e03131;
+                      border-radius: 50%;
+                      box-shadow: 0 0 8px #e03131;
+                    "></div>
+                  ` : ''}
+                </div>
+                <style>
+                  @keyframes gpsPulse {
+                    0% { box-shadow: 0 0 0 0 #e03131; }
+                    70% { box-shadow: 0 0 0 16px rgba(224,49,49,0); }
+                    100% { box-shadow: 0 0 0 0 #e03131; }
+                  }
+                </style>
+              `,
+              iconSize: [isSelected ? 36 : 16, isSelected ? 36 : 16],
+              iconAnchor: [isSelected ? 18 : 8, isSelected ? 18 : 8]
+            }),
+            zIndexOffset: isSelected ? 900 : 400
+          });
+
+          // Popup con información
+          const popupContent = `
+            <div style="min-width: 220px;">
+              <div style="font-weight: 700; font-size: 16px; color: ${capa.color || '#228be6'}; margin-bottom: 4px;">
+                Matrícula: ${lectura.Matricula}
+              </div>
+              <div style="font-size: 13px; margin-bottom: 2px;">
+                <b>Fecha:</b> ${new Date(lectura.Fecha_y_Hora).toLocaleString('es-ES')}
+              </div>
+              <div style="font-size: 13px; margin-bottom: 2px;">
+                <b>Lector:</b> ${lectura.ID_Lector || '-'}
+              </div>
+              <div style="font-size: 13px; margin-bottom: 2px;">
+                <b>Capa:</b> ${capa.nombre}
+              </div>
+              <div style="font-size: 13px; margin-bottom: 2px;">
+                <b>Tipo:</b> LPR
+              </div>
+            </div>
+          `;
+          marker.bindPopup(popupContent);
+
+          // Evento de click
+          marker.on('click', () => {
+            if (onLprCenterMapOnLectura) {
+              onLprCenterMapOnLectura(lectura);
+            }
+          });
+
+          layers.push(marker);
+        });
+      });
+
+      // Renderizar lectores LPR del sistema con el estilo de MapPanel
+      if (lprMapControls?.showAllReaders && lprAllSystemReaders) {
+        lprAllSystemReaders.forEach((lector) => {
+          const marker = L.marker([lector.Coordenada_Y, lector.Coordenada_X], {
+            icon: L.divIcon({
+              className: 'custom-div-icon',
+              html: `
+                <div style="
+                  background-color: white;
+                  width: 16px;
+                  height: 16px;
+                  border-radius: 50%;
+                  border: 3px solid #3b5bdb;
+                  box-shadow: 0 0 8px rgba(0,0,0,0.4);
+                  position: relative;
+                ">
+                  <div style="
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    width: 6px;
+                    height: 6px;
+                    background-color: #3b5bdb;
+                    border-radius: 50%;
+                  "></div>
+                </div>
+              `,
+              iconSize: [16, 16],
+              iconAnchor: [8, 8]
+            }),
+            zIndexOffset: 100
+          });
+
+          // Popup con información
+          const popupContent = `
+            <div style="min-width: 160px;">
+              <div style="font-weight: 700; font-size: 14px; color: #3b5bdb; margin-bottom: 4px;">
+                Lector del Sistema
+              </div>
+              <div><b>ID:</b> ${lector.ID_Lector}</div>
+              <div><b>Ubicación:</b> ${lector.Coordenada_Y?.toFixed(6)}, ${lector.Coordenada_X?.toFixed(6)}</div>
+            </div>
+          `;
+          marker.bindPopup(popupContent);
+
+          layers.push(marker);
+        });
+      }
+
+      // Añadir todas las capas al mapa
+      layers.forEach(layer => map.addLayer(layer));
+
+      return () => {
+        layers.forEach(layer => map.removeLayer(layer));
+      };
+    }, [map, lprResultadosFiltro, lprCapas, lprAllSystemReaders, lprMapControls, lprSelectedLectura, onLprCenterMapOnLectura]);
+
+    return null;
+  };
+
   // --- Captura de pantalla ---
   const handleExportarMapa = async () => {
     const mapElement = document.querySelector('.leaflet-container');
@@ -1346,6 +1777,27 @@ const GpsMapStandalone = React.memo(forwardRef<L.Map, GpsMapStandalonePropsWithF
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <style>
+        {`
+          .leaflet-container {
+            z-index: ${fullscreenMap ? 10000 : 1} !important;
+          }
+          .leaflet-div-icon {
+            background: transparent !important;
+            border: none !important;
+          }
+          .custom-div-icon {
+            background: transparent !important;
+            border: none !important;
+          }
+          .marker-container {
+            position: relative;
+          }
+          canvas {
+            will-read-frequently: true;
+          }
+        `}
+      </style>
       <MapContainer
         center={initialCenter}
         zoom={initialZoom}
@@ -1366,6 +1818,7 @@ const GpsMapStandalone = React.memo(forwardRef<L.Map, GpsMapStandalonePropsWithF
         {mapControls.showPoints && <ActiveLayersInternal />}
         {mostrarLineaRecorrido && <FilteredPolyline />}
         <ShapefileLayersInternal />
+        <LprLayersInternal />
         {mapControls.showHeatmap && (
           <HeatmapLayer
             points={heatmapPoints}
