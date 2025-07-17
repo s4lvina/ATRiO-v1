@@ -687,7 +687,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
 
   // Estados para el sidebar y pestañas
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState<'filtros' | 'filtros-lpr' | 'mapa' | 'capas' | 'pois' | 'posiciones' | 'lecturas-lpr' | 'analisis' | 'exportar' | 'shapefiles' | 'mapas' | 'controles'>('filtros');
+  const [activeTab, setActiveTab] = useState<'filtros' | 'posiciones' | 'capas' | 'filtros-lpr' | 'lecturas-lpr' | 'shapefiles' | 'pois' | 'analisis' | 'exportar' | 'mapas' | 'controles'>('filtros');
   const [selectedPositionIndex, setSelectedPositionIndex] = useState<number | null>(null);
 
   // Estados para mapas guardados
@@ -1732,18 +1732,17 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
 
   // Configuración de pestañas
   const tabs = [
-    { id: 'filtros' as const, icon: IconFilter, label: 'Filtros GPS', color: '#228be6' },
-    { id: 'filtros-lpr' as const, icon: IconDeviceCctv, label: 'Filtros LPR', color: '#40c057' },
-    { id: 'capas' as const, icon: IconStack, label: 'Capas GPS', color: '#fd7e14' },
-    
-    { id: 'pois' as const, icon: IconMapPin, label: 'Puntos de Interés', color: '#7c2d12' },
-    { id: 'posiciones' as const, icon: IconTable, label: 'Tabla de Posiciones', color: '#6741d9' },
-    { id: 'lecturas-lpr' as const, icon: IconTable, label: 'Tabla LPR', color: '#40c057' },
-    { id: 'analisis' as const, icon: IconSparkles, label: 'Análisis IA', color: '#10a37f' },
-    { id: 'exportar' as const, icon: IconFileExport, label: 'Exportar', color: '#e64980' },
-    { id: 'shapefiles' as const, icon: IconUpload, label: 'Capas Externas', color: '#7950f2' },
-    { id: 'mapas' as const, icon: IconBookmark, label: 'Mapas Guardados', color: '#37b24d' },
-    { id: 'controles' as const, icon: IconSettings, label: 'Controles Mapa', color: '#7950f2' }
+    { id: 'filtros' as const, icon: IconFilter, label: 'FILTROS GPS', color: '#228be6' },
+    { id: 'posiciones' as const, icon: IconTable, label: 'TABLA DATOS GPS', color: '#228be6' },
+    { id: 'capas' as const, icon: IconStack, label: 'CAPAS GPS', color: '#228be6' },
+    { id: 'filtros-lpr' as const, icon: IconDeviceCctv, label: 'FILTROS LPR', color: '#40c057' },
+    { id: 'lecturas-lpr' as const, icon: IconTable, label: 'TABLA DATOS LPR', color: '#40c057' },
+    { id: 'shapefiles' as const, icon: IconUpload, label: 'CAPAS EXTERNAS', color: '#7950f2' },
+    { id: 'pois' as const, icon: IconMapPin, label: 'POIs', color: '#7950f2' },
+    { id: 'analisis' as const, icon: IconSparkles, label: 'ANALISIS IA', color: '#10a37f' },
+    { id: 'exportar' as const, icon: IconFileExport, label: 'EXPORTAR MAPA', color: '#e64980' },
+    { id: 'mapas' as const, icon: IconBookmark, label: 'GUARDAR MAPA', color: '#e64980' },
+    { id: 'controles' as const, icon: IconSettings, label: 'CONTROLES MAPA', color: '#e64980' }
   ];
 
   // Tipos para el análisis inteligente
@@ -2008,6 +2007,13 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
 
   const handleLprEliminarCapa = useCallback((id: string) => {
     setLprCapas(prev => prev.filter(capa => capa.id !== id));
+  }, []);
+
+  const handleLprLimpiarMapa = useCallback(() => {
+    // Desactivar todas las capas LPR activas
+    setLprCapas(prev => prev.map(capa => ({ ...capa, activa: false })));
+    // Limpiar resultados de filtro
+    setLprResultadosFiltro({ lecturas: [], lectores: [] });
   }, []);
 
   const handleLprCenterMapOnLectura = useCallback((lectura: Lectura) => {
@@ -2830,6 +2836,65 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
             >
               Limpiar Mapa
             </Button>
+
+            {/* Botón para guardar resultados en capa */}
+            <Button
+              fullWidth
+              variant="light"
+              color="blue"
+              onClick={() => {
+                setNuevaCapa(prev => ({
+                  ...prev,
+                  nombre: generarNombreCapaPorFiltros({ ...filters, vehiculoObjetivo })
+                }));
+                setMostrarFormularioCapa(true);
+              }}
+              disabled={lecturasFiltradas.length === 0 && lecturas.length === 0}
+            >
+              <IconPlus size={16} style={{ marginRight: 8 }} />
+              {lecturasFiltradas.length > 0
+                ? `Guardar ${lecturasFiltradas.length} puntos visibles en capa`
+                : 'Guardar resultados en capa'}
+            </Button>
+              
+              {/* Formulario para guardar capa */}
+              {mostrarFormularioCapa && (
+                  <Stack gap="sm" mt="md">
+                    <TextInput
+                      label="Nombre de la capa"
+                      value={nuevaCapa.nombre}
+                      onChange={e => setNuevaCapa(prev => ({ ...prev, nombre: e.target.value }))}
+                      placeholder="Ej: Trayecto 1"
+                    />
+                    <ColorInput
+                      label="Color de la capa"
+                      value={nuevaCapa.color}
+                      onChange={color => setNuevaCapa(prev => ({ ...prev, color }))}
+                      format="hex"
+                    />
+                    <TextInput
+                      label="Descripción de la capa"
+                      value={nuevaCapa.descripcion}
+                      onChange={e => setNuevaCapa(prev => ({ ...prev, descripcion: e.target.value }))}
+                      placeholder="Descripción de la capa"
+                    />
+                    <Group justify="flex-end">
+                      <Button variant="light" color="gray" onClick={() => { setMostrarFormularioCapa(false); setEditandoCapa(null); }}>
+                        <IconX size={16} style={{ marginRight: 8 }} />Cancelar
+                      </Button>
+                      {editandoCapa !== null ? (
+                        <Button onClick={handleActualizarCapa} disabled={!nuevaCapa.nombre}>
+                          <IconCheck size={16} style={{ marginRight: 8 }} />Actualizar capa
+                        </Button>
+                      ) : (
+                        <Button onClick={handleGuardarResultadosEnCapa} loading={guardandoCapa} disabled={!nuevaCapa.nombre}>
+                          <IconCheck size={16} style={{ marginRight: 8 }} />Guardar en capa
+                        </Button>
+                      )}
+                    </Group>
+                    {errorGuardarCapa && <Alert color="red" mt="sm">{errorGuardarCapa}</Alert>}
+                  </Stack>
+              )}
           </Stack>
         );
 
@@ -2840,6 +2905,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
             onFilterChange={handleLprFilterChange}
             onFiltrar={handleLprFiltrar}
             onLimpiar={handleLprLimpiar}
+            onLimpiarMapa={handleLprLimpiarMapa}
             loading={lprLoading}
             casoId={casoId}
             capas={lprCapas}
@@ -2863,67 +2929,6 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
           <Stack gap="md">
             <Box style={{ height: 16 }} />
             {/* <Title order={4}>Gestión de Capas</Title> */}
-
-            {/* Botón para crear nueva capa */}
-            <Button
-              fullWidth
-              variant="light"
-              color="blue"
-              onClick={() => {
-                setNuevaCapa(prev => ({
-                  ...prev,
-                  nombre: generarNombreCapaPorFiltros({ ...filters, vehiculoObjetivo })
-                }));
-                setMostrarFormularioCapa(true);
-              }}
-              disabled={lecturasFiltradas.length === 0 && lecturas.length === 0}
-            >
-              <IconPlus size={16} style={{ marginRight: 8 }} />
-              {lecturasFiltradas.length > 0
-                ? `Guardar ${lecturasFiltradas.length} puntos visibles en capa`
-                : 'Guardar resultados en capa'}
-            </Button>
-            
-            {/* Formulario para guardar capa */}
-            {mostrarFormularioCapa && (
-                <Stack gap="sm">
-                  <TextInput
-                    label="Nombre de la capa"
-                    value={nuevaCapa.nombre}
-                    onChange={e => setNuevaCapa(prev => ({ ...prev, nombre: e.target.value }))}
-                    placeholder="Ej: Trayecto 1"
-                  />
-                  <ColorInput
-                    label="Color de la capa"
-                    value={nuevaCapa.color}
-                    onChange={color => setNuevaCapa(prev => ({ ...prev, color }))}
-                    format="hex"
-                  />
-                  <TextInput
-                    label="Descripción de la capa"
-                    value={nuevaCapa.descripcion}
-                    onChange={e => setNuevaCapa(prev => ({ ...prev, descripcion: e.target.value }))}
-                    placeholder="Descripción de la capa"
-                  />
-                  <Group justify="flex-end">
-                    <Button variant="light" color="gray" onClick={() => { setMostrarFormularioCapa(false); setEditandoCapa(null); }}>
-                      <IconX size={16} style={{ marginRight: 8 }} />Cancelar
-                    </Button>
-                    {editandoCapa !== null ? (
-                      <Button onClick={handleActualizarCapa} disabled={!nuevaCapa.nombre}>
-                        <IconCheck size={16} style={{ marginRight: 8 }} />Actualizar capa
-                      </Button>
-                    ) : (
-                      <Button onClick={handleGuardarResultadosEnCapa} loading={guardandoCapa} disabled={!nuevaCapa.nombre}>
-                        <IconCheck size={16} style={{ marginRight: 8 }} />Guardar en capa
-                      </Button>
-                    )}
-                  </Group>
-                  {errorGuardarCapa && <Alert color="red" mt="sm">{errorGuardarCapa}</Alert>}
-                </Stack>
-            )}
-
-            <Divider />
 
             {/* Lista de capas */}
             <Stack gap="xs">
