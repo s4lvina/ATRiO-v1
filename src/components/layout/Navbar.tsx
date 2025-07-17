@@ -1,6 +1,6 @@
 import React from 'react';
-import { Stack, Text, UnstyledButton, useMantineTheme, Box, Group, Avatar, ActionIcon } from '@mantine/core';
-import { IconHome2, IconFolder, IconFileImport, IconArrowsExchange, IconDeviceCctv, IconSettings, IconUser, IconX, IconFolderOpen } from '@tabler/icons-react';
+import { Stack, Text, UnstyledButton, useMantineTheme, Box, Group, Avatar, ActionIcon, Badge } from '@mantine/core';
+import { IconHome2, IconFolder, IconFileImport, IconArrowsExchange, IconDeviceCctv, IconSettings, IconUser, IconX, IconFolderOpen, IconPlus } from '@tabler/icons-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { getFooterConfig } from '../../services/configApi';
@@ -20,13 +20,29 @@ const Navbar: React.FC<NavbarProps> = ({ collapsed }) => {
   const theme = useMantineTheme();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { activeCase, setActiveCase } = useActiveCase();
+  const { activeCases, removeActiveCase, getActiveCaseCount, closeCase } = useActiveCase();
   const [footerText, setFooterText] = React.useState('JSP Madrid - Brigada Provincial de Policía Judicial');
 
-  const handleCloseActiveCase = (e: React.MouseEvent) => {
+  const handleCloseActiveCase = (e: React.MouseEvent, casoId: number) => {
     e.stopPropagation();
-    setActiveCase(null);
-    navigate('/casos');
+    
+    // Verificar si este es el caso actual antes de removerlo
+    const isCurrentCase = location.pathname === `/casos/${casoId}`;
+    
+    // Verificar cuántos casos habrá después de remover este
+    const willHaveCases = activeCases.length > 1;
+    
+    // Remover el caso
+    closeCase(casoId);
+    
+    // Si era el caso actual o no quedan casos activos, navegar a la lista
+    if (isCurrentCase || !willHaveCases) {
+      navigate('/casos');
+    }
+  };
+
+  const handleCaseClick = (casoId: number) => {
+    navigate(`/casos/${casoId}`);
   };
 
   // Cargar el texto del footer al montar el componente
@@ -122,80 +138,164 @@ const Navbar: React.FC<NavbarProps> = ({ collapsed }) => {
           </Box>
         )}
 
-        {/* Caso Activo Compacto */}
-        {activeCase && !collapsed && (
-          <UnstyledButton
-            onClick={() => navigate(`/casos/${activeCase.id}`)}
-            style={{
-              marginTop: 12,
-              padding: 8,
-              background: 'rgba(255,255,255,0.15)',
-              borderRadius: 6,
-              border: '1px solid rgba(255,255,255,0.2)',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease-in-out',
-              width: '100%',
-              textAlign: 'left'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.25)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.15)';
-            }}
-          >
-            <Group gap="xs" justify="space-between">
-              <Group gap="xs">
-                <IconFolderOpen size={14} color="white" />
-                <Box style={{ minWidth: 0, flex: 1 }}>
-                  <Text size="xs" fw={600} style={{ color: 'white', lineHeight: 1.2 }}>
-                    {activeCase.nombre.length > 20 
-                      ? activeCase.nombre.substring(0, 20) + '...' 
-                      : activeCase.nombre
-                    }
-                  </Text>
-                  <Text size="xs" style={{ color: 'rgba(255,255,255,0.8)', lineHeight: 1.1 }}>
-                    ID: {activeCase.id}
-                  </Text>
-                </Box>
-              </Group>
-              <ActionIcon
-                variant="subtle"
+        {/* Casos Activos - Versión Expandida */}
+        {!collapsed && activeCases.length > 0 && (
+          <Box style={{ marginTop: 12 }}>
+            {/* Header de Casos Activos */}
+            <Group gap="xs" style={{ marginBottom: 8 }}>
+              <IconFolderOpen size={14} color="white" />
+              <Text size="xs" fw={600} style={{ color: 'white' }}>
+                Casos Activos
+              </Text>
+              <Badge 
+                size="xs" 
+                variant="light" 
                 color="white"
-                size="xs"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleCloseActiveCase(e);
+                style={{ 
+                  background: 'rgba(255,255,255,0.2)',
+                  color: 'white',
+                  fontSize: '10px'
                 }}
-                title="Cerrar caso activo"
-                style={{ flexShrink: 0 }}
               >
-                <IconX size={12} />
-              </ActionIcon>
+                {activeCases.length}/3
+              </Badge>
             </Group>
-          </UnstyledButton>
+
+            {/* Lista de Casos */}
+            <Stack gap={6}>
+              {activeCases.map((caso, index) => (
+                <UnstyledButton
+                  key={caso.id}
+                  onClick={() => handleCaseClick(caso.id)}
+                  style={{
+                    padding: 6,
+                    background: 'rgba(255,255,255,0.15)',
+                    borderRadius: 4,
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease-in-out',
+                    width: '100%',
+                    textAlign: 'left',
+                    position: 'relative'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.25)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.15)';
+                  }}
+                >
+                  <Group gap="xs" justify="space-between">
+                    <Group gap="xs">
+                      <Box style={{ 
+                        width: 8, 
+                        height: 8, 
+                        borderRadius: '50%', 
+                        background: index === 0 ? '#4CAF50' : index === 1 ? '#FF9800' : '#F44336',
+                        flexShrink: 0
+                      }} />
+                      <Box style={{ minWidth: 0, flex: 1 }}>
+                        <Text size="xs" fw={600} style={{ color: 'white', lineHeight: 1.2 }}>
+                          {caso.nombre.length > 18 
+                            ? caso.nombre.substring(0, 18) + '...' 
+                            : caso.nombre
+                          }
+                        </Text>
+                        <Text size="xs" style={{ color: 'rgba(255,255,255,0.8)', lineHeight: 1.1 }}>
+                          ID: {caso.id}
+                        </Text>
+                      </Box>
+                    </Group>
+                    <ActionIcon
+                      variant="subtle"
+                      color="white"
+                      size="xs"
+                      onClick={(e) => handleCloseActiveCase(e, caso.id)}
+                      title="Cerrar caso"
+                      style={{ flexShrink: 0 }}
+                    >
+                      <IconX size={10} />
+                    </ActionIcon>
+                  </Group>
+                </UnstyledButton>
+              ))}
+            </Stack>
+          </Box>
         )}
 
-        {/* Caso Activo Colapsado */}
-        {activeCase && collapsed && (
+        {/* Casos Activos - Versión Colapsada */}
+        {collapsed && activeCases.length > 0 && (
           <Box style={{
             marginTop: 12,
             display: 'flex',
-            justifyContent: 'center'
+            flexDirection: 'column',
+            gap: 4,
+            alignItems: 'center'
           }}>
-            <ActionIcon
-              variant="filled"
-              color="white"
-              size="sm"
-              onClick={() => navigate(`/casos/${activeCase.id}`)}
-              title={`Caso: ${activeCase.nombre}`}
-              style={{ 
-                background: 'rgba(255,255,255,0.2)',
-                color: 'white'
-              }}
-            >
-              <IconFolderOpen size={16} />
-            </ActionIcon>
+            {activeCases.slice(0, 3).map((caso, index) => (
+              <Box
+                key={caso.id}
+                style={{
+                  position: 'relative',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 2
+                }}
+              >
+                <ActionIcon
+                  variant="filled"
+                  color="white"
+                  size="sm"
+                  onClick={() => handleCaseClick(caso.id)}
+                  title={`Caso ${index + 1}: ${caso.nombre}`}
+                  style={{ 
+                    background: index === 0 ? 'rgba(76, 175, 80, 0.8)' : 
+                             index === 1 ? 'rgba(255, 152, 0, 0.8)' : 
+                             'rgba(244, 67, 54, 0.8)',
+                    color: 'white',
+                    position: 'relative'
+                  }}
+                >
+                  <IconFolderOpen size={14} />
+                  {index === 2 && activeCases.length > 3 && (
+                    <Badge 
+                      size="xs" 
+                      variant="filled" 
+                      color="red"
+                      style={{ 
+                        position: 'absolute',
+                        top: -4,
+                        right: -4,
+                        fontSize: '8px',
+                        padding: '0 2px',
+                        minWidth: '12px',
+                        height: '12px'
+                      }}
+                    >
+                      +
+                    </Badge>
+                  )}
+                </ActionIcon>
+                <ActionIcon
+                  variant="subtle"
+                  color="white"
+                  size="xs"
+                  onClick={(e) => handleCloseActiveCase(e, caso.id)}
+                  title={`Cerrar caso: ${caso.nombre}`}
+                  style={{ 
+                    background: 'rgba(255, 255, 255, 0.2)',
+                    color: 'white',
+                    width: '16px',
+                    height: '16px',
+                    minWidth: '16px',
+                    minHeight: '16px'
+                  }}
+                >
+                  <IconX size={8} />
+                </ActionIcon>
+              </Box>
+            ))}
           </Box>
         )}
       </Box>

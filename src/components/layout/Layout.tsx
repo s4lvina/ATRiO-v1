@@ -25,7 +25,7 @@ function MainLayout() {
   const [collapsed, setCollapsed] = React.useState(false);
   const { user, logout } = useAuth();
   const [helpOpen, setHelpOpen] = React.useState(false);
-  const { activeCase, setActiveCase } = useActiveCase();
+  const { activeCases, clearAllCases } = useActiveCase();
   const [currentTaskId, setCurrentTaskId] = React.useState<string | null>(null);
   const { RenewalModal } = useSessionRenewal();
   const location = useLocation();
@@ -37,7 +37,7 @@ function MainLayout() {
 
   const handleCloseActiveCase = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setActiveCase(null);
+    clearAllCases();
     navigate('/casos');
   };
 

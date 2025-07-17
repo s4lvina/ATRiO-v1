@@ -250,7 +250,7 @@ function CasoDetailPage() {
   const [errorArchivos, setErrorArchivos] = useState<string | null>(null);
   const [deletingArchivoId, setDeletingArchivoId] = useState<number | null>(null);
   const navigate = useNavigate();
-  const { setActiveCase } = useActiveCase();
+  const { addActiveCase, canAddCase, getCaseToRemove } = useActiveCase();
   const [isNavigationExpanded, setIsNavigationExpanded] = useState(true);
 
   // El estado activeMainTab se mantiene, pero controla la sección activa
@@ -504,16 +504,40 @@ useEffect(() => {
           // Resetear todo si no hay idCaso
           setCaso(null); setArchivos([]); setErrorCaso('No se proporcionó ID de caso.'); setErrorArchivos(null);
           setLoadingCaso(false); setLoadingArchivos(false);
-          setActiveCase(null);
       }
-  }, [idCasoNum, fetchArchivos, setActiveCase]);
+  }, [idCasoNum, fetchArchivos]);
 
   // A new effect to specifically handle setting the active case when `caso` is loaded
   useEffect(() => {
     if (caso) {
-      setActiveCase({ id: caso.ID_Caso, nombre: caso.Nombre_del_Caso });
+      if (canAddCase(caso.ID_Caso)) {
+        addActiveCase({ id: caso.ID_Caso, nombre: caso.Nombre_del_Caso });
+      } else {
+        const caseToRemove = getCaseToRemove(caso.ID_Caso);
+        if (caseToRemove) {
+          // Mostrar warning de que se va a remover un caso
+          openConfirmModal({
+            title: 'Límite de casos activos alcanzado',
+            centered: true,
+            children: (
+              <Text size="sm">
+                Ya tienes 3 casos activos. Para abrir este nuevo caso, se cerrará automáticamente el caso más antiguo:
+                <br /><br />
+                <strong>"{caseToRemove.nombre}" (ID: {caseToRemove.id})</strong>
+                <br /><br />
+                ¿Deseas continuar?
+              </Text>
+            ),
+            labels: { confirm: 'Continuar', cancel: 'Cancelar' },
+            confirmProps: { color: 'blue' },
+            onConfirm: () => {
+              addActiveCase({ id: caso.ID_Caso, nombre: caso.Nombre_del_Caso });
+            },
+          });
+        }
+      }
     }
-  }, [caso, setActiveCase]);
+  }, [caso, addActiveCase, canAddCase, getCaseToRemove]);
 
   // Handler para borrar archivo (ahora usa fetchArchivos)
 const handleDeleteArchivo = async (archivoId: number) => {
