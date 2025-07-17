@@ -27,6 +27,7 @@ import { BitacoraPunto } from './BitacoraPunto';
 import { ImportarCapaExcelModal } from '../modals/ImportarCapaExcelModal';
 import ImportarCapaGpxModal from '../modals/ImportarCapaGpxModal';
 import LprFiltersPanel, { type LprFilterState, type LprCapa } from '../filters/LprFiltersPanel';
+import LeafletPlaybackPlayer from './LeafletPlaybackPlayer';
 
 import type { Lectura, LectorCoordenadas } from '../../types/data';
 import MapControlsPanel, { type GpsMapControls, type LprMapControls } from './MapControlsPanel';
@@ -278,232 +279,7 @@ const CapaItem = React.memo(({ capa, handleToggleCapa, handleEditarCapa, handleE
   );
 });
 
-// Nuevo componente para el reproductor de recorrido
-const RoutePlayer = React.memo(({ capas, onPlay, onPause, onStop, onSpeedChange, isPlaying, currentSpeed, currentIndex, onIndexChange, selectedLayerId, onLayerChange }: {
-  capas: CapaGps[];
-  onPlay: () => void;
-  onPause: () => void;
-  onStop: () => void;
-  onSpeedChange: (speed: number) => void;
-  isPlaying: boolean;
-  currentSpeed: number;
-  currentIndex: number;
-  onIndexChange: (index: number) => void;
-  selectedLayerId: number | null;
-  onLayerChange: (layerId: number | null) => void;
-}) => {
-  const selectedLayer = capas.find(c => c.id === selectedLayerId);
-  const totalPoints = selectedLayer?.lecturas.length || 0;
-  const currentPoint = selectedLayer?.lecturas[currentIndex];
-  const progress = totalPoints > 0 ? ((currentIndex + 1) / totalPoints) * 100 : 0;
 
-  return (
-    <Paper p="md" withBorder>
-      <Stack gap="md">
-        <Group justify="space-between" align="center">
-          <Title order={4}>Reproductor de Recorrido</Title>
-        </Group>
-        <Select
-          placeholder="Selecciona una capa"
-          value={selectedLayerId?.toString() || null}
-          onChange={(value) => {
-            onLayerChange(value ? Number(value) : null);
-            onIndexChange(0);
-            onStop();
-          }}
-          data={capas.map(capa => ({
-            value: capa.id.toString(),
-            label: capa.nombre
-          }))}
-          clearable
-          style={{ width: '100%' }}
-        />
-
-        {/* Barra de progreso */}
-        <div 
-          style={{ 
-            position: 'relative', 
-            height: 8, 
-            backgroundColor: 'var(--mantine-color-gray-2)', 
-            borderRadius: 4,
-            cursor: selectedLayer ? 'pointer' : 'default',
-            userSelect: 'none'
-          }}
-          onClick={(e) => {
-            if (!selectedLayer) return;
-            const rect = e.currentTarget.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const percentage = (x / rect.width) * 100;
-            const newIndex = Math.min(
-              Math.max(0, Math.floor((percentage / 100) * totalPoints)),
-              totalPoints - 1
-            );
-            onIndexChange(newIndex);
-          }}
-          onMouseDown={(e) => {
-            if (!selectedLayer) return;
-            e.preventDefault();
-            
-            const updatePosition = (clientX: number) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const x = clientX - rect.left;
-              const percentage = (x / rect.width) * 100;
-              const newIndex = Math.min(
-                Math.max(0, Math.floor((percentage / 100) * totalPoints)),
-                totalPoints - 1
-              );
-              onIndexChange(newIndex);
-            };
-
-            // Actualizar inmediatamente en el primer clic
-            updatePosition(e.clientX);
-
-            const handleMouseMove = (moveEvent: MouseEvent) => {
-              requestAnimationFrame(() => {
-                updatePosition(moveEvent.clientX);
-              });
-            };
-
-            const handleMouseUp = () => {
-              document.removeEventListener('mousemove', handleMouseMove);
-              document.removeEventListener('mouseup', handleMouseUp);
-            };
-
-            document.addEventListener('mousemove', handleMouseMove);
-            document.addEventListener('mouseup', handleMouseUp);
-          }}
-        >
-          <div
-            style={{
-              position: 'absolute',
-              left: 0,
-              top: 0,
-              height: '100%',
-              width: `${progress}%`,
-              backgroundColor: selectedLayer?.color || 'var(--mantine-color-blue-6)',
-              borderRadius: 4
-            }}
-          />
-          <div
-            style={{
-              position: 'absolute',
-              left: `${progress}%`,
-              top: '50%',
-              transform: 'translate(-50%, -50%)',
-              width: 10,
-              height: 10,
-              backgroundColor: 'white',
-              border: `2px solid ${selectedLayer?.color || 'var(--mantine-color-blue-6)'}`,
-              borderRadius: '50%',
-              boxShadow: '0 0 4px rgba(0,0,0,0.2)',
-              pointerEvents: 'none'
-            }}
-          />
-        </div>
-
-        {/* Información del punto actual */}
-        {currentPoint && (
-          <Group gap="xs">
-            <IconClock size={16} style={{ color: 'var(--mantine-color-gray-6)' }} />
-            <Text size="sm">{dayjs(currentPoint.Fecha_y_Hora).format('DD/MM/YYYY HH:mm:ss')}</Text>
-            <IconGauge size={16} style={{ color: 'var(--mantine-color-gray-6)' }} />
-            <Text size="sm">{currentPoint.Velocidad?.toFixed(1) || '0'} km/h</Text>
-          </Group>
-        )}
-
-        {/* Controles de reproducción */}
-        <Group justify="center" gap="xs">
-          <ActionIcon
-            variant="filled"
-            color="#234be7"
-            size="lg"
-            onClick={() => onIndexChange(Math.max(0, currentIndex - 1))}
-            disabled={!selectedLayer || currentIndex === 0}
-            style={{ fontWeight: 700 }}
-          >
-            <IconPlayerSkipBack size={20} />
-          </ActionIcon>
-          <ActionIcon
-            variant="outline"
-            color="#234be7"
-            size="lg"
-            onClick={() => {
-              const speeds = [0.25, 0.5, 1, 2, 4, 8, 10, 20];
-              const currentIndex = speeds.indexOf(currentSpeed);
-              if (currentIndex > 0) {
-                onSpeedChange(speeds[currentIndex - 1]);
-              }
-            }}
-            disabled={!selectedLayer || currentSpeed <= 0.25}
-            style={{ fontWeight: 700 }}
-          >
-            <IconPlayerTrackPrev size={20} />
-          </ActionIcon>
-          {isPlaying ? (
-            <ActionIcon
-              variant="filled"
-              color="#234be7"
-              size="xl"
-              onClick={onPause}
-              disabled={!selectedLayer}
-              style={{ fontWeight: 700 }}
-            >
-              <IconPlayerPause size={24} />
-            </ActionIcon>
-          ) : (
-            <ActionIcon
-              variant="filled"
-              color="#234be7"
-              size="xl"
-              onClick={onPlay}
-              disabled={!selectedLayer}
-              style={{ fontWeight: 700 }}
-            >
-              <IconPlayerPlay size={24} />
-            </ActionIcon>
-          )}
-          <ActionIcon
-            variant="outline"
-            color="#234be7"
-            size="lg"
-            onClick={() => {
-              const speeds = [0.25, 0.5, 1, 2, 4, 8, 10, 20];
-              const currentIndex = speeds.indexOf(currentSpeed);
-              if (currentIndex < speeds.length - 1) {
-                onSpeedChange(speeds[currentIndex + 1]);
-              }
-            }}
-            disabled={!selectedLayer || currentSpeed >= 20}
-            style={{ fontWeight: 700 }}
-          >
-            <IconPlayerTrackNext size={20} />
-          </ActionIcon>
-          <ActionIcon
-            variant="filled"
-            color="#234be7"
-            size="lg"
-            onClick={() => onIndexChange(Math.min(totalPoints - 1, currentIndex + 1))}
-            disabled={!selectedLayer || currentIndex === totalPoints - 1}
-            style={{ fontWeight: 700 }}
-          >
-            <IconPlayerSkipForward size={20} />
-          </ActionIcon>
-        </Group>
-
-        {/* Control de velocidad */}
-        <Group justify="center" gap="xs">
-          <Text size="sm">Velocidad: {currentSpeed}x</Text>
-        </Group>
-
-        {selectedLayer && (
-          <Text size="sm" c="dimmed" ta="center">
-            {currentIndex + 1} / {totalPoints} puntos
-          </Text>
-        )}
-      </Stack>
-    </Paper>
-  );
-});
 
 // Utility functions for KML and GPX export
 const generateKML = (lecturas: GpsLectura[], nombre: string) => {
@@ -2951,22 +2727,30 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
             <Divider />
 
             {/* Reproductor de Recorrido */}
-            <RoutePlayer
-              capas={capas}
-              onPlay={() => setIsPlaying(true)}
-              onPause={() => setIsPlaying(false)}
-              onStop={() => {
-                setIsPlaying(false);
-                setCurrentIndex(0);
-              }}
-              onSpeedChange={setCurrentSpeed}
-              isPlaying={isPlaying}
-              currentSpeed={currentSpeed}
-              currentIndex={currentIndex}
-              onIndexChange={setCurrentIndex}
-              selectedLayerId={selectedLayerForPlayback}
-              onLayerChange={setSelectedLayerForPlayback}
-            />
+            <Paper p="md" withBorder>
+              <Text size="md" fw={700} mb="xs" c="blue">Reproductor de Recorrido</Text>
+              {(() => {
+                try {
+                  return (
+                    <LeafletPlaybackPlayer
+                      capas={capas}
+                      mapRef={mapRef}
+                      selectedLayerId={selectedLayerForPlayback}
+                      onLayerChange={setSelectedLayerForPlayback}
+                    />
+                  );
+                } catch (error) {
+                  console.error('Error renderizando LeafletPlaybackPlayer:', error);
+                  return (
+                    <Box style={{ padding: '16px' }}>
+                      <Text size="sm" c="red">
+                        Error al cargar el reproductor: {error instanceof Error ? error.message : 'Error desconocido'}
+                      </Text>
+                    </Box>
+                  );
+                }
+              })()}
+            </Paper>
           </Stack>
         );
 

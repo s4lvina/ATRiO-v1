@@ -41,7 +41,6 @@ interface LprFiltersPanelProps {
   onFilterChange: (updates: Partial<LprFilterState>) => void;
   onFiltrar: () => void;
   onLimpiar: () => void;
-  onLimpiarMapa: () => void;
   loading?: boolean;
   casoId: number;
   
@@ -69,7 +68,6 @@ const LprFiltersPanel: React.FC<LprFiltersPanelProps> = ({
   onFilterChange: handleChange,
   onFiltrar,
   onLimpiar,
-  onLimpiarMapa,
   loading = false,
   casoId,
   capas,
@@ -230,7 +228,7 @@ const LprFiltersPanel: React.FC<LprFiltersPanelProps> = ({
         />
       </Group>
 
-      <Group grow style={{ marginTop: '16px' }}>
+      <Group justify="flex-end" style={{ marginTop: '16px' }}>
         <Button
           variant="outline"
           color="#234be7"
@@ -253,15 +251,6 @@ const LprFiltersPanel: React.FC<LprFiltersPanelProps> = ({
           Aplicar
         </Button>
       </Group>
-
-      <Button 
-        variant="light" 
-        color="red" 
-        fullWidth
-        onClick={onLimpiarMapa}
-      >
-        Limpiar Mapa
-      </Button>
 
       {/* Sección de Capas LPR */}
       <Box style={{ marginTop: '24px' }}>
