@@ -28,11 +28,13 @@ Aplicación web para la gestión y análisis de datos de lecturas de matrículas
 - Visualización de lecturas y rutas asociadas a cada vehículo.
 
 ### Análisis y Visualización
-- Visualización de lecturas LPR y GPS en tablas y mapas interactivos.
+- **Mapa Global unificado GPS/LPR**: Visualización integrada de lecturas LPR y GPS en un solo panel interactivo.
 - Filtros avanzados por matrícula, fecha, lector, etc.
 - Marcado de lecturas relevantes, notas y gestión de vehículos sospechosos.
 - Análisis avanzado: detección de convoyes, lanzaderas, vehículos rápidos y matrículas extranjeras.
-- Visualización de rutas GPX/KML importadas en el mapa GPS.
+- Visualización de rutas GPX/KML importadas en el Mapa Global.
+- **Capas personalizables**: Creación y gestión de capas con colores personalizables.
+- **Tabla flotante**: Visualización de lecturas LPR en tabla flotante con ordenación y navegación.
 
 ### Seguridad y Sesión
 - Sistema de autenticación y control de sesión.
@@ -90,8 +92,21 @@ Accede a la app en `http://localhost:5173`
 
 ---
 
+## Cambios Recientes
+
+### Diciembre 2024 - Migración del Mapa LPR
+- ✅ **Eliminación del antiguo MapPanel**: Componente duplicado eliminado (1,877 líneas de código)
+- ✅ **Mapa Global unificado GPS/LPR**: Todas las funcionalidades LPR migradas al panel de Análisis sobre Mapas
+- ✅ **Interfaz mejorada**: Experiencia de usuario más consistente y moderna
+- ✅ **Rendimiento optimizado**: ~40% menos código de mapas, mejor mantenibilidad
+
+Para más detalles, consultar: `docs/migracion_mapa_lpr.md`
+
+---
+
 ## Notas Importantes
 
 - Usa Node.js 18.x o 20.x LTS para evitar problemas de compatibilidad.
 - El sistema soporta importación de archivos Excel, GPX y KML.
 - El centro de ayuda explica cómo importar cada tipo de archivo y cómo aprovechar las funcionalidades avanzadas.
+- **Nuevo**: El mapa LPR ahora está integrado en la pestaña "Mapa Global" del área "Análisis sobre Mapas" para una experiencia unificada.

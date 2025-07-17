@@ -429,33 +429,31 @@ const helpTexts = {
 
 'mapa-gps': (
     <Box style={{ maxWidth: 900 }}>
-      <Text fw={700} mb="sm" size="lg" c="blue.8">¿Cómo funciona la pestaña Mapa GPS?</Text>
+      <Text fw={700} mb="sm" size="lg" c="blue.8">¿Cómo funciona la pestaña Mapa Global?</Text>
       <Stack gap="xs">
         <Text size="md" fw={700} mb={2}>¿Qué es esta pestaña?</Text>
         <Text size="sm" mb="xs">
-          En la pestaña <b>Mapa GPS</b> puedes visualizar y analizar todas las posiciones GPS registradas para los vehículos del caso. La interfaz está organizada en tres paneles principales: <b>Mapa Interactivo</b>, <b>Filtros</b> y <b>Análisis Inteligente</b>, que permiten un análisis completo de rutas, trayectorias y patrones de movimiento.
+          En la pestaña <b>Mapa Global</b> puedes visualizar y analizar todas las posiciones GPS y lecturas LPR registradas para los vehículos del caso. La interfaz está organizada en múltiples paneles que permiten un análisis completo de rutas, trayectorias, patrones de movimiento y lecturas de matrículas.
         </Text>
 
-        <Text size="md" fw={700} mb={2}>Panel de Filtros</Text>
+        <Text size="md" fw={700} mb={2}>Paneles de Filtros</Text>
         <Text size="sm" mb="xs">
           <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
-            <li><b>Filtros temporales:</b>
+            <li><b>Filtros GPS:</b>
               <ul>
-                <li>Rango de fechas específicas</li>
-                <li>Horas sin fecha (ejemplo: movimientos entre 01:00 y 02:00 de cualquier día)</li>
-                <li>Día de la semana (ejemplo: solo movimientos de los lunes)</li>
+                <li><b>Filtros temporales:</b> Rango de fechas específicas, horas sin fecha, día de la semana</li>
+                <li><b>Filtros de velocidad:</b> Velocidad mínima y máxima, detección de paradas</li>
+                <li><b>Selección geográfica:</b> Dibujar polígono o selección rectangular</li>
+                <li><b>Vehículo objetivo:</b> Filtrar por matrícula específica con autocompletado de fechas</li>
               </ul>
             </li>
-            <li><b>Filtros de velocidad:</b>
+            <li><b>Filtros LPR:</b>
               <ul>
-                <li>Velocidad mínima y máxima</li>
-                <li>Detección de paradas (duración mínima en minutos)</li>
-              </ul>
-            </li>
-            <li><b>Selección geográfica:</b>
-              <ul>
-                <li>Dibujar polígono en el mapa para filtrar área</li>
-                <li>Selección rectangular</li>
+                <li><b>Filtros de matrícula:</b> Búsqueda exacta o con comodines (* y ?)</li>
+                <li><b>Filtros temporales:</b> Rango de fechas y horas específicas</li>
+                <li><b>Filtros de lector:</b> Seleccionar lectores específicos</li>
+                <li><b>Filtros de carretera:</b> Filtrar por vía específica</li>
+                <li><b>Filtros de dirección:</b> Entrada, salida o ambas direcciones</li>
               </ul>
             </li>
           </ul>
@@ -464,12 +462,21 @@ const helpTexts = {
         <Text size="md" fw={700} mb={2}>Panel de Mapa</Text>
         <Text size="sm" mb="xs">
           <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
-            <li><b>Visualización:</b>
+            <li><b>Visualización GPS:</b>
               <ul>
                 <li>Vista de satélite/calles</li>
                 <li>Capa de calor (heatmap) para visualizar concentración de puntos</li>
                 <li>Clustering para agrupar puntos cercanos</li>
                 <li>Visualización de rutas conectadas</li>
+                <li>Marcadores de paradas importantes</li>
+              </ul>
+            </li>
+            <li><b>Visualización LPR:</b>
+              <ul>
+                <li>Lecturas de matrículas como puntos verdes en el mapa</li>
+                <li>Ubicación de lectores LPR con información detallada</li>
+                <li>Popups con detalles de cada lectura (matrícula, fecha, hora, lector)</li>
+                <li>Filtrado por lectores activos del caso</li>
               </ul>
             </li>
             <li><b>Interacción:</b>
@@ -478,14 +485,39 @@ const helpTexts = {
                 <li>Selección de puntos individuales</li>
                 <li>Panel de información al hacer clic (fecha, hora, velocidad, coordenadas)</li>
                 <li>Dirección aproximada del punto seleccionado</li>
+                <li>Centrado automático desde tablas de datos</li>
               </ul>
             </li>
             <li><b>Reproducción de rutas:</b>
               <ul>
                 <li>Reproducir/Pausar la secuencia de movimientos</li>
-                <li>Ajustar velocidad de reproducción</li>
+                <li>Ajustar velocidad de reproducción (hasta 20x)</li>
                 <li>Indicador de fecha y hora actual</li>
-                <li>Marcadores de paradas importantes</li>
+                <li>Reproducción múltiple de capas simultáneas</li>
+              </ul>
+            </li>
+          </ul>
+        </Text>
+
+        <Text size="md" fw={700} mb={2}>Tablas de Datos</Text>
+        <Text size="sm" mb="xs">
+          <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
+            <li><b>Tabla de Posiciones GPS:</b>
+              <ul>
+                <li>Lista completa de puntos GPS con filtros aplicados</li>
+                <li>Ordenación por cualquier columna</li>
+                <li>Selección múltiple de registros</li>
+                <li>Centrado automático en el mapa al hacer doble clic</li>
+                <li>Exportación de datos filtrados</li>
+              </ul>
+            </li>
+            <li><b>Tabla de Lecturas LPR:</b>
+              <ul>
+                <li>Lista de todas las lecturas de matrículas del caso</li>
+                <li>Filtros avanzados por matrícula, fecha, lector y carretera</li>
+                <li>Búsqueda con comodines para patrones de matrículas</li>
+                <li>Selección y centrado en el mapa</li>
+                <li>Información detallada de cada lectura</li>
               </ul>
             </li>
           </ul>
@@ -579,20 +611,24 @@ const helpTexts = {
         <Text size="sm" mb="xs">
           <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
             <li>Utiliza los filtros por día de la semana para detectar patrones rutinarios</li>
-            <li>Combina la visualización GPS con lecturas LPR cuando sea posible</li>
+            <li>Combina la visualización GPS con lecturas LPR para un análisis completo de movimientos</li>
             <li>Para grandes volúmenes de datos, activa el clustering antes de aplicar filtros</li>
             <li>Usa los filtros horarios sin fechas para analizar comportamientos en horarios específicos</li>
             <li>Aprovecha los gráficos interactivos del Análisis Inteligente para descubrir patrones no evidentes</li>
+            <li>Utiliza los comodines (* y ?) en los filtros LPR para búsquedas flexibles de matrículas</li>
+            <li>Haz doble clic en las tablas para centrar automáticamente el mapa en ese punto</li>
+            <li>Usa la reproducción de rutas para entender la secuencia temporal de movimientos</li>
           </ul>
         </Text>
 
         <Text size="md" fw={700} mb={2}>Autocompletado de Fechas</Text>
         <Text size="sm" mb="xs">
           <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
-            <li><b>Selección automática:</b> Al seleccionar una matrícula en el selector "Vehículo Objetivo", el sistema automáticamente obtiene y establece el rango de fechas disponible para ese vehículo</li>
-            <li><b>Información inmediata:</b> Conoce de inmediato qué datos GPS están disponibles para el vehículo seleccionado sin necesidad de buscar manualmente</li>
+            <li><b>GPS - Selección automática:</b> Al seleccionar una matrícula en el selector "Vehículo Objetivo", el sistema automáticamente obtiene y establece el rango de fechas disponible para ese vehículo</li>
+            <li><b>LPR - Autocompletado automático:</b> Al entrar en el panel de filtros LPR, las fechas se autocompletarán automáticamente con el rango completo disponible para el caso</li>
+            <li><b>Información inmediata:</b> Conoce de inmediato qué datos están disponibles sin necesidad de buscar manualmente</li>
             <li><b>Indicadores visuales:</b> Durante la carga de fechas, los campos muestran un indicador de carga y se deshabilitan temporalmente</li>
-            <li><b>Limpieza automática:</b> Al deseleccionar una matrícula, los campos de fecha se limpian automáticamente</li>
+            <li><b>Limpieza automática:</b> Al deseleccionar una matrícula o cambiar de panel, los campos de fecha se limpian automáticamente</li>
             <li><b>Notificaciones informativas:</b> El sistema muestra notificaciones cuando las fechas se autocompletan exitosamente</li>
           </ul>
         </Text>
@@ -601,11 +637,11 @@ const helpTexts = {
   ),
   'mapa-gps-capas-externas': (
     <Box style={{ maxWidth: 900 }}>
-      <Text fw={700} mb="sm" size="lg" c="blue.8">¿Cómo funcionan las Capas Externas en el Mapa GPS?</Text>
+      <Text fw={700} mb="sm" size="lg" c="blue.8">¿Cómo funcionan las Capas Externas en el Mapa Global?</Text>
       <Stack gap="xs">
         <Text size="md" fw={700} mb={2}>¿Qué son las Capas Externas?</Text>
         <Text size="sm" mb="xs">
-          Las Capas Externas te permiten importar y visualizar datos adicionales en el mapa GPS, enriqueciendo el análisis con información de fuentes externas como registros de bitácora, archivos Excel, archivos GPX/KML y shapefiles.
+          Las Capas Externas te permiten importar y visualizar datos adicionales en el Mapa Global, enriqueciendo el análisis con información de fuentes externas como registros de bitácora, archivos Excel, archivos GPX/KML y shapefiles.
         </Text>
         
         <Text size="md" fw={700} mb={2}>Tipos de Capas Disponibles</Text>
@@ -674,9 +710,9 @@ const helpTexts = {
 
         <Text size="md" fw={700} mb={2}>Análisis Avanzado</Text>
         <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
-          <li><strong>Correlación espacial:</strong> Superpone capas GPS con datos externos para identificar patrones.</li>
-          <li><strong>Análisis temporal:</strong> Compara movimientos GPS con eventos externos en el tiempo.</li>
-          <li><strong>Exportación:</strong> Exporta las capas externas junto con los datos GPS para informes.</li>
+          <li><strong>Correlación espacial:</strong> Superpone capas GPS y LPR con datos externos para identificar patrones.</li>
+          <li><strong>Análisis temporal:</strong> Compara movimientos GPS y lecturas LPR con eventos externos en el tiempo.</li>
+          <li><strong>Exportación:</strong> Exporta las capas externas junto con los datos GPS y LPR para informes.</li>
         </ul>
 
         <Text size="md" fw={700} mb={2}>Consejos de Uso</Text>
@@ -692,9 +728,9 @@ const helpTexts = {
 
         <Text size="md" fw={700} mb={2}>Casos de Uso Típicos</Text>
         <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
-          <li><strong>Análisis de patrones:</strong> Superponer rutas GPS con puntos de delitos para identificar patrones de movimiento sospechosos.</li>
-          <li><strong>Observación BTS:</strong> Cruza capas de posicionamiento BTS y busca coincidencias con hechos delictivos o posiciones GPS de un vehículo para relacionar a un sujeto con él, o conseguir su identificación.</li>
-          <li><strong>Análisis de zonas:</strong> Importar shapefiles de zonas de interés para contextualizar los movimientos GPS.</li>
+          <li><strong>Análisis de patrones:</strong> Superponer rutas GPS y lecturas LPR con puntos de delitos para identificar patrones de movimiento sospechosos.</li>
+          <li><strong>Observación BTS:</strong> Cruza capas de posicionamiento BTS y busca coincidencias con hechos delictivos o posiciones GPS y lecturas LPR de un vehículo para relacionar a un sujeto con él, o conseguir su identificación.</li>
+          <li><strong>Análisis de zonas:</strong> Importar shapefiles de zonas de interés para contextualizar los movimientos GPS y lecturas LPR.</li>
           <li><strong>Documentación:</strong> Crear mapas completos con todos los datos relevantes para informes y presentaciones.</li>
         </ul>
       </Stack>
@@ -925,13 +961,13 @@ const helpTexts = {
       <Stack gap="xs">
         <Text size="md" fw={700} mb={2}>¿Qué son los Mapas Guardados?</Text>
         <Text size="sm" mb="xs">
-          La funcionalidad de <b>Mapas Guardados</b> te permite almacenar el estado completo del mapa GPS, incluyendo todas las capas (GPS, LPR, externas), filtros aplicados, configuración de visualización, localizaciones, zoom y posición del mapa. Así puedes recuperar y compartir configuraciones complejas de análisis con un solo clic.
+          La funcionalidad de <b>Mapas Guardados</b> te permite almacenar el estado completo del Mapa Global, incluyendo todas las capas (GPS, LPR, externas), filtros aplicados, configuración de visualización, localizaciones, zoom y posición del mapa. Así puedes recuperar y compartir configuraciones complejas de análisis con un solo clic.
         </Text>
         <Text size="md" fw={700} mb={2}>¿Cómo guardar un mapa?</Text>
         <Text size="sm" mb="xs">
           <ol style={{ paddingLeft: '20px', margin: '4px 0' }}>
             <li>Configura el mapa con las capas, filtros y visualización que desees.</li>
-            <li>Haz clic en la pestaña <b>Mapas Guardados</b> dentro del panel de análisis GPS.</li>
+            <li>Haz clic en la pestaña <b>Mapas Guardados</b> dentro del panel de Análisis sobre Mapas.</li>
             <li>Pulsa <b>Guardar nuevo mapa</b> y asigna un nombre y descripción opcional.</li>
             <li>El mapa se guardará y aparecerá en la lista de mapas guardados para el caso.</li>
           </ol>

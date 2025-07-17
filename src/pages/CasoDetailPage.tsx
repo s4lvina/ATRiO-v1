@@ -22,7 +22,6 @@ import EditNotaModal from '../components/modals/EditNotaModal';
 import LecturasRelevantesPanel from '../components/caso/LecturasRelevantesPanel';
 import VehiculosPanel from '../components/vehiculos/VehiculosPanel';
 import AnalisisAvanzadoPanel from '../components/lanzadera/LanzaderaPanel';
-import MapPanel from '../components/maps/MapPanel';
 import HelpButton from '../components/common/HelpButton';
 import AnalisisLecturasPanel from '../components/analisis/AnalisisLecturasPanel';
 import GpsAnalysisPanel from '../components/gps/GpsAnalysisPanel';
@@ -61,22 +60,12 @@ const caseSections = [
     { id: 'lanzadera', label: 'Análisis Avanzado', icon: IconFlask, section: 'lecturas' },
     { id: 'cruce-externos', label: 'Cruce de Fuentes Externas', icon: IconArrowsJoin, section: 'lecturas' },
     { id: 'vehiculos', label: 'Vehículos', icon: IconCar, section: 'lecturas' },
-    { id: 'mapa', label: 'Mapa', icon: IconMap, section: 'lecturas' },
-    { id: 'analisis-gps', label: 'Mapa GPS', icon: IconRoute, section: 'gps' },
-    { id: 'datos-gps', label: 'Datos GPS', icon: IconTable, section: 'gps' },
+    { id: 'analisis-gps', label: 'Mapa Global', icon: IconRoute, section: 'mapas' },
+    { id: 'datos-gps', label: 'Datos GPS', icon: IconTable, section: 'mapas' },
     { id: 'archivos', label: 'Archivos Importados', icon: IconFiles, section: 'archivos' },
 ];
 
-// --- Añadir tipo para lecturas de mapa --- 
-interface LectorConCoordenadas {
-    ID_Lector: string;
-    Nombre?: string | null;
-    Coordenada_X: number;
-    Coordenada_Y: number;
-    Carretera?: string | null;
-    Provincia?: string | null;
-    Organismo_Regulador?: string | null;
-}
+// Interfaz eliminada - MapPanel ha sido migrado al panel GPS
 
 // --- Objeto con Textos de Ayuda ---
 const helpTexts: { [key: string]: React.ReactNode } = {
@@ -554,38 +543,7 @@ const handleDeleteArchivo = async (archivoId: number) => {
   });
 };
 
-  // --- Estados para Lecturas del Mapa --- 
-  const [mapLecturas, setMapLecturas] = useState<LectorConCoordenadas[]>([]);
-  const [loadingMapLecturas, setLoadingMapLecturas] = useState(false);
-  const [errorMapLecturas, setErrorMapLecturas] = useState<string | null>(null);
-
-  // --- NUEVO: Función para cargar lecturas para el mapa --- 
-  const fetchMapLecturas = useCallback(async () => {
-      if (!idCasoNum) return;
-      console.log("[CasoMap] Fetching lecturas para mapa del caso:", idCasoNum);
-      setLoadingMapLecturas(true);
-      setErrorMapLecturas(null);
-      try {
-          // Cambiamos el endpoint para que solo devuelva lectores LPR
-          const response = await apiClient.get<LectorConCoordenadas[]>(`/casos/${idCasoNum}/lectores`);
-          setMapLecturas(response.data || []);
-          console.log("[CasoMap] Lectores LPR cargados:", response.data?.length);
-      } catch (err: any) {
-          console.error("Error fetching map lecturas:", err);
-          setErrorMapLecturas(err.response?.data?.detail || 'No se pudieron cargar los datos para el mapa.');
-          setMapLecturas([]);
-      } finally {
-          setLoadingMapLecturas(false);
-      }
-  }, [idCasoNum]);
-
-  // --- useEffect para cargar datos del mapa --- 
-  useEffect(() => {
-      // Cargar solo si la pestaña está activa Y no hay datos cargados
-      if (activeMainTab === 'mapa' && mapLecturas.length === 0 && !loadingMapLecturas) {
-          fetchMapLecturas();
-      }
-  }, [activeMainTab, mapLecturas.length, fetchMapLecturas]);
+  // Estados del mapa LPR eliminados - migrados al panel GPS
 
   // Función para manejar descarga de archivos (placeholder por ahora)
   const handleDownloadArchivo = async (archivoId: number, nombreArchivo: string) => {
@@ -690,9 +648,9 @@ const handleDeleteArchivo = async (archivoId: number) => {
                     </Box>
                     <Divider orientation="vertical" mx="md" />
                     <Box>
-                        <Text fw={500} c="grape" mb="xs">Análisis GPS</Text>
+                        <Text fw={500} c="grape" mb="xs">Análisis sobre Mapas</Text>
                         <Group gap="xs">
-                            {caseSections.filter(section => section.section === 'gps').map((section) => (
+                            {caseSections.filter(section => section.section === 'mapas').map((section) => (
                                 <Button
                                     key={section.id}
                                     variant={activeMainTab === section.id ? 'filled' : 'light'}
@@ -780,7 +738,7 @@ const handleDeleteArchivo = async (archivoId: number) => {
                   <VehiculosPanel casoId={idCasoNum!} />
               </Box>
 
-              {/* Pestaña Análisis GPS */}
+              {/* Pestaña Mapa Global */}
               <Box style={{ display: activeMainTab === 'analisis-gps' ? 'block' : 'none', position: 'relative' }}>
                   <GpsAnalysisPanel 
                     casoId={idCasoNum!} 
@@ -796,16 +754,12 @@ const handleDeleteArchivo = async (archivoId: number) => {
                   />
               </Box>
 
+              {/* Pestaña Mapa - Eliminada, ahora se usa el Mapa Global integrado */}
               <Box style={{ display: activeMainTab === 'mapa' ? 'block' : 'none', position: 'relative' }}>
-                  <Box style={{ position: 'relative', height: '500px' }}>
-                      <LoadingOverlay visible={loadingMapLecturas} />
-                      {errorMapLecturas && (
-                          <Alert color="red" title="Error en Mapa">{errorMapLecturas}</Alert>
-                      )}
-                      {!loadingMapLecturas && !errorMapLecturas && (
-                          <MapPanel casoId={idCasoNum!} />
-                      )}
-                  </Box>
+                  <Alert color="blue" title="Mapa LPR Migrado">
+                      El mapa LPR ha sido migrado al panel de Análisis sobre Mapas. 
+                      Utiliza la pestaña "Mapa Global" para acceder a todas las funcionalidades del mapa.
+                  </Alert>
               </Box>
 
               <Box style={{ display: activeMainTab === 'archivos' ? 'block' : 'none', position: 'relative' }}>

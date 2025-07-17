@@ -1959,61 +1959,7 @@ def delete_saved_search(search_id: int, db: Session = Depends(get_db)):
 
 # --- Fin Endpoint --- 
 
-# === NUEVO ENDPOINT PARA LECTURAS DEL MAPA ===
-@app.get("/casos/{caso_id}/lecturas_para_mapa", response_model=List[schemas.LectorCoordenadas], tags=["Casos"])
-def get_lecturas_para_mapa(caso_id: int, db: Session = Depends(get_db)):
-    """
-    Obtiene una lista de lectores únicos con coordenadas válidas 
-    asociados a las lecturas de un caso específico.
-    Utilizado para poblar el mapa en la vista de detalle del caso.
-    """
-    logger.info(f"GET /casos/{caso_id}/lecturas_para_mapa - Obteniendo lectores para el mapa.")
-    
-    # Verificar si el caso existe primero
-    db_caso = db.query(models.Caso).filter(models.Caso.ID_Caso == caso_id).first()
-    if not db_caso:
-        logger.warning(f"Caso ID {caso_id} no encontrado para obtener lecturas de mapa.")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Caso no encontrado")
-
-    try:
-        # Consultar Lecturas asociadas al caso a través de ArchivoExcel, cargando el Lector
-        lecturas_con_lector = db.query(models.Lectura)\
-            .join(models.ArchivoExcel, models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo)\
-            .options(joinedload(models.Lectura.lector))\
-            .filter(models.ArchivoExcel.ID_Caso == caso_id)\
-            .all()
-
-        lectores_unicos_mapa = {} # Usar dict para asegurar unicidad por ID_Lector
-
-        for lectura in lecturas_con_lector:
-            lector = lectura.lector
-            # Verificar si el lector existe, tiene coordenadas válidas y aún no está en nuestro dict
-            if (lector and 
-                lector.Coordenada_X is not None and 
-                lector.Coordenada_Y is not None and
-                lector.ID_Lector not in lectores_unicos_mapa):
-                
-                # Crear una instancia del schema Pydantic para la respuesta
-                lector_data = schemas.LectorCoordenadas(
-                    ID_Lector=lector.ID_Lector,
-                    Nombre=lector.Nombre,
-                    Coordenada_Y=lector.Coordenada_Y, # Latitud
-                    Coordenada_X=lector.Coordenada_X, # Longitud
-                    Provincia=lector.Provincia,
-                    Carretera=lector.Carretera,
-                    Organismo_Regulador=lector.Organismo_Regulador,
-                    Sentido=lector.Sentido
-                )
-                lectores_unicos_mapa[lector.ID_Lector] = lector_data
-
-        lista_lectores = list(lectores_unicos_mapa.values())
-        logger.info(f"Encontrados {len(lista_lectores)} lectores únicos con coordenadas para el caso {caso_id}.")
-        return lista_lectores
-
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Error al obtener lectores para mapa del caso {caso_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error interno al obtener datos del mapa: {e}")
+# Endpoint eliminado - MapPanel ha sido migrado al panel GPS
 
 @app.get("/casos/{caso_id}/lectores", response_model=List[schemas.Lector])
 def get_lectores_por_caso(caso_id: int, db: Session = Depends(get_db)):
