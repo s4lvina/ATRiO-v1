@@ -163,28 +163,42 @@ const Navbar: React.FC<NavbarProps> = ({ collapsed }) => {
 
             {/* Lista de Casos */}
             <Stack gap={6}>
-              {activeCases.map((caso, index) => (
-                <UnstyledButton
-                  key={caso.id}
-                  onClick={() => handleCaseClick(caso.id)}
-                  style={{
-                    padding: 6,
-                    background: 'rgba(255,255,255,0.15)',
-                    borderRadius: 4,
-                    border: '1px solid rgba(255,255,255,0.2)',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease-in-out',
-                    width: '100%',
-                    textAlign: 'left',
-                    position: 'relative'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.25)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.15)';
-                  }}
-                >
+              {activeCases.map((caso, index) => {
+                const isCurrentCase = location.pathname === `/casos/${caso.id}`;
+                const baseBackground = isCurrentCase 
+                  ? 'rgba(255,255,255,0.3)' 
+                  : 'rgba(255,255,255,0.15)';
+                const baseBorder = isCurrentCase 
+                  ? '2px solid rgba(255,255,255,0.8)' 
+                  : '1px solid rgba(255,255,255,0.2)';
+                
+                return (
+                  <Box
+                    key={caso.id}
+                    onClick={() => handleCaseClick(caso.id)}
+                    style={{
+                      padding: 6,
+                      background: baseBackground,
+                      borderRadius: 4,
+                      border: baseBorder,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease-in-out',
+                      width: '100%',
+                      textAlign: 'left',
+                      position: 'relative',
+                      boxShadow: isCurrentCase ? '0 0 8px rgba(255,255,255,0.3)' : 'none'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isCurrentCase) {
+                        e.currentTarget.style.background = 'rgba(255,255,255,0.25)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isCurrentCase) {
+                        e.currentTarget.style.background = baseBackground;
+                      }
+                    }}
+                  >
                   <Group gap="xs" justify="space-between">
                     <Group gap="xs">
                       <Box style={{ 
@@ -195,12 +209,30 @@ const Navbar: React.FC<NavbarProps> = ({ collapsed }) => {
                         flexShrink: 0
                       }} />
                       <Box style={{ minWidth: 0, flex: 1 }}>
-                        <Text size="xs" fw={600} style={{ color: 'white', lineHeight: 1.2 }}>
-                          {caso.nombre.length > 18 
-                            ? caso.nombre.substring(0, 18) + '...' 
-                            : caso.nombre
-                          }
-                        </Text>
+                        <Group gap="xs" align="center">
+                          <Text size="xs" fw={600} style={{ color: 'white', lineHeight: 1.2 }}>
+                            {caso.nombre.length > 18 
+                              ? caso.nombre.substring(0, 18) + '...' 
+                              : caso.nombre
+                            }
+                          </Text>
+                          {isCurrentCase && (
+                            <Badge 
+                              size="xs" 
+                              variant="filled" 
+                              color="white"
+                              style={{ 
+                                background: 'rgba(255,255,255,0.9)',
+                                color: '#0b0d70',
+                                fontSize: '8px',
+                                padding: '0 4px',
+                                fontWeight: 600
+                              }}
+                            >
+                              ACTUAL
+                            </Badge>
+                          )}
+                        </Group>
                         <Text size="xs" style={{ color: 'rgba(255,255,255,0.8)', lineHeight: 1.1 }}>
                           ID: {caso.id}
                         </Text>
@@ -217,8 +249,9 @@ const Navbar: React.FC<NavbarProps> = ({ collapsed }) => {
                       <IconX size={10} />
                     </ActionIcon>
                   </Group>
-                </UnstyledButton>
-              ))}
+                </Box>
+              );
+            })}
             </Stack>
           </Box>
         )}
@@ -232,31 +265,42 @@ const Navbar: React.FC<NavbarProps> = ({ collapsed }) => {
             gap: 4,
             alignItems: 'center'
           }}>
-            {activeCases.slice(0, 3).map((caso, index) => (
-              <Box
-                key={caso.id}
-                style={{
-                  position: 'relative',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 2
-                }}
-              >
-                <ActionIcon
-                  variant="filled"
-                  color="white"
-                  size="sm"
-                  onClick={() => handleCaseClick(caso.id)}
-                  title={`Caso ${index + 1}: ${caso.nombre}`}
-                  style={{ 
-                    background: index === 0 ? 'rgba(76, 175, 80, 0.8)' : 
-                             index === 1 ? 'rgba(255, 152, 0, 0.8)' : 
-                             'rgba(244, 67, 54, 0.8)',
-                    color: 'white',
-                    position: 'relative'
+            {activeCases.slice(0, 3).map((caso, index) => {
+              const isCurrentCase = location.pathname === `/casos/${caso.id}`;
+              const baseColor = index === 0 ? 'rgba(76, 175, 80, 0.8)' : 
+                               index === 1 ? 'rgba(255, 152, 0, 0.8)' : 
+                               'rgba(244, 67, 54, 0.8)';
+              const currentColor = index === 0 ? 'rgba(76, 175, 80, 1)' : 
+                                  index === 1 ? 'rgba(255, 152, 0, 1)' : 
+                                  'rgba(244, 67, 54, 1)';
+              
+              return (
+                <Box
+                  key={caso.id}
+                  style={{
+                    position: 'relative',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 2
                   }}
                 >
+                  <ActionIcon
+                    variant="filled"
+                    color="white"
+                    size="sm"
+                    onClick={() => handleCaseClick(caso.id)}
+                    title={`Caso ${index + 1}: ${caso.nombre}${isCurrentCase ? ' (Actual)' : ''}`}
+                    style={{ 
+                      background: isCurrentCase ? currentColor : baseColor,
+                      color: 'white',
+                      position: 'relative',
+                      border: isCurrentCase ? '2px solid rgba(255,255,255,0.8)' : 'none',
+                      boxShadow: isCurrentCase ? '0 0 8px rgba(255,255,255,0.4)' : 'none',
+                      transform: isCurrentCase ? 'scale(1.1)' : 'scale(1)',
+                      transition: 'all 0.2s ease-in-out'
+                    }}
+                  >
                   <IconFolderOpen size={14} />
                   {index === 2 && activeCases.length > 3 && (
                     <Badge 
@@ -295,7 +339,8 @@ const Navbar: React.FC<NavbarProps> = ({ collapsed }) => {
                   <IconX size={8} />
                 </ActionIcon>
               </Box>
-            ))}
+            );
+          })}
           </Box>
         )}
       </Box>

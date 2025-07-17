@@ -33,7 +33,8 @@ export const ActiveCaseProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         return prev;
       }
       
-      // Si ya hay 3 casos activos, remover el más antiguo (FIFO)
+      // Si ya hay 3 casos activos, remover el más antiguo (FIFO) sin warning
+      // El warning se manejará en la interfaz de usuario si es necesario
       if (prev.length >= MAX_ACTIVE_CASES) {
         return [...prev.slice(1), caso];
       }

@@ -510,34 +510,11 @@ useEffect(() => {
   // A new effect to specifically handle setting the active case when `caso` is loaded
   useEffect(() => {
     if (caso) {
-      if (canAddCase(caso.ID_Caso)) {
-        addActiveCase({ id: caso.ID_Caso, nombre: caso.Nombre_del_Caso });
-      } else {
-        const caseToRemove = getCaseToRemove(caso.ID_Caso);
-        if (caseToRemove) {
-          // Mostrar warning de que se va a remover un caso
-          openConfirmModal({
-            title: 'Límite de casos activos alcanzado',
-            centered: true,
-            children: (
-              <Text size="sm">
-                Ya tienes 3 casos activos. Para abrir este nuevo caso, se cerrará automáticamente el caso más antiguo:
-                <br /><br />
-                <strong>"{caseToRemove.nombre}" (ID: {caseToRemove.id})</strong>
-                <br /><br />
-                ¿Deseas continuar?
-              </Text>
-            ),
-            labels: { confirm: 'Continuar', cancel: 'Cancelar' },
-            confirmProps: { color: 'blue' },
-            onConfirm: () => {
-              addActiveCase({ id: caso.ID_Caso, nombre: caso.Nombre_del_Caso });
-            },
-          });
-        }
-      }
+      // Simplemente añadir el caso activo sin verificar límites aquí
+      // Los límites se manejarán automáticamente en el contexto
+      addActiveCase({ id: caso.ID_Caso, nombre: caso.Nombre_del_Caso });
     }
-  }, [caso, addActiveCase, canAddCase, getCaseToRemove]);
+  }, [caso, addActiveCase]);
 
   // Handler para borrar archivo (ahora usa fetchArchivos)
 const handleDeleteArchivo = async (archivoId: number) => {
