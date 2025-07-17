@@ -726,7 +726,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
   const [mapControls, setMapControls] = useState({
     visualizationType: 'cartodb-voyager' as 'standard' | 'satellite' | 'cartodb-light' | 'cartodb-voyager',
     showHeatmap: true,
-    showPoints: false,
+    showPoints: true,
     optimizePoints: false,
     enableClustering: false
   });
@@ -799,7 +799,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
   const [activeExternalTab, setActiveExternalTab] = useState<'bitacora' | 'excel' | 'shapefiles' | 'gpx-kmz'>('bitacora');
 
   // 1. Añadir estado para mostrar la línea de recorrido
-  const [mostrarLineaRecorrido, setMostrarLineaRecorrido] = useState(false);
+  const [mostrarLineaRecorrido, setMostrarLineaRecorrido] = useState(true);
 
   // Estado para la leyenda editable
   const [editLegend, setEditLegend] = useState<{ tipo: string; id: number | string; nombre: string } | null>(null);
