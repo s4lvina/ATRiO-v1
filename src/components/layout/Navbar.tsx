@@ -131,7 +131,7 @@ const Navbar: React.FC<NavbarProps> = ({ collapsed }) => {
                   {user?.User || 'Usuario'}
                 </Text>
                 <Text size="xs" style={{ color: 'rgba(255,255,255,0.8)' }}>
-                  {user?.grupo?.Nombre || 'Sin grupo'}
+                  {user?.grupo?.Nombre || (user?.Rol === 'superadmin' ? 'Administrador del Sistema' : 'Sin grupo')}
                 </Text>
               </Box>
             </Group>
