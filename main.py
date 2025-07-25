@@ -3467,8 +3467,10 @@ def buscar_vehiculos_multicaso(
     logger.info(f"POST /busqueda/multicaso - Buscando vehículos en casos: {casos}")
     
     # Base query para obtener lecturas, cargando archivo y caso
+    # SOLO LECTURAS LPR - Filtrar por tipo de fuente
     base_query = db.query(models.Lectura).join(models.ArchivoExcel).filter(
-        models.ArchivoExcel.ID_Caso.in_(casos)
+        models.ArchivoExcel.ID_Caso.in_(casos),
+        models.Lectura.Tipo_Fuente == 'LPR'  # Solo lecturas LPR
     ).options(
         joinedload(models.Lectura.archivo).joinedload(models.ArchivoExcel.caso)
     )
@@ -4134,6 +4136,64 @@ def validar_lector_seguro(lector_id: str, nombre_archivo: str = "") -> dict:
         "razon": f"'{lector_id}' parece un ID de lector válido",
         "sugerencia": ""
     }
+
+# --- MANEJO DE SEÑALES Y LIMPIEZA DE RECURSOS ---
+import signal
+import atexit
+import sys
+
+def cleanup_resources():
+    """Limpia recursos al terminar la aplicación"""
+    logger.info("Limpiando recursos de la aplicación...")
+    
+    # Detener timer de limpieza de tareas
+    try:
+        from shared_state import stop_cleanup_timer
+        stop_cleanup_timer()
+        logger.info("Timer de limpieza de tareas detenido")
+    except Exception as e:
+        logger.warning(f"Error deteniendo timer de limpieza: {e}")
+    
+    # Limpiar archivos temporales
+    try:
+        import glob
+        temp_files = glob.glob("temp_validation_*.xlsx") + glob.glob("temp_validation_*.csv")
+        for temp_file in temp_files:
+            try:
+                os.remove(temp_file)
+                logger.info(f"Archivo temporal eliminado: {temp_file}")
+            except Exception as e:
+                logger.warning(f"No se pudo eliminar archivo temporal {temp_file}: {e}")
+    except Exception as e:
+        logger.warning(f"Error limpiando archivos temporales: {e}")
+    
+    # Cerrar conexiones de base de datos
+    try:
+        from database_config import engine
+        engine.dispose()
+        logger.info("Conexiones de base de datos cerradas")
+    except Exception as e:
+        logger.warning(f"Error cerrando conexiones de BD: {e}")
+    
+    # Limpiar cache
+    try:
+        query_cache.clear()
+        logger.info("Cache de consultas limpiado")
+    except Exception as e:
+        logger.warning(f"Error limpiando cache: {e}")
+
+def signal_handler(signum, frame):
+    """Manejador de señales para terminación limpia"""
+    logger.info(f"Recibida señal {signum}, terminando aplicación...")
+    cleanup_resources()
+    sys.exit(0)
+
+# Registrar manejadores de señales
+signal.signal(signal.SIGINT, signal_handler)   # Ctrl+C
+signal.signal(signal.SIGTERM, signal_handler)  # Terminación
+
+# Registrar función de limpieza para salida normal
+atexit.register(cleanup_resources)
 
 # Incluir routers
 app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
