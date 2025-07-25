@@ -59,36 +59,22 @@ from system_config import get_host_config, update_host_config
 # Importar diccionario de tareas compartido para evitar importaciones circulares
 from shared_state import task_statuses
 
-# === SISTEMA DE CACHE SIMPLE PARA OPTIMIZACIÓN ===
-query_cache = {}  # Cache de consultas frecuentes
-cache_ttl = 300   # TTL de 5 minutos para el cache
+# === SISTEMA DE CACHE AVANZADO CON REDIS ===
+from cache_manager import cache_manager, cached, cache_lecturas_caso, cache_estadisticas_caso, cache_mapa_caso, cache_analisis_lanzadera
 
+# Función de compatibilidad para migración gradual
 def get_cache_key(*args) -> str:
     """Genera una clave única para el cache basada en los argumentos"""
     content = str(args)
     return hashlib.md5(content.encode()).hexdigest()
 
 def get_from_cache(cache_key: str):
-    """Obtiene un valor del cache si existe y no ha expirado"""
-    if cache_key in query_cache:
-        timestamp, data = query_cache[cache_key]
-        if time_module.time() - timestamp < cache_ttl:
-            return data
-        else:
-            # Limpiar cache expirado
-            del query_cache[cache_key]
-    return None
+    """Obtiene un valor del cache usando el nuevo sistema"""
+    return cache_manager.get(cache_key)
 
-def set_cache(cache_key: str, data):
-    """Almacena datos en el cache con timestamp"""
-    query_cache[cache_key] = (time_module.time(), data)
-    
-    # Limpiar cache si tiene demasiadas entradas (max 1000)
-    if len(query_cache) > 1000:
-        # Eliminar las entradas más antiguas
-        sorted_cache = sorted(query_cache.items(), key=lambda x: x[1][0])
-        for key, _ in sorted_cache[:100]:  # Eliminar las 100 más antiguas
-            del query_cache[key]
+def set_cache(cache_key: str, data, ttl: int = 300):
+    """Almacena datos en el cache usando el nuevo sistema"""
+    return cache_manager.set(cache_key, data, ttl)
 
 class UploadTaskStatus(BaseModel):
     task_id: str
@@ -1416,6 +1402,7 @@ def update_vehiculo(vehiculo_id: int, vehiculo_update: schemas.VehiculoUpdate, d
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error al actualizar vehículo: {e}")
 
 @app.get("/casos/{caso_id}/vehiculos", response_model=List[schemas.VehiculoWithStats])
+@cached("vehiculos_caso", ttl=1800)  # Cache por 30 minutos
 def get_vehiculos_by_caso(caso_id: int, db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_active_user)): # MODIFIED
     logger.info(f"Usuario {current_user.User} (Rol: {getattr(current_user.Rol, 'value', current_user.Rol)}) solicitando vehículos para caso ID: {caso_id}") # ADDED
     # Verificar que el caso existe
@@ -2787,6 +2774,7 @@ def process_file_in_background(
 
 # --- Endpoint para Estadísticas Globales ---
 @app.get("/api/estadisticas", response_model=schemas.EstadisticasGlobales, tags=["Estadísticas"])
+@cached("estadisticas_globales", ttl=3600)  # Cache por 1 hora
 def get_global_statistics(db: Session = Depends(get_db)):
     """
     Obtiene estadísticas globales del sistema (total casos, lecturas, vehículos, tamaño BD).
@@ -3318,6 +3306,71 @@ def verify_sql_password(
         logger.error(f"Error verificando contraseña SQL: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+# === ENDPOINTS DE GESTIÓN DE CACHE ===
+@app.get("/api/admin/cache/stats")
+def get_cache_statistics(current_user: models.Usuario = Depends(get_current_active_superadmin)):
+    """Obtiene estadísticas del sistema de cache"""
+    try:
+        stats = cache_manager.get_stats()
+        return {
+            "cache_stats": stats,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error obteniendo estadísticas de cache: {e}")
+        raise HTTPException(status_code=500, detail=f"Error obteniendo estadísticas de cache: {e}")
+
+@app.post("/api/admin/cache/clear")
+def clear_cache_pattern(
+    pattern: str = Body(..., description="Patrón de claves a eliminar (ej: 'atrio:caso:*')"),
+    current_user: models.Usuario = Depends(get_current_active_superadmin)
+):
+    """Limpia el cache según un patrón específico"""
+    try:
+        deleted_count = cache_manager.clear_pattern(pattern)
+        return {
+            "message": f"Cache limpiado exitosamente",
+            "pattern": pattern,
+            "deleted_keys": deleted_count,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error limpiando cache: {e}")
+        raise HTTPException(status_code=500, detail=f"Error limpiando cache: {e}")
+
+@app.post("/api/admin/cache/invalidate-caso/{caso_id}")
+def invalidate_caso_cache(
+    caso_id: int,
+    current_user: models.Usuario = Depends(get_current_active_superadmin)
+):
+    """Invalida todo el cache relacionado con un caso específico"""
+    try:
+        cache_manager.invalidate_caso(caso_id)
+        return {
+            "message": f"Cache invalidado para caso {caso_id}",
+            "caso_id": caso_id,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error invalidando cache del caso {caso_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error invalidando cache: {e}")
+
+@app.post("/api/admin/cache/clear-lanzadera")
+def clear_lanzadera_cache(
+    current_user: models.Usuario = Depends(get_current_active_superadmin)
+):
+    """Limpia específicamente el caché del análisis de lanzaderas"""
+    try:
+        # Limpiar el patrón específico del caché de lanzaderas
+        cache_manager.clear_pattern("lanzadera_analisis*")
+        return {
+            "message": "Cache de análisis de lanzaderas limpiado",
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error limpiando cache de lanzaderas: {e}")
+        raise HTTPException(status_code=500, detail=f"Error limpiando cache: {e}")
+
 
 
 # --- ENDPOINTS DUPLICADOS ELIMINADOS ---
@@ -3541,6 +3594,7 @@ from datetime import datetime, timedelta
 from fastapi import HTTPException, status
 
 @app.post("/casos/{caso_id}/detectar-lanzaderas", response_model=schemas.LanzaderaResponse)
+@cached("lanzadera_analisis", ttl=7200)  # Cache por 2 horas (análisis costoso)
 def detectar_vehiculos_lanzadera(
     caso_id: int,
     request: schemas.LanzaderaRequest,  # Debe incluir: matricula, ventana_minutos, diferencia_minima_lecturas_min, min_coincidencias (opcional), fecha_inicio/fin opcionales
@@ -3610,11 +3664,14 @@ def detectar_vehiculos_lanzadera(
             
             # Determinar la dirección temporal
             if lectura.Fecha_y_Hora < lectura_objetivo.Fecha_y_Hora:
-                direccion_temporal = "delante"
+                direccion_temporal = "delante"  # El acompañante pasó ANTES que el objetivo
+                logger.info(f"[Lanzadera] {lectura.Matricula} pasó ANTES que {lectura_objetivo.Matricula}: {lectura.Fecha_y_Hora} < {lectura_objetivo.Fecha_y_Hora} → 'delante'")
             elif lectura.Fecha_y_Hora > lectura_objetivo.Fecha_y_Hora:
-                direccion_temporal = "detras"
+                direccion_temporal = "detras"   # El acompañante pasó DESPUÉS que el objetivo
+                logger.info(f"[Lanzadera] {lectura.Matricula} pasó DESPUÉS que {lectura_objetivo.Matricula}: {lectura.Fecha_y_Hora} > {lectura_objetivo.Fecha_y_Hora} → 'detras'")
             else:
-                direccion_temporal = "simultaneo"
+                direccion_temporal = "simultaneo"  # Ambos pasaron al mismo tiempo
+                logger.info(f"[Lanzadera] {lectura.Matricula} pasó SIMULTÁNEAMENTE con {lectura_objetivo.Matricula}: {lectura.Fecha_y_Hora} = {lectura_objetivo.Fecha_y_Hora} → 'simultaneo'")
             
             vehiculos_acompanantes[lectura.Matricula][fecha].append((hora, lectura.ID_Lector, direccion_temporal))
 

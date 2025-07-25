@@ -1,0 +1,270 @@
+name: ATRiO CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+
+jobs:
+  test:
+    name: Tests y Linting
+    runs-on: ubuntu-latest
+    
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
+    
+    - name: Configurar Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Configurar Node.js ${{ env.NODE_VERSION }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+    
+    - name: Instalar dependencias Python
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest-cov pytest-asyncio pytest-mock
+    
+    - name: Instalar dependencias Node.js
+      run: |
+        npm ci
+    
+    - name: Ejecutar linting Python
+      run: |
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        black --check --diff .
+        mypy . --ignore-missing-imports
+    
+    - name: Ejecutar tests Python
+      run: |
+        pytest tests/ -v --cov=. --cov-report=xml --cov-report=html
+      env:
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
+    
+    - name: Ejecutar tests frontend
+      run: |
+        npm test -- --coverage --watchAll=false
+    
+    - name: Subir cobertura a Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+  security:
+    name: Análisis de Seguridad
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
+    
+    - name: Configurar Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Instalar dependencias
+      run: |
+        pip install bandit safety
+    
+    - name: Análisis de seguridad con Bandit
+      run: |
+        bandit -r . -f json -o bandit-report.json || true
+    
+    - name: Verificar vulnerabilidades conocidas
+      run: |
+        safety check --json --output safety-report.json || true
+    
+    - name: Subir reportes de seguridad
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+          safety-report.json
+
+  build:
+    name: Build y Package
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
+    
+    - name: Configurar Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Configurar Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+    
+    - name: Instalar dependencias
+      run: |
+        pip install -r requirements.txt
+        npm ci
+    
+    - name: Build frontend
+      run: |
+        npm run build
+    
+    - name: Crear package Python
+      run: |
+        python setup.py sdist bdist_wheel
+    
+    - name: Subir artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: atrio-package
+        path: |
+          dist/
+          build/
+          public/
+
+  deploy-staging:
+    name: Deploy a Staging
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+    
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
+    
+    - name: Configurar Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Instalar dependencias
+      run: |
+        pip install -r requirements.txt
+    
+    - name: Configurar variables de entorno staging
+      run: |
+        echo "ENVIRONMENT=staging" >> $GITHUB_ENV
+        echo "REDIS_HOST=${{ secrets.STAGING_REDIS_HOST }}" >> $GITHUB_ENV
+        echo "REDIS_PORT=${{ secrets.STAGING_REDIS_PORT }}" >> $GITHUB_ENV
+    
+    - name: Ejecutar migraciones
+      run: |
+        alembic upgrade head
+    
+    - name: Deploy a staging
+      run: |
+        echo "Deploying to staging environment..."
+        # Aquí irían los comandos específicos para el deploy a staging
+    
+    - name: Notificar deploy staging
+      run: |
+        echo "ATRiO v1 deployed to staging successfully!"
+
+  deploy-production:
+    name: Deploy a Producción
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
+    
+    - name: Configurar Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Instalar dependencias
+      run: |
+        pip install -r requirements.txt
+    
+    - name: Configurar variables de entorno producción
+      run: |
+        echo "ENVIRONMENT=production" >> $GITHUB_ENV
+        echo "REDIS_HOST=${{ secrets.PROD_REDIS_HOST }}" >> $GITHUB_ENV
+        echo "REDIS_PORT=${{ secrets.PROD_REDIS_PORT }}" >> $GITHUB_ENV
+    
+    - name: Ejecutar migraciones
+      run: |
+        alembic upgrade head
+    
+    - name: Deploy a producción
+      run: |
+        echo "Deploying to production environment..."
+        # Aquí irían los comandos específicos para el deploy a producción
+    
+    - name: Notificar deploy producción
+      run: |
+        echo "ATRiO v1 deployed to production successfully!"
+
+  performance:
+    name: Tests de Rendimiento
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: github.ref == 'refs/heads/main'
+    
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+    
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
+    
+    - name: Configurar Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Instalar dependencias
+      run: |
+        pip install -r requirements.txt
+        pip install locust
+    
+    - name: Ejecutar tests de rendimiento
+      run: |
+        python -m locust -f tests/performance/locustfile.py --headless --users 10 --spawn-rate 2 --run-time 60s
+    
+    - name: Subir reportes de rendimiento
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-reports
+        path: |
+          locust-report.html
+          locust-stats.csv 
