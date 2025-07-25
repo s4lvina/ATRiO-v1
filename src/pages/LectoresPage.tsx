@@ -280,8 +280,8 @@ function LectoresPage() {
   const location = useLocation();
   const initialTabFromState = location.state?.initialTab;
 
-  // --- Inicializar activeTab basado en el estado o default a 'tabla' --- 
-  const [activeTab, setActiveTab] = useState<string | null>(initialTabFromState === 'mapa' ? 'mapa' : 'tabla');
+  // --- Inicializar activeTab basado en el estado o default a 'mapa' --- 
+  const [activeTab, setActiveTab] = useState<string | null>(initialTabFromState === 'tabla' ? 'tabla' : 'mapa');
   
   const [mapLectores, setMapLectores] = useState<LectorCoordenadas[]>([]);
   const [mapLoading, setMapLoading] = useState(false);
