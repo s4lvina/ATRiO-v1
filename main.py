@@ -1138,6 +1138,7 @@ def read_lectores(
     nombre: Optional[str] = None,
     carretera: Optional[str] = None,
     provincia: Optional[str] = None,
+    localidad: Optional[str] = None,
     organismo: Optional[str] = None,
     sentido: Optional[str] = None,
     texto_libre: Optional[str] = None,
@@ -1146,7 +1147,7 @@ def read_lectores(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_active_user) # MODIFICADO
 ):
-    logger.info(f"Solicitud GET /lectores por usuario {current_user.User} (Rol: {current_user.Rol.value if hasattr(current_user.Rol, 'value') else current_user.Rol}) con filtros: id={id_lector}, nombre={nombre}, carretera={carretera}, provincia={provincia}, organismo={organismo}, sentido={sentido}, sort={sort}, order={order}")
+    logger.info(f"Solicitud GET /lectores por usuario {current_user.User} (Rol: {current_user.Rol.value if hasattr(current_user.Rol, 'value') else current_user.Rol}) con filtros: id={id_lector}, nombre={nombre}, carretera={carretera}, provincia={provincia}, localidad={localidad}, organismo={organismo}, sentido={sentido}, sort={sort}, order={order}")
     
     # Construir query base
     query = db.query(models.Lector)
@@ -1160,6 +1161,8 @@ def read_lectores(
         query = query.filter(models.Lector.Carretera.ilike(f"%{carretera}%"))
     if provincia:
         query = query.filter(models.Lector.Provincia.ilike(f"%{provincia}%"))
+    if localidad:
+        query = query.filter(models.Lector.Localidad.ilike(f"%{localidad}%"))
     if organismo:
         query = query.filter(models.Lector.Organismo_Regulador.ilike(f"%{organismo}%"))
     if sentido:

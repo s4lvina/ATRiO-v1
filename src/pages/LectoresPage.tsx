@@ -81,7 +81,7 @@ import { useLocation } from 'react-router-dom';
 import BatchEditLectoresModal from '../components/modals/BatchEditLectoresModal';
 
 import * as XLSX from 'xlsx';
-import ExportarLectoresModal from '../components/modals/ExportarLectoresModal';
+
 
 // --- Añadir componente InfoBanner al inicio del archivo ---
 const InfoBanner = ({ open, onClose, children }) => (
@@ -151,7 +151,7 @@ function FiltrosMapaLectoresPanel({
 
   return (
     <Paper p="md" shadow="xs" radius="md" mb="md" withBorder>
-      <Group justify="space-between" mb="md">
+      <Group justify="space-between" style={{ marginBottom: '1rem' }}>
         <Title order={4}>Filtros</Title>
         <Button
           variant="light"
@@ -306,7 +306,7 @@ function LectoresPage() {
 
   const [sugerencias, setSugerencias] = useState<LectorSugerenciasResponse>({ provincias: [], localidades: [], carreteras: [], organismos: [], contactos: [] });
 
-  const [exportModalOpened, { open: openExportModal, close: closeExportModal }] = useDisclosure(false);
+
 
   // --- Añadir estado infoBanner ---
   const [infoBanner, setInfoBanner] = useState<LectorCoordenadas | null>(null);
@@ -569,12 +569,23 @@ function LectoresPage() {
     }
   };
 
-  const handleExportarLectores = async (filtros: any) => {
-    console.log("Exportando con filtros:", filtros);
+  const handleExportarLectores = async () => {
     try {
-        // Asume que getLectores puede aceptar filtros y devolver todo si no hay paginación
-        const response = await getLectores({ ...filtros, limit: 0 });
+        console.log("Exportando todos los lectores...");
+        
+        const response = await getLectores({ skip: 0, limit: 100000 });
         const lectoresParaExportar = response.lectores;
+
+        console.log(`Exportando ${lectoresParaExportar.length} lectores de un total de ${response.total_count}`);
+
+        if (lectoresParaExportar.length === 0) {
+            notifications.show({
+                title: 'Sin resultados',
+                message: 'No hay lectores para exportar.',
+                color: 'yellow',
+            });
+            return;
+        }
 
         // Crear la hoja de cálculo
         const worksheet = XLSX.utils.json_to_sheet(lectoresParaExportar);
@@ -597,7 +608,6 @@ function LectoresPage() {
             color: 'red',
         });
     }
-    closeExportModal();
   };
 
   const handleImportLectores = async (lectores: any[]) => {
@@ -710,7 +720,7 @@ function LectoresPage() {
 
     return (
       <Paper p="md" shadow="xs" radius="md" mt="lg" withBorder>
-        <Group justify="space-between" mb="sm">
+        <Group justify="space-between" style={{ marginBottom: '0.5rem' }}>
           <Title order={4}>Capas</Title>
           <Button 
             size="xs" 
@@ -808,7 +818,7 @@ function LectoresPage() {
             onChange={(color) => setNuevaCapa({ ...nuevaCapa, color })}
           />
           
-          <Divider label="Criterios de filtrado" labelPosition="center" my="sm" />
+          <Divider label="Criterios de filtrado" labelPosition="center" style={{ margin: '0.5rem 0' }} />
           
           <MultiSelect
             label="Provincias"
@@ -833,7 +843,7 @@ function LectoresPage() {
             onChange={(e) => setNuevaCapa({ ...nuevaCapa, criterios: { ...nuevaCapa.criterios, texto: e.currentTarget.value } })}
           />
           
-          <Group justify="flex-end" mt="md">
+          <Group justify="flex-end" style={{ marginTop: '1rem' }}>
             <Button variant="default" onClick={() => setMostrarFormularioCapa(false)}>
               Cancelar
             </Button>
@@ -902,8 +912,8 @@ function LectoresPage() {
   }, [mostrarLectores]);
 
   return (
-    <Box p="md" style={{ paddingLeft: 32, paddingRight: 32 }}>
-      <Group justify="space-between" mb="xl">
+    <Box style={{ padding: '1rem 32px' }}>
+      <Group justify="space-between" style={{ marginBottom: '2rem' }}>
         <Title order={2}>Gestión de Lectores</Title>
         <Group>
           <Button 
@@ -944,7 +954,7 @@ function LectoresPage() {
           </Button>
           <Button 
             leftSection={<IconFileExport size={18} />}
-            onClick={openExportModal}
+            onClick={handleExportarLectores}
             variant="outline"
             color="blue"
             disabled={loading}
@@ -954,7 +964,7 @@ function LectoresPage() {
         </Group>
       </Group>
 
-      <Group gap={0} align="flex-start" mb="md">
+      <Group gap={0} align="flex-start" style={{ marginBottom: '1rem' }}>
         <Box>
           <Group gap="xs">
             {lectorSections.map((section) => (
@@ -1113,7 +1123,7 @@ function LectoresPage() {
          </Box>
       )}
       {activeTab === 'mapa' && (
-        <Box pt="xs" style={{ position: 'relative', zIndex: 1 }}>
+        <Box style={{ position: 'relative', zIndex: 1, paddingTop: '0.5rem' }}>
           {mapLoading && <Loader my="xl" />}
           {mapError && <Alert color="red" title="Error en Mapa">{mapError}</Alert>}
           
@@ -1336,17 +1346,7 @@ function LectoresPage() {
         sentidos={['Creciente', 'Decreciente']}
       />
 
-      <ExportarLectoresModal
-        opened={exportModalOpened}
-        onClose={closeExportModal}
-        onExport={handleExportarLectores}
-        sugerencias={{
-          provincias: provinciasUnicas,
-          carreteras: carreterasUnicas.map(c => c.value),
-          organismos: organismosUnicos.map(o => o.value),
-          localidades: localidadesUnicas.map(l => l.value)
-        }}
-      />
+
 
       <CapaModal />
 
