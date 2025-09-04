@@ -1,6 +1,6 @@
 @echo off
-REM Iniciar backend en nueva ventana minimizada
-start /min "Backend" cmd /k "uvicorn main:app --reload --port 8000"
+REM Iniciar backend en nueva ventana minimizada con configuración optimizada
+start /min "Backend" cmd /k "python uvicorn_config.py"
 
 REM Iniciar frontend en nueva ventana minimizada
 start /min "Frontend" cmd /k "npm run dev"

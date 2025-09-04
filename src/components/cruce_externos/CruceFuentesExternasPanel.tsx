@@ -94,6 +94,29 @@ export const CruceFuentesExternasPanel: React.FC<CruceFuentesExternasPanelProps>
   // Estados para tareas en segundo plano
   const [currentCrossTaskId, setCurrentCrossTaskId] = useState<string | null>(null);
   
+  // Estados para paginación
+  const [page, setPage] = useState(1);
+  const [recordsPerPage, setRecordsPerPage] = useState(20);
+
+  // Resetear paginación cuando cambian los resultados
+  useEffect(() => {
+    setPage(1);
+  }, [crossResults]);
+
+  // Ajustar la página si el tamaño de página cambia y la página actual queda fuera de rango
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(crossResults.length / recordsPerPage));
+    if (page > maxPage) {
+      setPage(1);
+    }
+  }, [recordsPerPage, crossResults, page]);
+
+  // Calcular los registros a mostrar en la página actual
+  const paginatedResults = crossResults.slice(
+    (page - 1) * recordsPerPage,
+    page * recordsPerPage
+  );
+
   // Cargar datos iniciales
   useEffect(() => {
     if (casoId) {
@@ -505,11 +528,11 @@ export const CruceFuentesExternasPanel: React.FC<CruceFuentesExternasPanelProps>
         )}
 
         {/* Tabla de resultados */}
-        <Card withBorder>
-          <DataTable
-            columns={(() => {
-              // Columnas básicas fijas
-              const baseColumns = [
+        {crossResults.length > 0 ? (
+          <Card withBorder>
+            <DataTable
+              columns={[
+                // Columnas básicas fijas
                 {
                   accessor: 'matricula',
                   title: 'Matrícula',
@@ -549,67 +572,74 @@ export const CruceFuentesExternasPanel: React.FC<CruceFuentesExternasPanelProps>
                       {record.source_name}
                     </Badge>
                   )
-                }
-              ];
-
-              // Generar columnas dinámicas de datos externos
-              const externalDataColumns: any[] = [];
-              if (crossResults.length > 0) {
-                // Obtener todas las claves únicas de external_data
-                const allKeys = new Set<string>();
-                crossResults.forEach(record => {
-                  if (record.external_data && typeof record.external_data === 'object') {
-                    Object.keys(record.external_data).forEach(key => {
-                      // Excluir la clave 'matricula' ya que ya la tenemos
-                      if (key.toLowerCase() !== 'matricula') {
-                        allKeys.add(key);
+                },
+                // Generar columnas dinámicas de datos externos
+                ...(() => {
+                  const externalDataColumns: any[] = [];
+                  if (crossResults.length > 0) {
+                    const allKeys = new Set<string>();
+                    crossResults.forEach(record => {
+                      if (record.external_data && typeof record.external_data === 'object') {
+                        Object.keys(record.external_data).forEach(key => {
+                          if (key.toLowerCase() !== 'matricula') {
+                            allKeys.add(key);
+                          }
+                        });
                       }
                     });
+                    Array.from(allKeys).forEach(key => {
+                      externalDataColumns.push({
+                        accessor: `external_data.${key}`,
+                        title: key,
+                        width: 150,
+                        render: (record: any) => {
+                          const value = record.external_data?.[key];
+                          if (value === null || value === undefined || value === '') {
+                            return <Text size="sm" c="dimmed">-</Text>;
+                          }
+                          const displayValue = String(value);
+                          if (displayValue.length > 25) {
+                            return (
+                              <Tooltip label={displayValue} position="top">
+                                <Text size="sm" style={{ cursor: 'help' }}>
+                                  {displayValue.substring(0, 22)}...
+                                </Text>
+                              </Tooltip>
+                            );
+                          }
+                          return <Text size="sm">{displayValue}</Text>;
+                        }
+                      });
+                    });
                   }
-                });
-
-                // Crear columnas para cada clave
-                Array.from(allKeys).forEach(key => {
-                  externalDataColumns.push({
-                    accessor: `external_data.${key}`,
-                    title: key,
-                    width: 150,
-                    render: (record: any) => {
-                      const value = record.external_data?.[key];
-                      if (value === null || value === undefined || value === '') {
-                        return <Text size="sm" c="dimmed">-</Text>;
-                      }
-                      
-                      const displayValue = String(value);
-                      
-                      // Si es muy largo, mostrar con tooltip
-                      if (displayValue.length > 25) {
-                        return (
-                          <Tooltip label={displayValue} position="top">
-                            <Text size="sm" style={{ cursor: 'help' }}>
-                              {displayValue.substring(0, 22)}...
-                            </Text>
-                          </Tooltip>
-                        );
-                      }
-                      
-                      return <Text size="sm">{displayValue}</Text>;
-                    }
-                  });
-                });
+                  return externalDataColumns;
+                })()
+              ]}
+              records={paginatedResults}
+              noRecordsText={crossResults.length === 0 ? "No hay resultados para mostrar" : ""}
+              highlightOnHover
+              striped
+              fetching={loading}
+              scrollAreaProps={{ scrollbarSize: 6 }}
+              // Props de paginación
+              totalRecords={crossResults.length}
+              page={page}
+              onPageChange={setPage}
+              recordsPerPage={recordsPerPage}
+              onRecordsPerPageChange={setRecordsPerPage}
+              paginationText={({ from, to, totalRecords }) =>
+                `Mostrando ${from}–${to} de ${totalRecords} resultados`
               }
-
-              return [...baseColumns, ...externalDataColumns];
-            })()}
-            records={crossResults}
-            noRecordsText="No hay resultados para mostrar"
-            highlightOnHover
-            striped
-            fetching={loading}
-            height={400}
-            scrollAreaProps={{ scrollbarSize: 6 }}
-          />
-        </Card>
+              withTableBorder={true}
+              recordsPerPageOptions={[10, 20, 50, 100]}
+              recordsPerPageLabel="Registros por página"
+            />
+          </Card>
+        ) : (
+          <Alert color="gray" style={{ marginTop: 16 }}>
+            <Text size="sm">No hay resultados para mostrar</Text>
+          </Alert>
+        )}
       </Stack>
 
       {/* Modal de importación */}

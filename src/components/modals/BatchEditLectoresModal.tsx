@@ -24,6 +24,8 @@ function BatchEditLectoresModal({ opened, onClose, selectedLectorIds, onSave, pr
     Organismo_Regulador: undefined,
     Sentido: undefined,
     Localidad: undefined,
+    Orientacion: undefined,
+    UbicacionInput: undefined,
   });
 
   const handleSave = async () => {
@@ -118,7 +120,21 @@ function BatchEditLectoresModal({ opened, onClose, selectedLectorIds, onSave, pr
           clearable
         />
 
-        <Group justify="flex-end" mt="md">
+        <TextInput
+          label="Orientación"
+          placeholder="Dejar vacío para no modificar"
+          value={formData.Orientacion || ''}
+          onChange={(e) => setFormData(prev => ({ ...prev, Orientacion: e.currentTarget.value || undefined }))}
+        />
+
+        <TextInput
+          label="Ubicación (coordenadas o enlace)"
+          placeholder="Pegar coordenadas o enlace de Google Maps"
+          value={formData.UbicacionInput || ''}
+          onChange={(e) => setFormData(prev => ({ ...prev, UbicacionInput: e.currentTarget.value || undefined }))}
+        />
+
+        <Group justify="flex-end" style={{ marginTop: '1rem' }}>
           <Button variant="default" onClick={onClose}>
             Cancelar
           </Button>

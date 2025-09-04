@@ -799,7 +799,19 @@ function AnalisisAvanzadoPanel({ casoId }: PatronesPanelProps) {
                         <Button
                             variant="light"
                             color="gray"
-                            onClick={() => {
+                            onClick={async () => {
+                                // Limpiar caché del análisis de lanzaderas
+                                try {
+                                    await apiClient.post('/api/admin/cache/clear-lanzadera');
+                                    notifications.show({
+                                        title: 'Caché limpiado',
+                                        message: 'Se ha limpiado el caché del análisis de lanzaderas',
+                                        color: 'green'
+                                    });
+                                } catch (error) {
+                                    console.warn('No se pudo limpiar el caché:', error);
+                                }
+                                
                                 setLanzaderaParams({
                                     matricula: '',
                                     ventanaMinutos: 10,

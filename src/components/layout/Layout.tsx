@@ -137,17 +137,6 @@ function MainLayout() {
                 Ayuda
               </Button>
               
-              {location.pathname === '/casos' && (
-                <Button
-                  variant="filled"
-                  size="xs"
-                  leftSection={<IconPlus size={14} />}
-                  onClick={() => navigate('/casos')}
-                >
-                  Nuevo Caso
-                </Button>
-              )}
-              
               <Button
                 variant="light"
                 color="red"
