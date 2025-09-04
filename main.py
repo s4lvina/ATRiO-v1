@@ -118,14 +118,102 @@ class PasswordVerifyRequest(BaseModel):
     password: str
 
 # --- Helper functions for data parsing --- START
+def dms_to_decimal(dms_str: str) -> Optional[float]:
+    """Convierte una cadena de coordenadas DMS (Grados, Minutos, Segundos) a grados decimales."""
+    # logger.info(f"[DMS Conversion] Intentando convertir DMS: '{dms_str}'")
+    
+    # Normalizar la cadena: remover caracteres especiales y convertir a mayúsculas
+    normalized_str = dms_str.strip().upper().replace('°', '').replace("'", '').replace('"', '').replace('º', '').replace(' ', '')
+    # logger.info(f"[DMS Conversion] Cadena normalizada: '{normalized_str}'")
+
+    # Regex para capturar Grados, Dirección y Minutos/Segundos combinados
+    # Ejemplo: 40N2341.72 o 03W3950.913
+    match = re.match(r"(\d+)([NSEW])(\d+\.?\d*)", normalized_str)
+
+    if match:
+        try:
+            degrees = float(match.group(1))
+            direction_char = match.group(2)
+            mmss_combined_str = match.group(3)
+            
+            # Parsear MMSS.SS (asumiendo que los primeros dos dígitos son minutos y el resto segundos.decimales)
+            if '.' in mmss_combined_str:
+                combined_float = float(mmss_combined_str)
+                minutes = math.floor(combined_float / 100) # Extraer minutos enteros
+                seconds = combined_float % 100              # Extraer segundos decimales
+            else:
+                # Si no hay decimal, asumir MMSS o solo MM
+                if len(mmss_combined_str) >= 2:
+                    minutes = float(mmss_combined_str[:-2]) if len(mmss_combined_str) > 2 else 0.0
+                    seconds = float(mmss_combined_str[-2:]) if len(mmss_combined_str) >= 2 else 0.0
+                else: # Solo minutos o formato inválido
+                    minutes = float(mmss_combined_str)
+                    seconds = 0.0
+            
+            # logger.info(f"[DMS Conversion] Grados: {degrees}, Dirección: {direction_char}, Minutos: {minutes}, Segundos: {seconds}")
+
+            decimal_degrees = degrees + (minutes / 60) + (seconds / 3600)
+            
+            direction_multiplier = 1
+            if direction_char in ['S', 'W']:
+                direction_multiplier = -1
+            
+            final_decimal = decimal_degrees * direction_multiplier
+            # logger.info(f"[DMS Conversion] Grados decimales calculados: {final_decimal}")
+            return final_decimal
+
+        except ValueError as ve:
+            logger.debug(f"[DMS Conversion] Error de valor al parsear DMS '{dms_str}': {ve}")
+            return None
+        except Exception as e:
+            logger.debug(f"[DMS Conversion] Error inesperado al parsear DMS '{dms_str}': {e}")
+            return None
+    
+    # Si el formato DMS específico no coincide, intentar parsear como un float decimal simple con dirección
+    # e.g., "40.4461 N" o "79.8156 W"
+    parts = re.findall(r"([-+]?\d+\.\d*)|([NSEW])", dms_str) # Capturar floats con signo y direcciones
+    
+    decimal_val = None
+    direction_char = None
+    
+    for num_part, alpha_part in parts:
+        if num_part:
+            try:
+                decimal_val = float(num_part)
+            except ValueError:
+                pass
+        if alpha_part:
+            direction_char = alpha_part
+
+    if decimal_val is not None:
+        direction_multiplier = 1
+        if direction_char in ['S', 'W']:
+            direction_multiplier = -1
+        final_decimal = decimal_val * direction_multiplier
+        # logger.info(f"[DMS Conversion] Parseado como decimal con dirección: {final_decimal}")
+        return final_decimal
+
+    logger.debug(f"[DMS Conversion] No se pudo parsear como DMS ni como decimal con dirección: {dms_str}")
+    return None
+
 def get_optional_float(value: Any) -> Optional[float]:
-    """Convierte un valor a float si es posible, retorna None si no."""
+    """Convierte un valor a float si es posible, retorna None si no.
+    Intenta convertir de DMS a decimal si el formato lo sugiere.
+    """
     if pd.isna(value) or value is None:
         return None
+    
+    # Si es un string, primero intentar como DMS
+    if isinstance(value, str):
+        # Intentar convertir de DMS
+        decimal_val = dms_to_decimal(value)
+        if decimal_val is not None:
+            return decimal_val
+        
+        # Si no es DMS, intentar como float normal (reemplazando coma por punto)
+        value = value.replace(',', '.')
+    
     try:
-        # Intentar convertir a float, reemplazando coma por punto si es necesario
-        if isinstance(value, str):
-            value = value.replace(',', '.')
         float_val = float(value)
         return float_val
     except (ValueError, TypeError):
@@ -2663,8 +2751,19 @@ def process_file_in_background(
                     fecha_hora_final = parse_excel_datetime_bg(row['Fecha'], row['Hora'])
                     logger.info(f"[Task {task_id}] Fila {excel_row_num} - Fecha/Hora procesada: {fecha_hora_final}")
                     
-                    id_lector_val = None; coord_x = get_optional_float(row.get('Coordenada_X')); coord_y = get_optional_float(row.get('Coordenada_Y'))
-                    logger.info(f"[Task {task_id}] Fila {excel_row_num} - Coordenadas: X={coord_x}, Y={coord_y}")
+                    id_lector_val = None; 
+                    
+                    # Acceder a las coordenadas usando los nombres mapeados finales en la fila
+                    # Se asume que df.rename ya ha aplicado los nombres internos como 'Coordenada_X' y 'Coordenada_Y'
+                    raw_coord_x = row.get('Coordenada_X')  
+                    raw_coord_y = row.get('Coordenada_Y')  
+
+                    # Debugging: Log raw coordinate values
+                    logger.info(f"[Task {task_id}] Fila {excel_row_num} - Valores RAW de Coordenadas: X='{raw_coord_x}', Y='{raw_coord_y}'")
+
+                    coord_x = get_optional_float(raw_coord_x)
+                    coord_y = get_optional_float(raw_coord_y)
+                    logger.info(f"[Task {task_id}] Fila {excel_row_num} - Coordenadas procesadas: X={coord_x}, Y={coord_y}")
 
                     if tipo_archivo == 'LPR':
                         id_lector_str = str(row['ID_Lector']).strip() if pd.notna(row['ID_Lector']) else None
