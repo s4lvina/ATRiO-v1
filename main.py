@@ -1139,11 +1139,14 @@ async def delete_archivo(id_archivo: int, db: Session = Depends(get_db), current
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permiso denegado para eliminar archivos.")
 
     file_path_to_delete = None
-    if archivo_db.Nombre_del_Archivo:
-        file_path_to_delete = UPLOADS_DIR / archivo_db.Nombre_del_Archivo
+    if archivo_db.Nombre_del_Archivo and archivo_db.caso:
+        # Corregir: usar la carpeta del caso
+        caso_id = archivo_db.ID_Caso
+        carpeta_caso = UPLOADS_DIR / f"Caso{caso_id}"
+        file_path_to_delete = carpeta_caso / archivo_db.Nombre_del_Archivo
         logger.info(f"[Delete] Ruta física: {file_path_to_delete}")
     else:
-        logger.warning(f"[Delete] Registro ID {id_archivo} sin nombre, no se borra archivo físico.")
+        logger.warning(f"[Delete] Registro ID {id_archivo} sin nombre o sin caso, no se borra archivo físico.")
     try:
         # Eliminar lecturas LPR/GPS asociadas
         lecturas_eliminadas = db.query(models.Lectura).filter(models.Lectura.ID_Archivo == id_archivo).delete()
@@ -4345,11 +4348,15 @@ def signal_handler(signum, frame):
     """Manejador de señales para terminación limpia"""
     logger.info(f"Recibida señal {signum}, terminando aplicación...")
     cleanup_resources()
-    sys.exit(0)
+    # Usar os._exit en lugar de sys.exit para evitar problemas con asyncio
+    import os
+    os._exit(0)
 
-# Registrar manejadores de señales
-signal.signal(signal.SIGINT, signal_handler)   # Ctrl+C
-signal.signal(signal.SIGTERM, signal_handler)  # Terminación
+# Registrar manejadores de señales solo si no estamos en modo servidor
+# Uvicorn ya maneja las señales correctamente, estos handlers pueden causar conflictos
+if not os.environ.get('RUNNING_MAIN'):
+    signal.signal(signal.SIGINT, signal_handler)   # Ctrl+C
+    signal.signal(signal.SIGTERM, signal_handler)  # Terminación
 
 # Registrar función de limpieza para salida normal
 atexit.register(cleanup_resources)

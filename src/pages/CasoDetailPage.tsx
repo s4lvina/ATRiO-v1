@@ -546,14 +546,36 @@ const handleDeleteArchivo = async (archivoId: number) => {
 
   // Estados del mapa LPR eliminados - migrados al panel GPS
 
-  // Función para manejar descarga de archivos (placeholder por ahora)
+  // Función para manejar descarga de archivos
   const handleDownloadArchivo = async (archivoId: number, nombreArchivo: string) => {
-    // TODO: Implementar descarga de archivos si es necesario
-    notifications.show({
-      title: 'Descarga no disponible',
-      message: 'La funcionalidad de descarga aún no está implementada en esta página.',
-      color: 'orange'
-    });
+    try {
+      const response = await apiClient.get(`/api/archivos/${archivoId}/download`, {
+        responseType: 'blob'
+      });
+      
+      // Crear URL del blob y descargar
+      const blob = new Blob([response.data]);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = nombreArchivo;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      notifications.show({
+        title: 'Descarga completada',
+        message: `Archivo "${nombreArchivo}" descargado correctamente.`,
+        color: 'green'
+      });
+    } catch (error: any) {
+      notifications.show({
+        title: 'Error de descarga',
+        message: error.response?.data?.detail || 'No se pudo descargar el archivo.',
+        color: 'red'
+      });
+    }
   };
 
   // --- Buscar la LecturaRelevante completa para el modal ---
