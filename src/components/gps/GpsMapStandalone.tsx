@@ -1355,13 +1355,13 @@ const GpsMapStandalone = React.memo(forwardRef<L.Map, GpsMapStandalonePropsWithF
         return marker;
       });
 
-      // TEMPORAL: Desactivar clustering para debug
-      // if (!mapControls.enableClustering) {
+      // Si el clustering NO está activado, agregar markers individualmente
+      if (!mapControls.enableClustering) {
         markers.forEach(marker => map.addLayer(marker));
         return () => {
           markers.forEach(marker => map.removeLayer(marker));
         };
-      // }
+      }
 
       // Si el clustering está activado, usar MarkerClusterGroup
       const clusterGroup = (L as any).markerClusterGroup({
@@ -1376,13 +1376,9 @@ const GpsMapStandalone = React.memo(forwardRef<L.Map, GpsMapStandalonePropsWithF
 
       clusterGroup.addLayers(markers);
       map.addLayer(clusterGroup);
-
+      
       return () => {
-        if (mapControls.enableClustering) {
-          map.removeLayer(clusterGroup);
-        } else {
-          markers.forEach(marker => map.removeLayer(marker));
-        }
+        map.removeLayer(clusterGroup);
       };
     }, [map, optimizedLecturas, selectedInfo, onGuardarLocalizacion, mapControls.enableClustering, numerarPuntosActivos]);
 

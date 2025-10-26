@@ -2018,12 +2018,33 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
   // Cargar mapas guardados al montar el componente
   useEffect(() => {
     const cargarMapasGuardados = async () => {
+      if (!casoId) {
+        setLoadingMapas(false);
+        return;
+      }
+      
       setLoadingMapas(true);
       try {
-        const mapas = await getMapasGuardados(casoId);
+        console.log('Cargando mapas guardados para caso:', casoId);
+        
+        // Timeout para evitar que se quede cargando infinitamente
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout al cargar mapas guardados')), 10000)
+        );
+        
+        const mapas = await Promise.race([
+          getMapasGuardados(casoId),
+          timeoutPromise
+        ]) as any;
+        
+        console.log('Mapas guardados cargados:', mapas);
         setMapasGuardados(mapas);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error al cargar mapas guardados:', error);
+        // Si es un error de timeout o de red, mostrar un mensaje
+        if (error.message?.includes('Timeout')) {
+          console.warn('Timeout al cargar mapas guardados. Posible problema de conexión.');
+        }
         setMapasGuardados([]);
       } finally {
         setLoadingMapas(false);
@@ -3306,7 +3327,24 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
               enableClustering: mapControls.enableClustering
             }}
             onGpsControlsChange={(updates) => {
-              setMapControls(prev => ({ ...prev, ...updates }));
+              // Verificar si se están activando puntos con más de 2000 lecturas
+              if (updates.showPoints === true && lecturasFiltradas.length > 2000) {
+                // Aplicar clustering automáticamente
+                setMapControls(prev => ({ 
+                  ...prev, 
+                  ...updates,
+                  enableClustering: true 
+                }));
+                
+                notifications.show({
+                  title: 'Agrupamiento activado automáticamente',
+                  message: `Se ha activado el agrupamiento de puntos para mejorar el rendimiento con ${lecturasFiltradas.length} puntos activos.`,
+                  color: 'blue',
+                  autoClose: 4000,
+                });
+              } else {
+                setMapControls(prev => ({ ...prev, ...updates }));
+              }
             }}
             heatmapMultiplier={heatmapMultiplier}
             onHeatmapMultiplierChange={setHeatmapMultiplier}
@@ -3326,6 +3364,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
             onMostrarLocalizacionesChange={setMostrarLocalizaciones}
             todasCapasExternasActivas={todasCapasExternasActivas}
             onToggleTodasCapasExternas={handleToggleTodasCapasExternas}
+            totalPuntos={lecturasFiltradas.length}
           />
         );
 
@@ -4556,59 +4595,75 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
 
   return (
     <Box>
-      {/* Modal de advertencia para grandes conjuntos de datos */}
+      {/* Modal informativo para grandes conjuntos de datos */}
       <Modal
         opened={showWarningModal}
         onClose={() => {
+          if (pendingData) {
+            // Aplicar clustering automáticamente y mostrar solo heatmap
+            const pendingDataOrdenada = ordenarLecturasCronologicamente(pendingData);
+            setLecturas(pendingDataOrdenada);
+            const cacheKey = `${casoId}_${vehiculoObjetivo}_${filters.fechaInicio}_${filters.horaInicio}_${filters.fechaFin}_${filters.horaFin}_${filters.velocidadMin}_${filters.velocidadMax}_${filters.duracionParada}_${filters.dia_semana}_${JSON.stringify(filters.zonaSeleccionada)}`;
+            gpsCache.setLecturas(casoId, cacheKey, pendingDataOrdenada);
+            
+            // Activar heatmap y desactivar puntos individuales
+            setMapControls(prev => ({
+              ...prev,
+              showHeatmap: true,
+              showPoints: false,
+              enableClustering: true
+            }));
+          }
           setShowWarningModal(false);
           setPendingData(null);
         }}
-        title="Advertencia: Gran cantidad de datos"
+        title="Información: Gran cantidad de datos detectados"
         centered
       >
         <Stack>
-          <Text>
-            La búsqueda ha encontrado {pendingData?.length} puntos, lo que puede ralentizar significativamente el sistema.
+          <Alert icon={<IconInfoCircle size={18} />} color="blue">
+            <Text>
+              La búsqueda ha encontrado <strong>{pendingData?.length} puntos</strong> sobre el mapa.
+            </Text>
+          </Alert>
+          <Text size="sm" c="dimmed">
+            Para garantizar un rendimiento óptimo del sistema:
           </Text>
           <Text size="sm" c="dimmed">
-            Recomendaciones:
             <ul>
-              <li>Acota el rango de fechas o horas</li>
-              <li>Utiliza el mapa de calor para visualizar grandes conjuntos de datos</li>
-              <li>Considera aplicar filtros adicionales (velocidad, zona, etc.)</li>
-              <li>Activa "Agrupar puntos cercanos" en los controles del mapa</li>
-              <li>Habilita "Optimizar puntos" para reducir la densidad de puntos</li>
+              <li>Se mostrará únicamente el <strong>mapa de calor</strong> por defecto</li>
+              <li>Si activas los puntos, se aplicará automáticamente <strong>agrupamiento (clustering)</strong></li>
+              <li>Recomendamos crear <strong>capas más pequeñas</strong> mediante filtros más específicos</li>
+              <li>El control de <strong>agrupamiento</strong> estará bloqueado y activo automáticamente mientras haya más de 2000 puntos</li>
             </ul>
+          </Text>
+          <Text size="xs" c="dimmed" mt="md">
+            Puedes activar los puntos desde el panel de Controles, y el sistema aplicará automáticamente el agrupamiento para asegurar un rendimiento óptimo.
           </Text>
           <Group justify="flex-end" mt="md">
             <Button
-              variant="light"
-              color="gray"
+              color="blue"
               onClick={() => {
                 if (pendingData) {
-                  // Ordenar las lecturas cronológicamente antes de guardarlas
+                  // Aplicar clustering automáticamente y mostrar solo heatmap
                   const pendingDataOrdenada = ordenarLecturasCronologicamente(pendingData);
                   setLecturas(pendingDataOrdenada);
                   const cacheKey = `${casoId}_${vehiculoObjetivo}_${filters.fechaInicio}_${filters.horaInicio}_${filters.fechaFin}_${filters.horaFin}_${filters.velocidadMin}_${filters.velocidadMax}_${filters.duracionParada}_${filters.dia_semana}_${JSON.stringify(filters.zonaSeleccionada)}`;
                   gpsCache.setLecturas(casoId, cacheKey, pendingDataOrdenada);
+                  
+                  // Activar heatmap y desactivar puntos individuales
+                  setMapControls(prev => ({
+                    ...prev,
+                    showHeatmap: true,
+                    showPoints: false,
+                    enableClustering: true
+                  }));
                 }
                 setShowWarningModal(false);
                 setPendingData(null);
-                setHasDismissedWarning(true);
               }}
             >
-              Continuar de todos modos
-            </Button>
-            <Button
-              color="blue"
-              onClick={() => {
-                setShowWarningModal(false);
-                setPendingData(null);
-                setLecturas([]);
-                setHasDismissedWarning(true);
-              }}
-            >
-              Cancelar
+              Entendido
             </Button>
           </Group>
         </Stack>

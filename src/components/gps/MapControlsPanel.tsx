@@ -39,6 +39,9 @@ interface MapControlsPanelProps {
   // Controles de capas externas
   todasCapasExternasActivas: boolean;
   onToggleTodasCapasExternas: (value: boolean) => void;
+  
+  // Contadores
+  totalPuntos?: number;
 }
 
 const MapControlsPanel: React.FC<MapControlsPanelProps> = ({
@@ -55,8 +58,10 @@ const MapControlsPanel: React.FC<MapControlsPanelProps> = ({
   mostrarLocalizaciones,
   onMostrarLocalizacionesChange,
   todasCapasExternasActivas,
-  onToggleTodasCapasExternas
+  onToggleTodasCapasExternas,
+  totalPuntos = 0
 }) => {
+  const tieneMuchosPuntos = totalPuntos >= 2000;
   return (
     <Stack gap="md">
       {/* Selector de tipo de mapa */}
@@ -111,6 +116,8 @@ const MapControlsPanel: React.FC<MapControlsPanelProps> = ({
               label="Agrupar Puntos (Clustering)"
               checked={gpsControls.enableClustering}
               onChange={(e) => onGpsControlsChange({ enableClustering: e.currentTarget.checked })}
+              disabled={tieneMuchosPuntos}
+              description={tieneMuchosPuntos ? 'Automático con >2000 puntos' : undefined}
             />
             <Switch
               size="sm"
