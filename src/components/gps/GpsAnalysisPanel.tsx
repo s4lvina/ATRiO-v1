@@ -1818,6 +1818,34 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
     handleLprCenterMapOnLectura(lectura);
   }, [handleLprCenterMapOnLectura]);
 
+  const handleLprCloseBanner = useCallback(() => {
+    setLprSelectedLectura(null);
+    setLprSelectedLecturaIndex(null);
+  }, []);
+
+  const handleNavigateLpr = useCallback((direction: 'prev' | 'next') => {
+    const lecturasOrdenadas = ordenarLecturasCronologicamente(
+      lprResultadosFiltro.lecturas.filter(l => l.Coordenada_X != null && l.Coordenada_Y != null)
+    );
+    
+    if (!lprSelectedLectura || lecturasOrdenadas.length === 0) return;
+    
+    const currentIndex = lecturasOrdenadas.findIndex(l => l.ID_Lectura === lprSelectedLectura.ID_Lectura);
+    if (currentIndex === -1) return;
+    
+    let newIndex: number;
+    if (direction === 'prev') {
+      newIndex = currentIndex > 0 ? currentIndex - 1 : lecturasOrdenadas.length - 1;
+    } else {
+      newIndex = currentIndex < lecturasOrdenadas.length - 1 ? currentIndex + 1 : 0;
+    }
+    
+    const nuevaLectura = lecturasOrdenadas[newIndex];
+    setLprSelectedLectura(nuevaLectura);
+    setLprSelectedLecturaIndex(newIndex);
+    handleLprCenterMapOnLectura(nuevaLectura);
+  }, [lprSelectedLectura, lprResultadosFiltro.lecturas, handleLprCenterMapOnLectura]);
+
   // Funciones para mapas guardados
   const obtenerEstadoActual = useCallback((): MapaGuardado['estado'] => {
     const currentCenter = mapRef.current?.getCenter();
@@ -2969,49 +2997,71 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                     </Table.Tr>
                   </Table.Thead>
                   <Table.Tbody>
-                    {lprResultadosFiltro.lecturas
-                      .filter(l => l.Coordenada_X != null && l.Coordenada_Y != null)
-                      .map((lectura, index) => (
-                        <Table.Tr 
-                          key={`${lectura.ID_Lectura}-${index}`}
-                          onClick={() => handleLprSelectLectura(index, lectura)}
-                          style={{ 
-                            cursor: 'pointer',
-                            backgroundColor: lprSelectedLecturaIndex === index ? 'var(--mantine-color-green-0)' : undefined
-                          }}
-                        >
-                          <Table.Td>
-                            <Badge 
-                              size="sm" 
-                              variant={lprSelectedLecturaIndex === index ? 'filled' : 'light'}
-                              color={lprSelectedLecturaIndex === index ? 'green' : 'gray'}
-                              style={{ display: 'inline-flex', minWidth: 'max-content', padding: '4px 8px' }}
-                            >
-                              {index + 1}
-                            </Badge>
-                          </Table.Td>
-                          <Table.Td>
-                            <Text size="sm">
-                              {dayjs(lectura.Fecha_y_Hora).format('DD/MM HH:mm:ss')}
-                            </Text>
-                          </Table.Td>
-                          <Table.Td>
-                            <Badge variant="outline" color="green" size="sm">
-                              {lectura.Matricula}
-                            </Badge>
-                          </Table.Td>
-                          <Table.Td>
-                            <Text size="sm">
-                              {lectura.ID_Lector || '-'}
-                            </Text>
-                          </Table.Td>
-                          <Table.Td>
-                            <Text size="xs" c="dimmed">
-                              {lectura.Coordenada_Y?.toFixed(6)}, {lectura.Coordenada_X?.toFixed(6)}
-                            </Text>
-                          </Table.Td>
-                        </Table.Tr>
-                      ))}
+                    {(() => {
+                      const lecturasValidas = lprResultadosFiltro.lecturas.filter(l => l.Coordenada_X != null && l.Coordenada_Y != null);
+                      
+                      // Deduplicar lecturas basándose en un identificador único
+                      const lecturasUnicas = lecturasValidas.reduce((acc: any[], lectura) => {
+                        const identificadorUnico = `${lectura.ID_Lectura}-${lectura.Coordenada_Y}-${lectura.Coordenada_X}-${lectura.Fecha_y_Hora}`;
+                        if (!acc.find(l => {
+                          const id = `${l.ID_Lectura}-${l.Coordenada_Y}-${l.Coordenada_X}-${l.Fecha_y_Hora}`;
+                          return id === identificadorUnico;
+                        })) {
+                          acc.push(lectura);
+                        }
+                        return acc;
+                      }, []);
+                      
+                      // Ordenar cronológicamente
+                      const lecturasOrdenadas = [...lecturasUnicas].sort((a, b) => 
+                        new Date(a.Fecha_y_Hora).getTime() - new Date(b.Fecha_y_Hora).getTime()
+                      );
+                      
+                      return lecturasOrdenadas.map((lectura, index) => {
+                        const numeroSequencial = index + 1;
+                        return (
+                          <Table.Tr 
+                            key={`lectura-lpr-seq-${index}`}
+                            onClick={() => handleLprSelectLectura(index, lectura)}
+                            style={{ 
+                              cursor: 'pointer',
+                              backgroundColor: lprSelectedLecturaIndex === index ? 'var(--mantine-color-green-0)' : undefined
+                            }}
+                          >
+                            <Table.Td>
+                              <Badge 
+                                size="sm" 
+                                variant={lprSelectedLecturaIndex === index ? 'filled' : 'light'}
+                                color={lprSelectedLecturaIndex === index ? 'green' : 'gray'}
+                                style={{ display: 'inline-flex', minWidth: 'max-content', padding: '4px 8px' }}
+                              >
+                                {numeroSequencial}
+                              </Badge>
+                            </Table.Td>
+                            <Table.Td>
+                              <Text size="sm">
+                                {dayjs(lectura.Fecha_y_Hora).format('DD/MM HH:mm:ss')}
+                              </Text>
+                            </Table.Td>
+                            <Table.Td>
+                              <Badge variant="outline" color="green" size="sm">
+                                {lectura.Matricula}
+                              </Badge>
+                            </Table.Td>
+                            <Table.Td>
+                              <Text size="sm">
+                                {lectura.ID_Lector || '-'}
+                              </Text>
+                            </Table.Td>
+                            <Table.Td>
+                              <Text size="xs" c="dimmed">
+                                {lectura.Coordenada_Y?.toFixed(6)}, {lectura.Coordenada_X?.toFixed(6)}
+                              </Text>
+                            </Table.Td>
+                          </Table.Tr>
+                        );
+                      });
+                    })()}
                   </Table.Tbody>
                 </Table>
               </ScrollArea>
@@ -3815,6 +3865,8 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
             lprMapControls={lprMapControls}
             lprSelectedLectura={lprSelectedLectura}
             onLprCenterMapOnLectura={handleLprCenterMapOnLectura}
+            onLprCloseBanner={handleLprCloseBanner}
+            onNavigateLpr={handleNavigateLpr}
           >
             {/* Marcadores de bitácora */}
             <LayerGroup>
@@ -4899,6 +4951,8 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
               lprMapControls={lprMapControls}
               lprSelectedLectura={lprSelectedLectura}
               onLprCenterMapOnLectura={handleLprCenterMapOnLectura}
+              onLprCloseBanner={handleLprCloseBanner}
+              onNavigateLpr={handleNavigateLpr}
             >
               {/* Marcadores de bitácora */}
               <LayerGroup>

@@ -5,6 +5,7 @@ import ReactDOMServer from 'react-dom/server';
 import { Card, Group, Text, Badge, Tooltip, Button, ActionIcon, Select, Box } from '@mantine/core';
 import { IconClock, IconGauge, IconCompass, IconMapPin, IconHome, IconStar, IconFlag, IconUser, IconBuilding, IconBriefcase, IconAlertCircle, IconX, IconChevronLeft, IconChevronRight, IconDownload, IconCamera, IconMaximize, IconMinimize, IconWorld } from '@tabler/icons-react';
 import type { GpsLectura, GpsCapa, LocalizacionInteres } from '../../types/data';
+import dayjs from 'dayjs';
 import HeatmapLayer from './HeatmapLayer';
 import MarkerClusterGroup from 'react-leaflet-markercluster';
 import 'react-leaflet-markercluster/dist/styles.min.css';
@@ -55,6 +56,8 @@ interface GpsMapStandaloneProps {
   };
   lprSelectedLectura?: any | null;
   onLprCenterMapOnLectura?: (lectura: any) => void;
+  onLprCloseBanner?: () => void;
+  onNavigateLpr?: (direction: 'prev' | 'next') => void;
 }
 
 interface GpsMapStandalonePropsWithFullscreen extends GpsMapStandaloneProps {
@@ -357,6 +360,227 @@ const InfoBanner = ({ info, onClose, onEditLocalizacion, isLocalizacion, onNavig
         }
         return null;
       })()}
+
+      {/* Botón de cerrar */}
+      <ActionIcon
+        variant="subtle"
+        color="gray"
+        onClick={onClose}
+        size="sm"
+        style={{
+          position: 'absolute',
+          top: '8px',
+          right: '8px'
+        }}
+      >
+        <IconX size={14} />
+      </ActionIcon>
+      
+      <style>{`
+        @keyframes slideUp {
+          from { transform: translate(-50%, 20px); opacity: 0; }
+          to { transform: translate(-50%, 0); opacity: 1; }
+        }
+      `}</style>
+    </Box>
+  );
+};
+
+// Banner de información para lecturas LPR
+const LprInfoBanner = ({ lectura, lector, onClose, onNavigate }: {
+  lectura: any;
+  lector?: any;
+  onClose: () => void;
+  onNavigate?: (direction: 'prev' | 'next') => void;
+}) => {
+  if (!lectura) return null;
+  
+  return (
+    <Box
+      style={{
+        position: 'absolute',
+        bottom: 20,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 1000,
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        padding: '16px',
+        borderRadius: '8px',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+        maxWidth: '400px',
+        width: 'auto',
+        animation: 'slideUp 0.3s cubic-bezier(.4,0,.2,1)',
+        fontFamily: 'var(--mantine-font-family)',
+        lineHeight: '1.2'
+      }}
+    >
+      {/* Header con título */}
+      <div style={{
+        borderBottom: '2px solid var(--mantine-color-green-6)',
+        paddingBottom: '8px',
+        marginBottom: '12px'
+      }}>
+        <div style={{
+          fontSize: '16px',
+          fontWeight: '700',
+          color: 'var(--mantine-color-green-8)',
+          marginBottom: '4px',
+          textTransform: 'uppercase',
+          letterSpacing: '0.5px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px'
+        }}>
+          📷 Lectura LPR
+        </div>
+      </div>
+
+      {/* Contenido de datos */}
+      <div style={{
+        display: 'grid',
+        gap: '4px'
+      }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          padding: '3px 0',
+          borderBottom: '1px solid var(--mantine-color-gray-2)'
+        }}>
+          <div style={{
+            fontSize: '12px',
+            fontWeight: '600',
+            color: 'var(--mantine-color-gray-8)',
+            textTransform: 'capitalize',
+            minWidth: '80px',
+            marginRight: '12px'
+          }}>
+            Matrícula
+          </div>
+          <div style={{
+            fontSize: '12px',
+            color: 'var(--mantine-color-gray-7)',
+            flex: '1',
+            textAlign: 'right'
+          }}>
+            {lectura.Matricula || '-'}
+          </div>
+        </div>
+
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          padding: '3px 0',
+          borderBottom: '1px solid var(--mantine-color-gray-2)'
+        }}>
+          <div style={{
+            fontSize: '12px',
+            fontWeight: '600',
+            color: 'var(--mantine-color-gray-8)',
+            textTransform: 'capitalize',
+            minWidth: '80px',
+            marginRight: '12px'
+          }}>
+            Fecha/Hora
+          </div>
+          <div style={{
+            fontSize: '12px',
+            color: 'var(--mantine-color-gray-7)',
+            flex: '1',
+            textAlign: 'right'
+          }}>
+            {dayjs(lectura.Fecha_y_Hora).format('DD/MM HH:mm:ss')}
+          </div>
+        </div>
+
+        {lector && (
+          <>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              padding: '3px 0',
+              borderBottom: '1px solid var(--mantine-color-gray-2)'
+            }}>
+              <div style={{
+                fontSize: '12px',
+                fontWeight: '600',
+                color: 'var(--mantine-color-gray-8)',
+                textTransform: 'capitalize',
+                minWidth: '80px',
+                marginRight: '12px'
+              }}>
+                Lector
+              </div>
+              <div style={{
+                fontSize: '12px',
+                color: 'var(--mantine-color-gray-7)',
+                flex: '1',
+                textAlign: 'right'
+              }}>
+                {lector.ID_Lector || lectura.ID_Lector || '-'}
+              </div>
+            </div>
+          </>
+        )}
+
+        {lectura.Carril && (
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            padding: '3px 0',
+            borderBottom: '1px solid var(--mantine-color-gray-2)'
+          }}>
+            <div style={{
+              fontSize: '12px',
+              fontWeight: '600',
+              color: 'var(--mantine-color-gray-8)',
+              textTransform: 'capitalize',
+              minWidth: '80px',
+              marginRight: '12px'
+            }}>
+              Carril
+            </div>
+            <div style={{
+              fontSize: '12px',
+              color: 'var(--mantine-color-gray-7)',
+              flex: '1',
+              textAlign: 'right'
+            }}>
+              {lectura.Carril}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Botones de acción */}
+      <Group justify="center" gap={4} style={{ marginTop: '8px' }}>
+        {/* Botones de navegación */}
+        <ActionIcon size="md" variant="filled" color="green" onClick={() => onNavigate && onNavigate('prev')} disabled={!onNavigate}>
+          <IconChevronLeft size={20} />
+        </ActionIcon>
+        <ActionIcon size="md" variant="filled" color="green" onClick={() => onNavigate && onNavigate('next')} disabled={!onNavigate}>
+          <IconChevronRight size={20} />
+        </ActionIcon>
+        
+        {/* Botón de Google Maps */}
+        {lector && lector.Coordenada_Y && lector.Coordenada_X && (
+          <Tooltip label="Ver lector en Google Maps">
+            <ActionIcon 
+              size="md" 
+              variant="filled" 
+              color="red" 
+              onClick={() => {
+                window.open(`https://www.google.com/maps?q=${lector.Coordenada_Y},${lector.Coordenada_X}`, '_blank');
+              }}
+            >
+              <Text fw={700} size="sm" c="white">G</Text>
+            </ActionIcon>
+          </Tooltip>
+        )}
+      </Group>
 
       {/* Botón de cerrar */}
       <ActionIcon
@@ -729,6 +953,8 @@ const GpsMapStandalone = React.memo(forwardRef<L.Map, GpsMapStandalonePropsWithF
   lprMapControls,
   lprSelectedLectura,
   onLprCenterMapOnLectura,
+  onLprCloseBanner,
+  onNavigateLpr,
 }, ref): React.ReactElement => {
   const internalMapRef = useRef<L.Map | null>(null);
   const [internalSelectedInfo, setInternalSelectedInfo] = useState<any | null>(null);
@@ -2043,6 +2269,23 @@ const GpsMapStandalone = React.memo(forwardRef<L.Map, GpsMapStandalonePropsWithF
           onEditLocalizacion={selectedInfo.isLocalizacion ? () => onGuardarLocalizacion(selectedInfo.info) : undefined}
           isLocalizacion={selectedInfo.isLocalizacion}
           onNavigate={!selectedInfo.isLocalizacion ? handleNavigate : undefined}
+        />
+      )}
+      {lprSelectedLectura && (
+        <LprInfoBanner
+          lectura={lprSelectedLectura}
+          lector={(() => {
+            // Buscar el lector asociado en múltiples fuentes
+            const lector1 = lprAllSystemReaders?.find(l => l.ID_Lector === lprSelectedLectura.ID_Lector);
+            const lector2 = lprResultadosFiltro?.lectores?.find(l => l.ID_Lector === lprSelectedLectura.ID_Lector);
+            return lector1 || lector2 || null;
+          })()}
+          onClose={() => {
+            if (onLprCloseBanner) {
+              onLprCloseBanner();
+            }
+          }}
+          onNavigate={onNavigateLpr || undefined}
         />
       )}
     </div>
