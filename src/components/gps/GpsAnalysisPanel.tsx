@@ -2193,7 +2193,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                 onClick={() => centrarMapa(lugar.lat, lugar.lon)}
               >
                 <Group>
-                  <Badge size="lg" variant="filled" color="blue">
+                  <Badge size="lg" variant="filled" color="blue" style={{ display: 'inline-flex', minWidth: 'max-content', padding: '4px 8px' }}>
                     #{idx + 1}
                   </Badge>
                   <Stack gap={0}>
@@ -2300,7 +2300,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                   style={{ cursor: 'pointer' }}
                   onClick={() => centrarMapa(punto.lat, punto.lon)}
                 >
-                  <Badge size="sm">{idx + 1}</Badge>
+                  <Badge size="sm" style={{ display: 'inline-flex', minWidth: 'max-content', padding: '4px 8px' }}>{idx + 1}</Badge>
                   <Text size="sm">
                     {punto.lat.toFixed(6)}, {punto.lon.toFixed(6)}
                   </Text>
@@ -2321,7 +2321,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                   style={{ cursor: 'pointer' }}
                   onClick={() => centrarMapa(punto.lat, punto.lon)}
                 >
-                  <Badge size="sm">{idx + 1}</Badge>
+                  <Badge size="sm" style={{ display: 'inline-flex', minWidth: 'max-content', padding: '4px 8px' }}>{idx + 1}</Badge>
                   <Text size="sm">
                     {punto.lat.toFixed(6)}, {punto.lon.toFixed(6)}
                   </Text>
@@ -2347,7 +2347,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                 onClick={() => centrarMapa(zona.lat, zona.lon)}
               >
                 <Group>
-                  <Badge size="lg" variant="filled" color="grape">
+                  <Badge size="lg" variant="filled" color="grape" style={{ display: 'inline-flex', minWidth: 'max-content', padding: '4px 8px' }}>
                     Zona {idx + 1}
                   </Badge>
                   <Stack gap={0}>
@@ -2864,43 +2864,63 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                     </Table.Tr>
                   </Table.Thead>
                   <Table.Tbody>
-                    {ordenarLecturasCronologicamente(
-                      lecturasFiltradas.filter(l => l.Coordenada_X != null && l.Coordenada_Y != null)
-                    ).map((lectura, index) => (
-                        <Table.Tr 
-                          key={`${lectura.ID_Lectura}-${index}`}
-                          onClick={() => handleSelectPosition(index, lectura)}
-                          style={{ 
-                            cursor: 'pointer',
-                            backgroundColor: selectedPositionIndex === index ? 'var(--mantine-color-blue-0)' : undefined
-                          }}
-                        >
-                          <Table.Td>
-                            <Badge 
-                              size="sm" 
-                              variant={selectedPositionIndex === index ? 'filled' : 'light'}
-                              color={selectedPositionIndex === index ? 'blue' : 'gray'}
-                            >
-                              {index + 1}
-                            </Badge>
-                          </Table.Td>
-                          <Table.Td>
-                            <Text size="sm">
-                              {dayjs(lectura.Fecha_y_Hora).format('DD/MM HH:mm:ss')}
-                            </Text>
-                          </Table.Td>
-                          <Table.Td>
-                            <Badge variant="outline" color="orange" size="sm">
-                              {lectura.Velocidad?.toFixed(1) || '0'} km/h
-                            </Badge>
-                          </Table.Td>
-                          <Table.Td>
-                            <Text size="xs" c="dimmed">
-                              {lectura.Coordenada_Y?.toFixed(6)}, {lectura.Coordenada_X?.toFixed(6)}
-                            </Text>
-                          </Table.Td>
-                        </Table.Tr>
-                      ))}
+                    {(() => {
+                      const lecturasValidas = lecturasFiltradas.filter(l => l.Coordenada_X != null && l.Coordenada_Y != null);
+                      
+                      // Deduplicar lecturas basándose en un identificador único
+                      const lecturasUnicas = lecturasValidas.reduce((acc: GpsLectura[], lectura) => {
+                        const identificadorUnico = `${lectura.ID_Lectura}-${lectura.Coordenada_Y}-${lectura.Coordenada_X}-${lectura.Fecha_y_Hora}`;
+                        if (!acc.find(l => {
+                          const id = `${l.ID_Lectura}-${l.Coordenada_Y}-${l.Coordenada_X}-${l.Fecha_y_Hora}`;
+                          return id === identificadorUnico;
+                        })) {
+                          acc.push(lectura);
+                        }
+                        return acc;
+                      }, []);
+                      
+                      const lecturasFiltradasYOrdenadas = ordenarLecturasCronologicamente(lecturasUnicas);
+                      
+                      return lecturasFiltradasYOrdenadas.map((lectura, index) => {
+                        const numeroSequencial = index + 1;
+                        return (
+                          <Table.Tr 
+                            key={`lectura-gps-seq-${index}`}
+                            onClick={() => handleSelectPosition(index, lectura)}
+                            style={{ 
+                              cursor: 'pointer',
+                              backgroundColor: selectedPositionIndex === index ? 'var(--mantine-color-blue-0)' : undefined
+                            }}
+                          >
+                            <Table.Td>
+                              <Badge 
+                                size="sm" 
+                                variant={selectedPositionIndex === index ? 'filled' : 'light'}
+                                color={selectedPositionIndex === index ? 'blue' : 'gray'}
+                                style={{ display: 'inline-flex', minWidth: 'max-content', padding: '4px 8px' }}
+                              >
+                                {numeroSequencial}
+                              </Badge>
+                            </Table.Td>
+                            <Table.Td>
+                              <Text size="sm">
+                                {dayjs(lectura.Fecha_y_Hora).format('DD/MM HH:mm:ss')}
+                              </Text>
+                            </Table.Td>
+                            <Table.Td>
+                              <Badge variant="outline" color="orange" size="sm">
+                                {lectura.Velocidad?.toFixed(1) || '0'} km/h
+                              </Badge>
+                            </Table.Td>
+                            <Table.Td>
+                              <Text size="xs" c="dimmed">
+                                {lectura.Coordenada_Y?.toFixed(6)}, {lectura.Coordenada_X?.toFixed(6)}
+                              </Text>
+                            </Table.Td>
+                          </Table.Tr>
+                        );
+                      });
+                    })()}
                   </Table.Tbody>
                 </Table>
               </ScrollArea>
@@ -2965,6 +2985,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                               size="sm" 
                               variant={lprSelectedLecturaIndex === index ? 'filled' : 'light'}
                               color={lprSelectedLecturaIndex === index ? 'green' : 'gray'}
+                              style={{ display: 'inline-flex', minWidth: 'max-content', padding: '4px 8px' }}
                             >
                               {index + 1}
                             </Badge>
@@ -4638,7 +4659,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                           }}
                         >
                           <Table.Td>
-                            <Badge size="sm" variant={selectedBitacoraIndex === idx ? 'filled' : 'light'} color={selectedBitacoraIndex === idx ? 'blue' : 'gray'}>{idx + 1}</Badge>
+                            <Badge size="sm" variant={selectedBitacoraIndex === idx ? 'filled' : 'light'} color={selectedBitacoraIndex === idx ? 'blue' : 'gray'} style={{ display: 'inline-flex', minWidth: 'max-content', padding: '4px 8px' }}>{idx + 1}</Badge>
                           </Table.Td>
                           <Table.Td>
                             <Text size="sm">{new Date(punto.fecha).toLocaleString()}</Text>
@@ -4727,7 +4748,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                           }}
                         >
                           <Table.Td>
-                            <Badge size="sm" variant={selectedExcelIndex === idx ? 'filled' : 'light'} color={selectedExcelIndex === idx ? 'green' : 'gray'}>{idx + 1}</Badge>
+                            <Badge size="sm" variant={selectedExcelIndex === idx ? 'filled' : 'light'} color={selectedExcelIndex === idx ? 'green' : 'gray'} style={{ display: 'inline-flex', minWidth: 'max-content', padding: '4px 8px' }}>{idx + 1}</Badge>
                           </Table.Td>
                           <Table.Td>
                             <Text size="xs" c="dimmed">{dato.latitud?.toFixed(6)}, {dato.longitud?.toFixed(6)}</Text>
@@ -4802,7 +4823,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                           }}
                         >
                           <Table.Td>
-                            <Badge size="sm" variant={selectedGpxIndex === idx ? 'filled' : 'light'} color={selectedGpxIndex === idx ? 'orange' : 'gray'}>{idx + 1}</Badge>
+                            <Badge size="sm" variant={selectedGpxIndex === idx ? 'filled' : 'light'} color={selectedGpxIndex === idx ? 'orange' : 'gray'} style={{ display: 'inline-flex', minWidth: 'max-content', padding: '4px 8px' }}>{idx + 1}</Badge>
                           </Table.Td>
                           <Table.Td>
                             <Badge 
