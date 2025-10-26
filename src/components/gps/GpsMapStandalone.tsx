@@ -123,20 +123,62 @@ const InfoBanner = ({ info, onClose, onEditLocalizacion, isLocalizacion, onNavig
         }}>
           {isLocalizacion ? '📍 Punto de Interés' : '🚗 Lectura GPS'}
         </div>
-        <div style={{
-          fontSize: '11px',
-          color: 'var(--mantine-color-gray-6)',
-          fontFamily: 'monospace',
-          backgroundColor: 'var(--mantine-color-gray-0)',
-          padding: '4px 6px',
-          borderRadius: '4px',
-          border: '1px solid var(--mantine-color-gray-3)'
-        }}>
+        <a
+          href={(() => {
+            const lat = isLocalizacion ? info.coordenada_y : info.Coordenada_Y;
+            const lng = isLocalizacion ? info.coordenada_x : info.Coordenada_X;
+            if (typeof lat === 'number' && !isNaN(lat) && typeof lng === 'number' && !isNaN(lng)) {
+              return `https://www.google.com/maps?q=${lat},${lng}`;
+            }
+            return '#';
+          })()}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => {
+            const lat = isLocalizacion ? info.coordenada_y : info.Coordenada_Y;
+            const lng = isLocalizacion ? info.coordenada_x : info.Coordenada_X;
+            if (!(typeof lat === 'number' && !isNaN(lat) && typeof lng === 'number' && !isNaN(lng))) {
+              e.preventDefault();
+            }
+          }}
+          style={{
+            fontSize: '11px',
+            color: 'var(--mantine-color-blue-6)',
+            fontFamily: 'monospace',
+            backgroundColor: 'var(--mantine-color-gray-0)',
+            padding: '4px 6px',
+            borderRadius: '4px',
+            border: '1px solid var(--mantine-color-gray-3)',
+            textDecoration: 'none',
+            display: 'inline-block',
+            cursor: (() => {
+              const lat = isLocalizacion ? info.coordenada_y : info.Coordenada_Y;
+              const lng = isLocalizacion ? info.coordenada_x : info.Coordenada_X;
+              return (typeof lat === 'number' && !isNaN(lat) && typeof lng === 'number' && !isNaN(lng)) ? 'pointer' : 'default';
+            })()
+          }}
+          onMouseEnter={(e) => {
+            const lat = isLocalizacion ? info.coordenada_y : info.Coordenada_Y;
+            const lng = isLocalizacion ? info.coordenada_x : info.Coordenada_X;
+            if (typeof lat === 'number' && !isNaN(lat) && typeof lng === 'number' && !isNaN(lng)) {
+              e.currentTarget.style.textDecoration = 'underline';
+              e.currentTarget.style.backgroundColor = 'var(--mantine-color-blue-0)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            const lat = isLocalizacion ? info.coordenada_y : info.Coordenada_Y;
+            const lng = isLocalizacion ? info.coordenada_x : info.Coordenada_X;
+            if (typeof lat === 'number' && !isNaN(lat) && typeof lng === 'number' && !isNaN(lng)) {
+              e.currentTarget.style.textDecoration = 'none';
+              e.currentTarget.style.backgroundColor = 'var(--mantine-color-gray-0)';
+            }
+          }}
+        >
           {isLocalizacion
             ? `${typeof info.coordenada_y === 'number' && !isNaN(info.coordenada_y) ? info.coordenada_y.toFixed(6) : '?'}, ${typeof info.coordenada_x === 'number' && !isNaN(info.coordenada_x) ? info.coordenada_x.toFixed(6) : '?'}`
             : `${typeof info.Coordenada_Y === 'number' && !isNaN(info.Coordenada_Y) ? info.Coordenada_Y.toFixed(6) : '?'}, ${typeof info.Coordenada_X === 'number' && !isNaN(info.Coordenada_X) ? info.Coordenada_X.toFixed(6) : '?'}`
           }
-        </div>
+        </a>
       </div>
 
       {/* Contenido de datos */}
@@ -167,7 +209,7 @@ const InfoBanner = ({ info, onClose, onEditLocalizacion, isLocalizacion, onNavig
             flex: '1',
             textAlign: 'right'
           }}>
-            {isLocalizacion ? info.titulo : info.Matricula}
+            {isLocalizacion ? info.titulo : (info.Matricula || '-')}
           </div>
         </div>
 
@@ -197,13 +239,32 @@ const InfoBanner = ({ info, onClose, onEditLocalizacion, isLocalizacion, onNavig
             {(() => {
               const raw = isLocalizacion ? info.fecha_hora : info.Fecha_y_Hora;
               if (!raw) return '-';
-              const [date, time] = raw.split('T');
-              return date && time ? `${date} ${time.slice(0,8)}` : raw;
+              try {
+                // Intentar parsear como ISO con T
+                if (raw.includes('T')) {
+                  const [date, time] = raw.split('T');
+                  return date && time ? `${date} ${time.slice(0,8)}` : raw;
+                }
+                // Si no tiene formato ISO, intentar parsear como Date válido
+                const dateObj = new Date(raw);
+                if (!isNaN(dateObj.getTime())) {
+                  return dateObj.toLocaleString('es-ES', { 
+                    year: 'numeric', 
+                    month: '2-digit', 
+                    day: '2-digit', 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                  });
+                }
+                return raw;
+              } catch {
+                return raw || '-';
+              }
             })()}
           </div>
         </div>
 
-        {!isLocalizacion && typeof info.Velocidad === 'number' && !isNaN(info.Velocidad) && (
+        {!isLocalizacion && typeof info.Velocidad === 'number' && !isNaN(info.Velocidad) && info.Velocidad !== null && info.Velocidad !== undefined && (
           <div style={{
             display: 'flex',
             justifyContent: 'space-between',
@@ -227,12 +288,12 @@ const InfoBanner = ({ info, onClose, onEditLocalizacion, isLocalizacion, onNavig
               flex: '1',
               textAlign: 'right'
             }}>
-              {info.Velocidad.toFixed(1)} km/h
+              {Math.abs(info.Velocidad).toFixed(1)} km/h
             </div>
           </div>
         )}
 
-        {!isLocalizacion && typeof info.duracion_parada_min === 'number' && !isNaN(info.duracion_parada_min) && info.duracion_parada_min >= 0.33 && (
+        {!isLocalizacion && typeof info.duracion_parada_min === 'number' && !isNaN(info.duracion_parada_min) && info.duracion_parada_min !== null && info.duracion_parada_min !== undefined && info.duracion_parada_min >= 0.33 && (
           <div style={{
             display: 'flex',
             justifyContent: 'space-between',
@@ -256,7 +317,7 @@ const InfoBanner = ({ info, onClose, onEditLocalizacion, isLocalizacion, onNavig
               flex: '1',
               textAlign: 'right'
             }}>
-              {info.duracion_parada_min.toFixed(1)} min
+              {Math.abs(info.duracion_parada_min).toFixed(1)} min
             </div>
           </div>
         )}
@@ -900,23 +961,53 @@ const GpsMapStandalone = React.memo(forwardRef<L.Map, GpsMapStandalonePropsWithF
   };
 
   // Función para navegar entre puntos
-  const handleNavigate = (direction: 'prev' | 'next') => {
+  const handleNavigate = useCallback((direction: 'prev' | 'next') => {
     if (!selectedInfo || selectedInfo.isLocalizacion) return;
 
-    const currentIndex = allLecturas.findIndex(
+    // Usar las lecturas filtradas del padre, ordenadas cronológicamente
+    const lecturasOrdenadas = [...optimizedLecturas].sort((a, b) => 
+      new Date(a.Fecha_y_Hora).getTime() - new Date(b.Fecha_y_Hora).getTime()
+    );
+
+    if (lecturasOrdenadas.length === 0) return;
+
+    const currentIndex = lecturasOrdenadas.findIndex(
       l => l.ID_Lectura === selectedInfo.info.ID_Lectura
     );
 
-    if (currentIndex === -1) return;
+    if (currentIndex === -1) {
+      // Si no se encuentra, seleccionar el primer punto
+      const firstPoint = lecturasOrdenadas[0];
+      const newSelectedInfo = { 
+        info: { 
+          ...firstPoint, 
+          onGuardarLocalizacion: () => onGuardarLocalizacion(firstPoint) 
+        }, 
+        isLocalizacion: false 
+      };
+      
+      if (onPuntoSeleccionado) {
+        onPuntoSeleccionado(newSelectedInfo);
+      } else {
+        setInternalSelectedInfo(newSelectedInfo);
+      }
+      
+      if (internalMapRef.current) {
+        internalMapRef.current.flyTo([firstPoint.Coordenada_Y, firstPoint.Coordenada_X], 16, {
+          duration: 1.5
+        });
+      }
+      return;
+    }
 
     let newIndex: number;
     if (direction === 'prev') {
-      newIndex = currentIndex > 0 ? currentIndex - 1 : allLecturas.length - 1;
+      newIndex = currentIndex > 0 ? currentIndex - 1 : lecturasOrdenadas.length - 1;
     } else {
-      newIndex = currentIndex < allLecturas.length - 1 ? currentIndex + 1 : 0;
+      newIndex = currentIndex < lecturasOrdenadas.length - 1 ? currentIndex + 1 : 0;
     }
 
-    const newPoint = allLecturas[newIndex];
+    const newPoint = lecturasOrdenadas[newIndex];
     const newSelectedInfo = { 
       info: { 
         ...newPoint, 
@@ -924,16 +1015,21 @@ const GpsMapStandalone = React.memo(forwardRef<L.Map, GpsMapStandalonePropsWithF
       }, 
       isLocalizacion: false 
     };
-    setInternalSelectedInfo(newSelectedInfo);
 
-    // Centrar el mapa en el nuevo punto
-    if (internalMapRef.current) {
-      internalMapRef.current.setView(
-        [newPoint.Coordenada_Y, newPoint.Coordenada_X],
-        internalMapRef.current.getZoom()
-      );
+    if (onPuntoSeleccionado) {
+      onPuntoSeleccionado(newSelectedInfo);
+    } else {
+      setInternalSelectedInfo(newSelectedInfo);
     }
-  };
+
+    // Centrar el mapa en el nuevo punto con animación suave
+    if (internalMapRef.current) {
+      internalMapRef.current.flyTo([newPoint.Coordenada_Y, newPoint.Coordenada_X], 16, {
+        duration: 1.5,
+        easeLinearity: 0.25
+      });
+    }
+  }, [selectedInfo, optimizedLecturas, onGuardarLocalizacion, onPuntoSeleccionado]);
 
   // Efecto para animar la transición del marcador del reproductor con interpolación suave
   useEffect(() => {

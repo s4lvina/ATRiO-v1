@@ -5668,7 +5668,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
         padding: legendCollapsed ? '8px 12px' : '12px',
         boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
         zIndex: 1000,
-        width: legendCollapsed ? 'auto' : '700px',
+        width: legendCollapsed ? 'auto' : '280px',
         maxHeight: legendCollapsed ? 'auto' : '300px',
         overflowY: legendCollapsed ? 'visible' : 'auto',
         transition: 'all 0.3s ease'
@@ -5690,15 +5690,15 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
         </div>
         {/* Contenido colapsable */}
         {!legendCollapsed && (
-          <div style={{ display: 'flex', gap: '20px' }}>
-            {/* Tres columnas */}
-            {[0, 1, 2].map(col => (
-              <div style={{ flex: 1 }} key={col}>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            {/* Dos columnas para ajustar al ancho reducido */}
+            {[0, 1].map(col => (
+              <div style={{ flex: 1, minWidth: '120px' }} key={col}>
                 {/* Capas Excel */}
                 {capasExcel.length > 0 && (
                   <div style={{ marginBottom: '8px' }}>
                     {col === 0 && <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px', fontWeight: 'bold' }}>Excel</div>}
-                    {capasExcel.filter((_, i) => i % 3 === col).map((capa) => (
+                    {capasExcel.filter((_, i) => i % 2 === col).map((capa) => (
                       <div key={`excel-${capa.id}`} style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
                         <div style={{
                           width: '12px',
@@ -5741,7 +5741,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                 {capasBitacora.length > 0 && (
                   <div style={{ marginBottom: '8px' }}>
                     {col === 0 && <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px', fontWeight: 'bold' }}>Bitácora</div>}
-                    {capasBitacora.filter((_, i) => i % 3 === col).map((capa) => (
+                    {capasBitacora.filter((_, i) => i % 2 === col).map((capa) => (
                       <div key={`bitacora-${capa.id}`} style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
                         <div style={{
                           width: '12px',
@@ -5784,7 +5784,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                 {capasGpx.length > 0 && (
                   <div style={{ marginBottom: '8px' }}>
                     {col === 0 && <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px', fontWeight: 'bold' }}>GPX/KML</div>}
-                    {capasGpx.filter((_, i) => i % 3 === col).map((capa) => (
+                    {capasGpx.filter((_, i) => i % 2 === col).map((capa) => (
                       <div key={`gpx-${capa.id}`} style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
                         <div style={{
                           width: '12px',
