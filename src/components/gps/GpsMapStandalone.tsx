@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-
 import L from 'leaflet';
 import ReactDOMServer from 'react-dom/server';
 import { Card, Group, Text, Badge, Tooltip, Button, ActionIcon, Select, Box } from '@mantine/core';
-import { IconClock, IconGauge, IconCompass, IconMapPin, IconHome, IconStar, IconFlag, IconUser, IconBuilding, IconBriefcase, IconAlertCircle, IconX, IconChevronLeft, IconChevronRight, IconDownload, IconCamera, IconMaximize, IconMinimize } from '@tabler/icons-react';
+import { IconClock, IconGauge, IconCompass, IconMapPin, IconHome, IconStar, IconFlag, IconUser, IconBuilding, IconBriefcase, IconAlertCircle, IconX, IconChevronLeft, IconChevronRight, IconDownload, IconCamera, IconMaximize, IconMinimize, IconWorld } from '@tabler/icons-react';
 import type { GpsLectura, GpsCapa, LocalizacionInteres } from '../../types/data';
 import HeatmapLayer from './HeatmapLayer';
 import MarkerClusterGroup from 'react-leaflet-markercluster';
@@ -123,62 +123,21 @@ const InfoBanner = ({ info, onClose, onEditLocalizacion, isLocalizacion, onNavig
         }}>
           {isLocalizacion ? '📍 Punto de Interés' : '🚗 Lectura GPS'}
         </div>
-        <a
-          href={(() => {
-            const lat = isLocalizacion ? info.coordenada_y : info.Coordenada_Y;
-            const lng = isLocalizacion ? info.coordenada_x : info.Coordenada_X;
-            if (typeof lat === 'number' && !isNaN(lat) && typeof lng === 'number' && !isNaN(lng)) {
-              return `https://www.google.com/maps?q=${lat},${lng}`;
-            }
-            return '#';
-          })()}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => {
-            const lat = isLocalizacion ? info.coordenada_y : info.Coordenada_Y;
-            const lng = isLocalizacion ? info.coordenada_x : info.Coordenada_X;
-            if (!(typeof lat === 'number' && !isNaN(lat) && typeof lng === 'number' && !isNaN(lng))) {
-              e.preventDefault();
-            }
-          }}
-          style={{
-            fontSize: '11px',
-            color: 'var(--mantine-color-blue-6)',
-            fontFamily: 'monospace',
-            backgroundColor: 'var(--mantine-color-gray-0)',
-            padding: '4px 6px',
-            borderRadius: '4px',
-            border: '1px solid var(--mantine-color-gray-3)',
-            textDecoration: 'none',
-            display: 'inline-block',
-            cursor: (() => {
-              const lat = isLocalizacion ? info.coordenada_y : info.Coordenada_Y;
-              const lng = isLocalizacion ? info.coordenada_x : info.Coordenada_X;
-              return (typeof lat === 'number' && !isNaN(lat) && typeof lng === 'number' && !isNaN(lng)) ? 'pointer' : 'default';
-            })()
-          }}
-          onMouseEnter={(e) => {
-            const lat = isLocalizacion ? info.coordenada_y : info.Coordenada_Y;
-            const lng = isLocalizacion ? info.coordenada_x : info.Coordenada_X;
-            if (typeof lat === 'number' && !isNaN(lat) && typeof lng === 'number' && !isNaN(lng)) {
-              e.currentTarget.style.textDecoration = 'underline';
-              e.currentTarget.style.backgroundColor = 'var(--mantine-color-blue-0)';
-            }
-          }}
-          onMouseLeave={(e) => {
-            const lat = isLocalizacion ? info.coordenada_y : info.Coordenada_Y;
-            const lng = isLocalizacion ? info.coordenada_x : info.Coordenada_X;
-            if (typeof lat === 'number' && !isNaN(lat) && typeof lng === 'number' && !isNaN(lng)) {
-              e.currentTarget.style.textDecoration = 'none';
-              e.currentTarget.style.backgroundColor = 'var(--mantine-color-gray-0)';
-            }
-          }}
-        >
+        <div style={{
+          fontSize: '11px',
+          color: 'var(--mantine-color-gray-7)',
+          fontFamily: 'monospace',
+          backgroundColor: 'var(--mantine-color-gray-0)',
+          padding: '4px 6px',
+          borderRadius: '4px',
+          border: '1px solid var(--mantine-color-gray-3)',
+          display: 'inline-block'
+        }}>
           {isLocalizacion
             ? `${typeof info.coordenada_y === 'number' && !isNaN(info.coordenada_y) ? info.coordenada_y.toFixed(6) : '?'}, ${typeof info.coordenada_x === 'number' && !isNaN(info.coordenada_x) ? info.coordenada_x.toFixed(6) : '?'}`
             : `${typeof info.Coordenada_Y === 'number' && !isNaN(info.Coordenada_Y) ? info.Coordenada_Y.toFixed(6) : '?'}, ${typeof info.Coordenada_X === 'number' && !isNaN(info.Coordenada_X) ? info.Coordenada_X.toFixed(6) : '?'}`
           }
-        </a>
+        </div>
       </div>
 
       {/* Contenido de datos */}
@@ -353,30 +312,51 @@ const InfoBanner = ({ info, onClose, onEditLocalizacion, isLocalizacion, onNavig
       </div>
 
       {/* Botones de acción */}
-      {(onNavigate && !isLocalizacion) || (isLocalizacion && onEditLocalizacion) || (!isLocalizacion && info.onGuardarLocalizacion) ? (
-        <Group justify="center" gap={4} style={{ marginTop: '8px' }}>
-          {onNavigate && !isLocalizacion && (
-            <>
-              <ActionIcon size="md" variant="filled" color="blue" onClick={() => onNavigate('prev')}>
-                <IconChevronLeft size={20} />
-              </ActionIcon>
-              <ActionIcon size="md" variant="filled" color="blue" onClick={() => onNavigate('next')}>
-                <IconChevronRight size={20} />
-              </ActionIcon>
-            </>
-          )}
-          {isLocalizacion && onEditLocalizacion && (
-            <ActionIcon size="md" variant="filled" color="blue" onClick={onEditLocalizacion}>
-              <IconMapPin size={20} />
-            </ActionIcon>
-          )}
-          {!isLocalizacion && info.onGuardarLocalizacion && (
-            <ActionIcon size="md" variant="filled" color="green" onClick={info.onGuardarLocalizacion}>
-              <IconMapPin size={20} />
-            </ActionIcon>
-          )}
-        </Group>
-      ) : null}
+      {(() => {
+        const lat = isLocalizacion ? info.coordenada_y : info.Coordenada_Y;
+        const lng = isLocalizacion ? info.coordenada_x : info.Coordenada_X;
+        const hasValidCoordinates = typeof lat === 'number' && !isNaN(lat) && typeof lng === 'number' && !isNaN(lng);
+        const hasNavigation = onNavigate && !isLocalizacion;
+        const hasEditOption = isLocalizacion && onEditLocalizacion;
+        
+        if (hasValidCoordinates || hasNavigation || hasEditOption) {
+          return (
+            <Group justify="center" gap={4} style={{ marginTop: '8px' }}>
+              {hasNavigation && (
+                <>
+                  <ActionIcon size="md" variant="filled" color="blue" onClick={() => onNavigate('prev')}>
+                    <IconChevronLeft size={20} />
+                  </ActionIcon>
+                  <ActionIcon size="md" variant="filled" color="blue" onClick={() => onNavigate('next')}>
+                    <IconChevronRight size={20} />
+                  </ActionIcon>
+                </>
+              )}
+              {/* Botón de Google Maps */}
+              {hasValidCoordinates && (
+                <Tooltip label="Ver en Google Maps">
+                  <ActionIcon 
+                    size="md" 
+                    variant="filled" 
+                    color="red" 
+                    onClick={() => {
+                      window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
+                    }}
+                  >
+                    <Text fw={700} size="sm" c="white">G</Text>
+                  </ActionIcon>
+                </Tooltip>
+              )}
+              {hasEditOption && (
+                <ActionIcon size="md" variant="filled" color="blue" onClick={onEditLocalizacion}>
+                  <IconMapPin size={20} />
+                </ActionIcon>
+              )}
+            </Group>
+          );
+        }
+        return null;
+      })()}
 
       {/* Botón de cerrar */}
       <ActionIcon
