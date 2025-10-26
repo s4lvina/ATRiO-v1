@@ -1733,23 +1733,27 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
   }, []);
 
   const handleLprGuardarResultadosEnCapa = useCallback(() => {
-    if (!nuevaLprCapa.nombre) return;
+    // Si ya hay un nombre, guardar la capa
+    if (nuevaLprCapa.nombre) {
+      const nuevaCapaCompleta: LprCapa = {
+        id: Date.now().toString(),
+        nombre: nuevaLprCapa.nombre,
+        color: nuevaLprCapa.color || '#40c057',
+        activa: true,
+        lecturas: lprResultadosFiltro.lecturas,
+        lectores: lprResultadosFiltro.lectores,
+        filtros: { ...lprFilters }
+      };
 
-    const nuevaCapaCompleta: LprCapa = {
-      id: Date.now().toString(),
-      nombre: nuevaLprCapa.nombre,
-      color: nuevaLprCapa.color || '#40c057',
-      activa: true,
-      lecturas: lprResultadosFiltro.lecturas,
-      lectores: lprResultadosFiltro.lectores,
-      filtros: { ...lprFilters }
-    };
-
-    setLprCapas(prev => [...prev, nuevaCapaCompleta]);
-    setNuevaLprCapa({ nombre: '', color: '#40c057' });
-    setMostrarFormularioLprCapa(false);
-    setLprResultadosFiltro({ lecturas: [], lectores: [] });
-    setLprFilters(prev => ({ ...prev, selectedMatricula: null }));
+      setLprCapas(prev => [...prev, nuevaCapaCompleta]);
+      setNuevaLprCapa({ nombre: '', color: '#40c057' });
+      setMostrarFormularioLprCapa(false);
+      setLprResultadosFiltro({ lecturas: [], lectores: [] });
+      setLprFilters(prev => ({ ...prev, selectedMatricula: null }));
+    } else {
+      // Si no hay nombre, abrir el formulario
+      setMostrarFormularioLprCapa(true);
+    }
   }, [nuevaLprCapa, lprResultadosFiltro, lprFilters]);
 
   const handleLprEditarCapa = useCallback((id: string) => {
@@ -2721,7 +2725,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
             onEliminarCapa={handleLprEliminarCapa}
             onGuardarResultadosEnCapa={handleLprGuardarResultadosEnCapa}
             nuevaCapa={nuevaLprCapa}
-            onNuevaCapaChange={setNuevaLprCapa}
+            onNuevaCapaChange={(updates) => setNuevaLprCapa(prev => ({ ...prev, ...updates }))}
             mostrarFormularioCapa={mostrarFormularioLprCapa}
             onMostrarFormularioCapa={setMostrarFormularioLprCapa}
             editandoCapa={editandoLprCapa}

@@ -41,6 +41,7 @@ interface LprFiltersPanelProps {
   onFilterChange: (updates: Partial<LprFilterState>) => void;
   onFiltrar: () => void;
   onLimpiar: () => void;
+  onLimpiarMapa?: () => void;
   loading?: boolean;
   casoId: number;
   
@@ -68,6 +69,7 @@ const LprFiltersPanel: React.FC<LprFiltersPanelProps> = ({
   onFilterChange: handleChange,
   onFiltrar,
   onLimpiar,
+  onLimpiarMapa,
   loading = false,
   casoId,
   capas,
