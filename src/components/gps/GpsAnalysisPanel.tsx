@@ -11,15 +11,16 @@ import { getLecturasGps, getParadasGps, getCoincidenciasGps, getGpsCapas, create
 import { getMapasGuardados, createMapaGuardado, deleteMapaGuardado, type MapaGuardado as MapaGuardadoAPI } from '../../services/mapasGuardadosApi';
 import ReactDOMServer from 'react-dom/server';
 import GpsMapStandalone from './GpsMapStandalone';
-import html2canvas from 'html2canvas';
+// Lazy load de importaciones pesadas
+// import html2canvas from 'html2canvas';
+// import jsPDF from 'jspdf';
+// import * as shapefile from 'shapefile';
 import { gpsCache } from '../../services/gpsCache';
 import { notifications } from '@mantine/notifications';
 import DrawControl from '../map/DrawControl';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import { point as turfPoint } from '@turf/helpers';
 import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import * as shapefile from 'shapefile';
 import { ImportarCapaBitacoraModal } from '../modals/ImportarCapaBitacoraModal';
 import type { CapaBitacora, CapaBitacoraImportConfig } from '../../types/data';
 import { FileInput } from '@mantine/core';
@@ -1044,7 +1045,9 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
           const arrayBuffer = e.target?.result as ArrayBuffer;
           if (!arrayBuffer) throw new Error('No se pudo leer el archivo');
 
-          const geojson = await shapefile.open(arrayBuffer)
+          // Lazy load de shapefile
+          const shapefileModule = await import('shapefile');
+          const geojson = await shapefileModule.open(arrayBuffer)
             .then(source => source.read()
               .then(function collect(result) {
                 if (result.done) return [];
@@ -3099,6 +3102,8 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                   onClick={async () => {
                     const mapContainer = document.querySelector('.leaflet-container')?.parentElement;
                     if (!mapContainer) return;
+                    // Lazy load de html2canvas
+                    const html2canvas = (await import('html2canvas')).default;
                     html2canvas(mapContainer, { useCORS: true, backgroundColor: null }).then(canvas => {
                       const link = document.createElement('a');
                       link.download = `captura-mapa-gps.png`;
@@ -3768,6 +3773,8 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
             playbackLayer={selectedLayerForPlayback !== null ? capas.find(c => c.id === selectedLayerForPlayback) || null : null}
             currentPlaybackIndex={currentIndex}
             fullscreenMap={fullscreenMap}
+            selectedInfo={selectedInfo}
+            onPuntoSeleccionado={setSelectedInfo}
             puntoSeleccionado={puntoSeleccionado}
             heatmapMultiplier={heatmapMultiplier}
             drawnShape={drawnShape}
@@ -3779,11 +3786,6 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
             isCreatingPOI={creatingManualPOI}
             numerarPuntosActivos={numerarPuntosActivos}
             shapefileLayers={shapefileLayers}
-            onPuntoSeleccionado={(info) => {
-              if (info?.info?.tipo === 'bitacora') {
-                setSelectedInfo(info);
-              }
-            }}
             mostrarLineaRecorrido={mostrarLineaRecorrido}
             // Props LPR
             lprResultadosFiltro={lprResultadosFiltro}
@@ -4854,6 +4856,8 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
               playbackLayer={selectedLayerForPlayback !== null ? capas.find(c => c.id === selectedLayerForPlayback) || null : null}
               currentPlaybackIndex={currentIndex}
               interpolationProgress={interpolationProgress}
+              selectedInfo={selectedInfo}
+              onPuntoSeleccionado={setSelectedInfo}
               fullscreenMap={fullscreenMap}
               puntoSeleccionado={selectedPositionIndex !== null ? lecturasFiltradas[selectedPositionIndex] : puntoSeleccionado}
               heatmapMultiplier={heatmapMultiplier}
@@ -4866,13 +4870,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
               isCreatingPOI={creatingManualPOI}
               numerarPuntosActivos={numerarPuntosActivos}
               shapefileLayers={shapefileLayers}
-              onPuntoSeleccionado={(info) => {
-                if (info?.info?.tipo === 'bitacora') {
-                  setSelectedInfo(info);
-                }
-              }}
               mostrarLineaRecorrido={mostrarLineaRecorrido}
-              selectedInfo={selectedInfo}
               // Props LPR
               lprResultadosFiltro={lprResultadosFiltro}
               lprCapas={lprCapas}

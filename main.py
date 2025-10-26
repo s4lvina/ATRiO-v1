@@ -4336,7 +4336,7 @@ def cleanup_resources():
     
     # Limpiar cache
     try:
-        query_cache.clear()
+        cache_manager.clear_pattern("atrio:*")
         logger.info("Cache de consultas limpiado")
     except Exception as e:
         logger.warning(f"Error limpiando cache: {e}")

@@ -5,7 +5,16 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   optimizeDeps: {
-    force: true
+    force: false, // Solo forzar cuando hay problemas de dependencias
+    include: [
+      'leaflet',
+      'react-leaflet',
+      'leaflet.markercluster',
+      'react-leaflet-markercluster',
+      '@mantine/core',
+      '@mantine/hooks',
+      '@tabler/icons-react'
+    ]
   },
   build: {
     rollupOptions: {

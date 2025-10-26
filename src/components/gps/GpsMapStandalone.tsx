@@ -694,6 +694,17 @@ const GpsMapStandalone = React.memo(forwardRef<L.Map, GpsMapStandalonePropsWithF
   
   // Usar selectedInfo externo si está disponible, sino usar el interno
   const selectedInfo = externalSelectedInfo !== undefined ? externalSelectedInfo : internalSelectedInfo;
+  
+  // Función para manejar la selección de puntos que funcione tanto con estado interno como externo
+  const handlePointSelection = useCallback((newSelectedInfo: any) => {
+    if (externalSelectedInfo !== undefined && onPuntoSeleccionado) {
+      // Si hay un callback externo, usarlo
+      onPuntoSeleccionado(newSelectedInfo);
+    } else {
+      // Si no, usar el estado interno
+      setInternalSelectedInfo(newSelectedInfo);
+    }
+  }, [externalSelectedInfo, onPuntoSeleccionado]);
   const [optimizedLecturas, setOptimizedLecturas] = useState<GpsLectura[]>([]);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [animatedPosition, setAnimatedPosition] = useState<[number, number] | null>(null);
@@ -1017,6 +1028,7 @@ const GpsMapStandalone = React.memo(forwardRef<L.Map, GpsMapStandalonePropsWithF
         });
 
         marker.on('click', () => {
+          console.log('MARKER CLICKED - ID:', lectura.ID_Lectura);
           const newSelectedInfo = { 
             info: { 
               ...lectura, 
@@ -1024,7 +1036,14 @@ const GpsMapStandalone = React.memo(forwardRef<L.Map, GpsMapStandalonePropsWithF
             }, 
             isLocalizacion: false 
           };
-          setInternalSelectedInfo(newSelectedInfo);
+          
+          console.log('Calling onPuntoSeleccionado:', !!onPuntoSeleccionado);
+          // Usar el callback externo si está disponible, sino usar el estado interno
+          if (onPuntoSeleccionado) {
+            onPuntoSeleccionado(newSelectedInfo);
+          } else {
+            setInternalSelectedInfo(newSelectedInfo);
+          }
         });
 
         if (lectura.clusterSize && lectura.clusterSize > 1) {
@@ -1034,13 +1053,13 @@ const GpsMapStandalone = React.memo(forwardRef<L.Map, GpsMapStandalonePropsWithF
         return marker;
       });
 
-      // Si el clustering está desactivado, añadir los marcadores directamente al mapa
-      if (!mapControls.enableClustering) {
+      // TEMPORAL: Desactivar clustering para debug
+      // if (!mapControls.enableClustering) {
         markers.forEach(marker => map.addLayer(marker));
         return () => {
           markers.forEach(marker => map.removeLayer(marker));
         };
-      }
+      // }
 
       // Si el clustering está activado, usar MarkerClusterGroup
       const clusterGroup = (L as any).markerClusterGroup({
@@ -1866,7 +1885,13 @@ const GpsMapStandalone = React.memo(forwardRef<L.Map, GpsMapStandalonePropsWithF
               eventHandlers={{
                 click: () => {
                   const newSelectedInfo = { info: loc, isLocalizacion: true };
-                  setInternalSelectedInfo(newSelectedInfo);
+                  
+                  // Usar el callback externo si está disponible, sino usar el estado interno
+                  if (onPuntoSeleccionado) {
+                    onPuntoSeleccionado(newSelectedInfo);
+                  } else {
+                    setInternalSelectedInfo(newSelectedInfo);
+                  }
                 }
               }}
             >
@@ -1932,7 +1957,13 @@ const GpsMapStandalone = React.memo(forwardRef<L.Map, GpsMapStandalonePropsWithF
       {selectedInfo && (
         <InfoBanner
           info={selectedInfo.info}
-          onClose={() => setInternalSelectedInfo(null)}
+          onClose={() => {
+            if (externalSelectedInfo !== undefined && onPuntoSeleccionado) {
+              onPuntoSeleccionado(null);
+            } else {
+              setInternalSelectedInfo(null);
+            }
+          }}
           onEditLocalizacion={selectedInfo.isLocalizacion ? () => onGuardarLocalizacion(selectedInfo.info) : undefined}
           isLocalizacion={selectedInfo.isLocalizacion}
           onNavigate={!selectedInfo.isLocalizacion ? handleNavigate : undefined}
