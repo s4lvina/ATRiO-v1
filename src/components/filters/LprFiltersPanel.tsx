@@ -230,7 +230,7 @@ const LprFiltersPanel: React.FC<LprFiltersPanelProps> = ({
         />
       </Group>
 
-      <Group justify="flex-end" style={{ marginTop: '16px' }}>
+      <Group grow style={{ marginTop: '16px' }}>
         <Button
           variant="outline"
           color="#234be7"
@@ -254,64 +254,74 @@ const LprFiltersPanel: React.FC<LprFiltersPanelProps> = ({
         </Button>
       </Group>
 
+      <Button 
+        variant="light" 
+        color="red" 
+        fullWidth
+        onClick={onLimpiarMapa}
+        mt="md"
+      >
+        Limpiar Mapa
+      </Button>
+
+      {/* Botón para guardar resultados en capa */}
+      <Button
+        fullWidth
+        variant="light"
+        color="blue"
+        onClick={onGuardarResultadosEnCapa}
+        disabled={resultadosFiltro.lecturas.length === 0}
+        mt="md"
+      >
+        <IconPlus size={16} style={{ marginRight: 8 }} />
+        {resultadosFiltro.lecturas.length > 0
+          ? `Guardar ${resultadosFiltro.lecturas.length} lecturas en capa`
+          : 'Guardar resultados en capa'}
+      </Button>
+
+      {/* Formulario para guardar capa */}
+      {mostrarFormularioCapa && (
+        <Paper p="md" withBorder mt="md">
+          <Stack gap="sm">
+            <TextInput
+              label="Nombre de la capa"
+              value={nuevaCapa.nombre}
+              onChange={e => onNuevaCapaChange({ nombre: e.target.value })}
+              placeholder="Ej: Lecturas LPR Matrícula ABC123"
+            />
+            <ColorInput
+              label="Color de la capa"
+              value={nuevaCapa.color}
+              onChange={color => onNuevaCapaChange({ color })}
+              format="hex"
+            />
+            <Group justify="flex-end">
+              <Button 
+                variant="light" 
+                color="gray" 
+                onClick={() => onMostrarFormularioCapa(false)}
+              >
+                Cancelar
+              </Button>
+              {editandoCapa !== null ? (
+                <Button onClick={onActualizarCapa} disabled={!nuevaCapa.nombre}>
+                  Actualizar capa
+                </Button>
+              ) : (
+                <Button onClick={onGuardarResultadosEnCapa} loading={guardandoCapa} disabled={!nuevaCapa.nombre}>
+                  Guardar en capa
+                </Button>
+              )}
+            </Group>
+          </Stack>
+        </Paper>
+      )}
+
       {/* Sección de Capas LPR */}
       <Box style={{ marginTop: '24px' }}>
         <Text size="sm" fw={600} mb="md" style={{ color: '#40c057' }}>
           Capas LPR
         </Text>
-
-        {/* Botón para crear nueva capa */}
-        <Button
-          fullWidth
-          variant="light"
-          color="blue"
-          onClick={onGuardarResultadosEnCapa}
-          disabled={resultadosFiltro.lecturas.length === 0}
-          leftSection={<IconPlus size={16} />}
-          mb="md"
-        >
-          {resultadosFiltro.lecturas.length > 0
-            ? `Guardar ${resultadosFiltro.lecturas.length} lecturas en capa`
-            : 'Guardar resultados en capa'}
-        </Button>
-        
-        {/* Formulario para guardar capa */}
-        {mostrarFormularioCapa && (
-          <Paper p="md" withBorder mb="md">
-            <Stack gap="sm">
-              <TextInput
-                label="Nombre de la capa"
-                value={nuevaCapa.nombre}
-                onChange={e => onNuevaCapaChange({ nombre: e.target.value })}
-                placeholder="Ej: Lecturas LPR Matrícula ABC123"
-              />
-              <ColorInput
-                label="Color de la capa"
-                value={nuevaCapa.color}
-                onChange={color => onNuevaCapaChange({ color })}
-                format="hex"
-              />
-              <Group justify="flex-end">
-                <Button 
-                  variant="light" 
-                  color="gray" 
-                  onClick={() => onMostrarFormularioCapa(false)}
-                >
-                  Cancelar
-                </Button>
-                {editandoCapa !== null ? (
-                  <Button onClick={onActualizarCapa} disabled={!nuevaCapa.nombre}>
-                    Actualizar capa
-                  </Button>
-                ) : (
-                  <Button onClick={onGuardarResultadosEnCapa} loading={guardandoCapa} disabled={!nuevaCapa.nombre}>
-                    Guardar en capa
-                  </Button>
-                )}
-              </Group>
-            </Stack>
-          </Paper>
-        )}
 
         {/* Lista de capas existentes */}
         <Stack gap="xs">
