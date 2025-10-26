@@ -259,7 +259,6 @@ const LprFiltersPanel: React.FC<LprFiltersPanelProps> = ({
         color="red" 
         fullWidth
         onClick={onLimpiarMapa}
-        mt="md"
       >
         Limpiar Mapa
       </Button>
@@ -271,7 +270,6 @@ const LprFiltersPanel: React.FC<LprFiltersPanelProps> = ({
         color="blue"
         onClick={onGuardarResultadosEnCapa}
         disabled={resultadosFiltro.lecturas.length === 0}
-        mt="md"
       >
         <IconPlus size={16} style={{ marginRight: 8 }} />
         {resultadosFiltro.lecturas.length > 0

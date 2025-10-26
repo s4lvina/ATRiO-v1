@@ -462,9 +462,10 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
     ultimo: GpsLectura | null;
   }>({ primero: null, ultimo: null });
 
-  // Estados para el sidebar y pestañas
+  // Estados para el sidebar y paneles
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState<'filtros' | 'posiciones' | 'capas' | 'filtros-lpr' | 'lecturas-lpr' | 'shapefiles' | 'pois' | 'analisis' | 'exportar' | 'mapas' | 'controles'>('filtros');
+  const [activePanel, setActivePanel] = useState<'gps' | 'lpr' | 'pois' | 'ia' | 'capas-externas' | 'gestion'>('gps');
+  const [activeSubTab, setActiveSubTab] = useState<any>('filtros');
   const [selectedPositionIndex, setSelectedPositionIndex] = useState<number | null>(null);
 
   // Estados para mapas guardados
@@ -576,7 +577,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
   const [activeExternalTab, setActiveExternalTab] = useState<'bitacora' | 'excel' | 'shapefiles' | 'gpx-kmz'>('bitacora');
 
   // 1. Añadir estado para mostrar la línea de recorrido
-  const [mostrarLineaRecorrido, setMostrarLineaRecorrido] = useState(true);
+  const [mostrarLineaRecorrido, setMostrarLineaRecorrido] = useState(false);
 
   // Estado para la leyenda editable
   const [editLegend, setEditLegend] = useState<{ tipo: string; id: number | string; nombre: string } | null>(null);
@@ -1509,19 +1510,62 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
     }
   }, [handleAbrirModalLocalizacion]);
 
-  // Configuración de pestañas
-  const tabs = [
-    { id: 'filtros' as const, icon: IconFilter, label: 'FILTROS GPS', color: '#228be6' },
-    { id: 'posiciones' as const, icon: IconTable, label: 'TABLA DATOS GPS', color: '#228be6' },
-    { id: 'capas' as const, icon: IconStack, label: 'CAPAS GPS', color: '#228be6' },
-    { id: 'filtros-lpr' as const, icon: IconDeviceCctv, label: 'FILTROS LPR', color: '#40c057' },
-    { id: 'lecturas-lpr' as const, icon: IconTable, label: 'TABLA DATOS LPR', color: '#40c057' },
-    { id: 'shapefiles' as const, icon: IconUpload, label: 'CAPAS EXTERNAS', color: '#7950f2' },
-    { id: 'pois' as const, icon: IconMapPin, label: 'POIs', color: '#7950f2' },
-    { id: 'analisis' as const, icon: IconSparkles, label: 'ANALISIS IA', color: '#10a37f' },
-    { id: 'exportar' as const, icon: IconFileExport, label: 'EXPORTAR MAPA', color: '#e64980' },
-    { id: 'mapas' as const, icon: IconBookmark, label: 'GUARDAR MAPA', color: '#e64980' },
-    { id: 'controles' as const, icon: IconSettings, label: 'CONTROLES MAPA', color: '#e64980' }
+  // Configuración de paneles principales
+  const panels = [
+    { 
+      id: 'gps' as const, 
+      icon: IconMapPin, 
+      label: 'GPS', 
+      color: '#228be6',
+      subtabs: [
+        { id: 'filtros' as const, icon: IconFilter, label: 'Filtros' },
+        { id: 'tabla' as const, icon: IconTable, label: 'Tabla' },
+        { id: 'capas' as const, icon: IconStack, label: 'Capas' }
+      ]
+    },
+    { 
+      id: 'lpr' as const, 
+      icon: IconDeviceCctv, 
+      label: 'LPR', 
+      color: '#40c057',
+      subtabs: [
+        { id: 'filtros' as const, icon: IconFilter, label: 'Filtros' },
+        { id: 'tabla' as const, icon: IconTable, label: 'Tabla' },
+        { id: 'capas' as const, icon: IconStack, label: 'Capas' }
+      ]
+    },
+    { 
+      id: 'pois' as const, 
+      icon: IconHome, 
+      label: 'POIs', 
+      color: '#7950f2',
+      hasSubtabs: false
+    },
+    { 
+      id: 'ia' as const, 
+      icon: IconSparkles, 
+      label: 'Análisis IA', 
+      color: '#10a37f',
+      hasSubtabs: false
+    },
+    { 
+      id: 'capas-externas' as const, 
+      icon: IconUpload, 
+      label: 'Capas Ext.', 
+      color: '#fa5252',
+      hasSubtabs: false
+    },
+    { 
+      id: 'gestion' as const, 
+      icon: IconSettings, 
+      label: 'Gestión', 
+      color: '#343a40',
+      subtabs: [
+        { id: 'mapas' as const, icon: IconBookmark, label: 'Guardar' },
+        { id: 'exportar' as const, icon: IconFileExport, label: 'Exportar' },
+        { id: 'controles' as const, icon: IconSettings, label: 'Controles' }
+      ]
+    }
   ];
 
   // Tipos para el análisis inteligente
@@ -2509,17 +2553,50 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
     );
   };
 
+  // Mapear panel + subtab a pestaña original
+  const getActiveTab = (): string => {
+    if (activePanel === 'gps') {
+      switch (activeSubTab) {
+        case 'filtros': return 'filtros';
+        case 'tabla': return 'posiciones';
+        case 'capas': return 'capas';
+        default: return 'filtros';
+      }
+    } else if (activePanel === 'lpr') {
+      switch (activeSubTab) {
+        case 'filtros': return 'filtros-lpr';
+        case 'tabla': return 'lecturas-lpr';
+        case 'capas': return 'capas-lpr';
+        default: return 'filtros-lpr';
+      }
+    } else if (activePanel === 'pois') {
+      return 'pois';
+    } else if (activePanel === 'ia') {
+      return 'analisis';
+    } else if (activePanel === 'capas-externas') {
+      return 'shapefiles';
+    } else if (activePanel === 'gestion') {
+      // Las subtabs de gestión ya tienen IDs que coinciden con los casos
+      return activeSubTab as string;
+    }
+    return 'filtros';
+  };
+
   // Renderizado del contenido de cada pestaña
-  const renderTabContent = () => {
-    switch (activeTab) {
+  const renderPanelContent = () => {
+    const activeTab = getActiveTab();
+    return renderTabContentForTab(activeTab);
+  };
+
+  // Renderizado del contenido de cada pestaña
+  const renderTabContentForTab = (tabId: string) => {
+    switch (tabId) {
       case 'filtros':
         return (
           <Stack gap="md">
-            <Box style={{ height: 16 }} />
-            {/* <Title order={4}>Filtros y Análisis</Title> */}
             {/* Selector de vehículo objetivo */}
             <Select
-              label="Vehículo Objetivo"
+              label="Vehículo"
               placeholder="Selecciona matrícula"
               data={vehiculosDisponibles}
               value={vehiculoObjetivo}
@@ -3640,7 +3717,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
             <Button
               fullWidth
               variant="filled"
-              color="green"
+              color="blue"
               leftSection={<IconDeviceFloppy size={18} />}
               onClick={() => setModalGuardarMapa(true)}
               disabled={capas.length === 0 && capasBitacora.length === 0 && capasExcel.length === 0 && capasGpx.length === 0}
@@ -3763,6 +3840,33 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
           </Stack>
         );
 
+      case 'capas-lpr':
+        // Las capas LPR están integradas en el panel de filtros LPR
+        return (
+          <LprFiltersPanel
+            filters={lprFilters}
+            onFilterChange={handleLprFilterChange}
+            onFiltrar={handleLprFiltrar}
+            onLimpiar={handleLprLimpiar}
+            onLimpiarMapa={handleLprLimpiarMapa}
+            loading={lprLoading}
+            casoId={casoId}
+            capas={lprCapas}
+            onToggleCapa={handleLprToggleCapa}
+            onEditarCapa={handleLprEditarCapa}
+            onEliminarCapa={handleLprEliminarCapa}
+            onGuardarResultadosEnCapa={handleLprGuardarResultadosEnCapa}
+            nuevaCapa={nuevaLprCapa}
+            onNuevaCapaChange={(updates) => setNuevaLprCapa(prev => ({ ...prev, ...updates }))}
+            mostrarFormularioCapa={mostrarFormularioLprCapa}
+            onMostrarFormularioCapa={setMostrarFormularioLprCapa}
+            editandoCapa={editandoLprCapa}
+            onActualizarCapa={handleLprActualizarCapa}
+            guardandoCapa={guardandoLprCapa}
+            resultadosFiltro={lprResultadosFiltro}
+          />
+        );
+
       default:
         return null;
     }
@@ -3808,7 +3912,10 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
               justifyContent: 'center',
               padding: 0
             }}
-            onClick={() => setActiveTab('controles')}
+            onClick={() => {
+              setActivePanel('gestion');
+              setActiveSubTab('controles');
+            }}
             aria-label="Controles de mapa"
           >
             <IconSettings size={18} color="#234be7" />
@@ -4518,18 +4625,18 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
           borderRight: '1px solid var(--mantine-color-gray-3)',
           backgroundColor: 'var(--mantine-color-gray-0)'
         }}>
-          {tabs.map((tab) => {
-            const IconComponent = tab.icon;
-            const isActive = activeTab === tab.id;
+          {panels.map((panel) => {
+            const IconComponent = panel.icon;
+            const isActive = activePanel === panel.id;
             return (
               <Box
-                key={tab.id}
+                key={panel.id}
                 style={{
                   width: 40,
                   height: 40,
-                  border: `2px solid ${isActive ? tab.color : 'var(--mantine-color-gray-4)'}`,
+                  border: `2px solid ${isActive ? panel.color : 'var(--mantine-color-gray-4)'}`,
                   borderRadius: '4px',
-                  backgroundColor: isActive ? tab.color : 'white',
+                  backgroundColor: isActive ? panel.color : 'white',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -4537,12 +4644,19 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                   transition: 'all 0.2s ease',
                   position: 'relative'
                 }}
-                onClick={() => setActiveTab(tab.id)}
-                title={tab.label}
+                onClick={() => {
+                  setActivePanel(panel.id);
+                  if (panel.subtabs && panel.subtabs.length > 0) {
+                    setActiveSubTab(panel.subtabs[0].id);
+                  } else {
+                    setActiveSubTab(panel.id);
+                  }
+                }}
+                title={panel.label}
               >
                 <IconComponent 
                   size={20} 
-                  color={isActive ? 'white' : tab.color}
+                  color={isActive ? 'white' : panel.color}
                 />
                 {isActive && (
                   <Box
@@ -4555,7 +4669,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                       height: 0,
                       borderTop: '8px solid transparent',
                       borderBottom: '8px solid transparent',
-                      borderLeft: `8px solid ${tab.color}`,
+                      borderLeft: `8px solid ${panel.color}`,
                     }}
                   />
                 )}
@@ -4576,29 +4690,76 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
           }}
         >
           {/* Header del sidebar */}
-          <Group 
-            justify={sidebarOpen ? 'space-between' : 'center'} 
-            p="md" 
-            style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}
-          >
-            {sidebarOpen && (
-              <Title order={4}>
-                {tabs.find(tab => tab.id === activeTab)?.label || 'Herramientas GPS'}
-              </Title>
-            )}
-            <ActionIcon
-              variant="subtle"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              aria-label={sidebarOpen ? 'Colapsar sidebar' : 'Expandir sidebar'}
-            >
-              {sidebarOpen ? <IconMenuDeep size={18} /> : <IconMenu2 size={18} />}
-            </ActionIcon>
-          </Group>
+          {sidebarOpen && (
+            <>
+              <Group 
+                justify="space-between" 
+                p="md" 
+                style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}
+              >
+                <Title order={4}>
+                  {panels.find(p => p.id === activePanel)?.label || 'GPS'}
+                </Title>
+                <ActionIcon
+                  variant="subtle"
+                  onClick={() => setSidebarOpen(!sidebarOpen)}
+                  aria-label="Colapsar sidebar"
+                >
+                  <IconMenuDeep size={18} />
+                </ActionIcon>
+              </Group>
 
-          {/* Contenido de la pestaña activa */}
+              {/* Subtabs */}
+              {(() => {
+                const currentPanel = panels.find(p => p.id === activePanel);
+                if (!currentPanel || currentPanel.hasSubtabs === false) return null;
+
+                return (
+                  <Box style={{ 
+                    borderBottom: '1px solid var(--mantine-color-gray-3)', 
+                    padding: '8px' 
+                  }}>
+                    <Group gap={4}>
+                      {currentPanel.subtabs?.map((subtab) => {
+                        const SubIcon = subtab.icon;
+                        const isActive = activeSubTab === subtab.id;
+                        return (
+                          <Button
+                            key={subtab.id}
+                            size="xs"
+                            variant={isActive ? 'filled' : 'light'}
+                            color={currentPanel.color}
+                            leftSection={<SubIcon size={14} />}
+                            onClick={() => setActiveSubTab(subtab.id)}
+                            style={{ flex: 1 }}
+                          >
+                            {subtab.label}
+                          </Button>
+                        );
+                      })}
+                    </Group>
+                  </Box>
+                );
+              })()}
+            </>
+          )}
+
+          {!sidebarOpen && (
+            <Group justify="center" p="md">
+              <ActionIcon
+                variant="subtle"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                aria-label="Expandir sidebar"
+              >
+                <IconMenu2 size={18} />
+              </ActionIcon>
+            </Group>
+          )}
+
+          {/* Contenido del panel activo */}
           {sidebarOpen && (
             <ScrollArea flex={1} p="md" pt={0}>
-              {renderTabContent()}
+              {renderPanelContent()}
             </ScrollArea>
           )}
         </Paper>
@@ -4630,7 +4791,10 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                 justifyContent: 'center',
                 padding: 0
               }}
-              onClick={() => setActiveTab('controles')}
+              onClick={() => {
+                setActivePanel('gestion');
+                setActiveSubTab('controles');
+              }}
               aria-label="Controles de mapa"
             >
               <IconSettings size={18} color="#234be7" />
