@@ -124,16 +124,30 @@ def encontrar_puntos_inicio_fin(df: pd.DataFrame) -> tuple[List[Dict[str, Any]],
     return procesar_puntos(inicios), procesar_puntos(fines)
 
 def detectar_zonas_frecuentes(df: pd.DataFrame) -> List[Dict[str, Any]]:
-    """Detecta zonas de actividad frecuente usando DBSCAN"""
+    """
+    Detecta zonas de actividad frecuente de menos de 200m de radio
+    con un porcentaje significativo de paradas o tiempo detenido
+    """
     if len(df) < 10:
         return []
         
     df_copy = df.copy()
+    
+    # Identificar paradas (velocidad < 5 km/h)
+    df_copy['es_parada'] = df_copy['Velocidad'].fillna(0) < 5
+    df_copy['Fecha_y_Hora'] = pd.to_datetime(df_copy['Fecha_y_Hora'])
+    df_copy = df_copy.sort_values('Fecha_y_Hora')
+    
+    # Calcular tiempo entre lecturas consecutivas
+    df_copy['tiempo_siguiente'] = df_copy['Fecha_y_Hora'].shift(-1) - df_copy['Fecha_y_Hora']
+    df_copy['tiempo_siguiente_segundos'] = df_copy['tiempo_siguiente'].dt.total_seconds()
+    
     # Preparar datos para clustering
     coords = df_copy[['Coordenada_Y', 'Coordenada_X']].values
     
-    # Aplicar DBSCAN
-    clustering = DBSCAN(eps=0.001, min_samples=5).fit(coords)
+    # Aplicar DBSCAN con eps más restrictivo (≈200m)
+    # 0.0018 grados ≈ 200 metros (1 grado ≈ 111,000 metros)
+    clustering = DBSCAN(eps=0.0018, min_samples=3).fit(coords)
     df_copy.loc[:, 'cluster'] = clustering.labels_
     
     zonas = []
@@ -149,15 +163,36 @@ def detectar_zonas_frecuentes(df: pd.DataFrame) -> List[Dict[str, Any]]:
         )
         radio = float(distances.max() * 111000)  # Convertir a metros (aprox)
         
+        # Filtrar solo zonas de menos de 200 metros
+        if radio > 200:
+            continue
+        
+        # Calcular porcentaje de tiempo parado y número de paradas
+        paradas_en_zona = cluster_points['es_parada'].sum()
+        total_puntos = len(cluster_points)
+        porcentaje_paradas = (paradas_en_zona / total_puntos * 100) if total_puntos > 0 else 0
+        
+        # Calcular tiempo total parado (aproximado)
+        tiempo_parado = cluster_points[
+            cluster_points['es_parada']
+        ]['tiempo_siguiente_segundos'].fillna(0).sum() / 60  # en minutos
+        
+        # Solo incluir zonas con al menos 20% de paradas O tiempo significativo
+        if porcentaje_paradas < 20 and tiempo_parado < 10:
+            continue
+        
         zonas.append({
             'cluster_id': int(cluster),
             'lat': float(center_lat),
             'lon': float(center_lon),
             'frecuencia': len(cluster_points),
-            'radio': radio
+            'radio': radio,
+            'porcentaje_paradas': round(porcentaje_paradas, 1),
+            'tiempo_parado_minutos': round(tiempo_parado, 1)
         })
     
-    return sorted(zonas, key=lambda x: x['frecuencia'], reverse=True)[:5]
+    # Ordenar por tiempo parado y luego por frecuencia
+    return sorted(zonas, key=lambda x: (x.get('tiempo_parado_minutos', 0), x['frecuencia']), reverse=True)[:10]
 
 @router.post("/analisis_inteligente", description="Realiza un análisis inteligente de los datos GPS proporcionados")
 async def realizar_analisis_inteligente(request: AnalisisRequest):

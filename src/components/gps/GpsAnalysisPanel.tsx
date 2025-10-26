@@ -445,6 +445,7 @@ function getOffsetLatLngCircle(lat: number, lng: number, index: number, total: n
 
 const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSeleccionado }) => {
   const [selectedInfo, setSelectedInfo] = useState<any | null>(null);
+  const [zonaFrecuenteSeleccionada, setZonaFrecuenteSeleccionada] = useState<any | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   
   // Estados principales
@@ -673,9 +674,14 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
 
 
 
-  const centrarMapa = useCallback((lat: number, lon: number, zoom: number = 16) => {
+  const centrarMapa = useCallback((lat: number, lon: number, zoom: number = 16, info?: any) => {
     if (mapRef.current) {
       mapRef.current.setView([lat, lon], zoom);
+    }
+    
+    // Si se proporciona información adicional, establecerla como seleccionada
+    if (info) {
+      setSelectedInfo(info);
     }
   }, []);
 
@@ -1622,13 +1628,57 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
   // Añadir estado para el análisis inteligente
   const [analisisData, setAnalisisData] = useState<AnalisisInteligente | null>(null);
   const [loadingAnalisis, setLoadingAnalisis] = useState(false);
+  const [vehiculoAnalisis, setVehiculoAnalisis] = useState<'filtros-gps' | string | null>(null);
 
   // Función para realizar el análisis inteligente
   const handleAnalisisInteligente = async () => {
-    if (!vehiculoObjetivo || lecturas.length === 0) {
+    // Validar que haya un vehículo seleccionado
+    if (!vehiculoAnalisis) {
         notifications.show({
             title: 'Error',
-            message: 'Necesitas seleccionar un vehículo y cargar datos GPS para realizar el análisis.',
+            message: 'Necesitas seleccionar un vehículo o "Filtros GPS" para realizar el análisis.',
+            color: 'red',
+        });
+        return;
+    }
+
+    let lecturasParaAnalizar: GpsLectura[] = [];
+    let matricula = vehiculoObjetivo;
+
+    // Si se selecciona "Filtros GPS", usar las lecturas filtradas actuales
+    if (vehiculoAnalisis === 'filtros-gps') {
+        lecturasParaAnalizar = lecturasFiltradas;
+        // Usar el vehículo objetivo como matrícula si existe
+        if (!matricula) {
+            notifications.show({
+                title: 'Error',
+                message: 'No hay datos GPS filtrados para analizar.',
+                color: 'red',
+            });
+            return;
+        }
+    } else {
+        // Si se selecciona un vehículo específico, obtener todas sus lecturas
+        matricula = vehiculoAnalisis;
+        try {
+            lecturasParaAnalizar = await getLecturasGps(casoId, {
+                matricula: vehiculoAnalisis
+            });
+        } catch (error) {
+            notifications.show({
+                title: 'Error',
+                message: 'No se pudieron cargar las lecturas del vehículo seleccionado.',
+                color: 'red',
+            });
+            return;
+        }
+    }
+
+    // Validar que haya lecturas para analizar
+    if (lecturasParaAnalizar.length === 0) {
+        notifications.show({
+            title: 'Error',
+            message: 'No hay datos GPS disponibles para analizar.',
             color: 'red',
         });
         return;
@@ -1638,10 +1688,16 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
     try {
         const response = await apiClient.post(`/api/gps/analisis_inteligente`, {
             caso_id: casoId,
-            matricula: vehiculoObjetivo,
-            lecturas: lecturas
+            matricula: matricula,
+            lecturas: lecturasParaAnalizar
         });
         setAnalisisData(response.data);
+        notifications.show({
+            title: 'Análisis completado',
+            message: `Análisis completado para ${matricula} con ${lecturasParaAnalizar.length} puntos.`,
+            color: 'green',
+            autoClose: 3000,
+        });
     } catch (error) {
         notifications.show({
             title: 'Error',
@@ -2128,18 +2184,20 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
         XLSX.utils.book_append_sheet(workbook, finWS, "Puntos de Fin");
       }
 
-      // Zonas frecuentes
-      if (analisisData.zonas_frecuentes?.length > 0) {
-        const zonasData = analisisData.zonas_frecuentes.map((zona, idx) => ({
-          "Zona": `Zona ${idx + 1}`,
-          "Latitud": zona.lat,
-          "Longitud": zona.lon,
-          "Radio (m)": zona.radio,
-          "Frecuencia": zona.frecuencia
-        }));
-        const zonasWS = XLSX.utils.json_to_sheet(zonasData);
-        XLSX.utils.book_append_sheet(workbook, zonasWS, "Zonas Frecuentes");
-      }
+      // Zonas frecuentes - DESACTIVADO TEMPORALMENTE
+      // if (analisisData.zonas_frecuentes?.length > 0) {
+      //   const zonasData = analisisData.zonas_frecuentes.map((zona, idx) => ({
+      //     "Zona": `Zona ${idx + 1}`,
+      //     "Latitud": zona.lat,
+      //     "Longitud": zona.lon,
+      //     "Radio (m)": zona.radio,
+      //     "Puntos": zona.frecuencia,
+      //     "Paradas (%)": zona.porcentaje_paradas || 0,
+      //     "Tiempo parado (min)": zona.tiempo_parado_minutos || 0
+      //   }));
+      //   const zonasWS = XLSX.utils.json_to_sheet(zonasData);
+      //   XLSX.utils.book_append_sheet(workbook, zonasWS, "Zonas Frecuentes");
+      // }
 
       // Análisis de velocidad
       if (analisisData.analisis_velocidad) {
@@ -2287,7 +2345,28 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                 withBorder 
                 padding="sm"
                 style={{ cursor: 'pointer' }}
-                onClick={() => centrarMapa(lugar.lat, lugar.lon)}
+                onClick={() => {
+                  // Buscar lecturas que coinciden con estas coordenadas
+                  const lecturasCoincidentes = lecturas.filter(l => {
+                    const distancia = Math.sqrt(
+                      Math.pow(l.Coordenada_Y - lugar.lat, 2) + 
+                      Math.pow(l.Coordenada_X - lugar.lon, 2)
+                    );
+                    return distancia < 0.001; // Aprox 100m
+                  });
+                  
+                  centrarMapa(lugar.lat, lugar.lon, 16, {
+                    Coordenada_Y: lugar.lat,
+                    Coordenada_X: lugar.lon,
+                    Fecha_y_Hora: new Date().toISOString(),
+                    Velocidad: 0,
+                    Matricula: vehiculoObjetivo || 'N/A',
+                    tipo: 'lugar_frecuente',
+                    descripcion: lugar.descripcion || `Lugar frecuente ${idx + 1}`,
+                    frecuencia: lugar.frecuencia,
+                    fechas: lecturasCoincidentes.map(l => l.Fecha_y_Hora).filter(Boolean)
+                  });
+                }}
               >
                 <Group>
                   <Badge size="lg" variant="filled" color="blue" style={{ display: 'inline-flex', minWidth: 'max-content', padding: '4px 8px' }}>
@@ -2395,7 +2474,27 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                 <Group 
                   key={idx}
                   style={{ cursor: 'pointer' }}
-                  onClick={() => centrarMapa(punto.lat, punto.lon)}
+                  onClick={() => {
+                    // Buscar lecturas que coinciden con estas coordenadas
+                    const lecturasCoincidentes = lecturas.filter(l => {
+                      const distancia = Math.sqrt(
+                        Math.pow(l.Coordenada_Y - punto.lat, 2) + 
+                        Math.pow(l.Coordenada_X - punto.lon, 2)
+                      );
+                      return distancia < 0.001; // Aprox 100m
+                    });
+                    
+                    centrarMapa(punto.lat, punto.lon, 16, {
+                      Coordenada_Y: punto.lat,
+                      Coordenada_X: punto.lon,
+                      Fecha_y_Hora: new Date().toISOString(),
+                      Velocidad: 0,
+                      Matricula: vehiculoObjetivo || 'N/A',
+                      tipo: 'punto_inicio',
+                      frecuencia: punto.frecuencia,
+                      fechas: lecturasCoincidentes.map(l => l.Fecha_y_Hora).filter(Boolean)
+                    });
+                  }}
                 >
                   <Badge size="sm" style={{ display: 'inline-flex', minWidth: 'max-content', padding: '4px 8px' }}>{idx + 1}</Badge>
                   <Text size="sm">
@@ -2416,7 +2515,27 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                 <Group 
                   key={idx}
                   style={{ cursor: 'pointer' }}
-                  onClick={() => centrarMapa(punto.lat, punto.lon)}
+                  onClick={() => {
+                    // Buscar lecturas que coinciden con estas coordenadas
+                    const lecturasCoincidentes = lecturas.filter(l => {
+                      const distancia = Math.sqrt(
+                        Math.pow(l.Coordenada_Y - punto.lat, 2) + 
+                        Math.pow(l.Coordenada_X - punto.lon, 2)
+                      );
+                      return distancia < 0.001; // Aprox 100m
+                    });
+                    
+                    centrarMapa(punto.lat, punto.lon, 16, {
+                      Coordenada_Y: punto.lat,
+                      Coordenada_X: punto.lon,
+                      Fecha_y_Hora: new Date().toISOString(),
+                      Velocidad: 0,
+                      Matricula: vehiculoObjetivo || 'N/A',
+                      tipo: 'punto_fin',
+                      frecuencia: punto.frecuencia,
+                      fechas: lecturasCoincidentes.map(l => l.Fecha_y_Hora).filter(Boolean)
+                    });
+                  }}
                 >
                   <Badge size="sm" style={{ display: 'inline-flex', minWidth: 'max-content', padding: '4px 8px' }}>{idx + 1}</Badge>
                   <Text size="sm">
@@ -2431,9 +2550,14 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
           </Paper>
         </SimpleGrid>
 
-        {/* Zonas frecuentes */}
-        <Paper withBorder p="md">
-          <Title order={5}>🎯 Zonas frecuentes detectadas</Title>
+        {/* Zonas frecuentes - DESACTIVADO TEMPORALMENTE */}
+        {/* <Paper withBorder p="md">
+          <Group justify="space-between" mb="md">
+            <Title order={5}>🎯 Zonas frecuentes detectadas (≤200m)</Title>
+            <Badge color="teal" variant="light">
+              {analisisData.zonas_frecuentes.length} zonas
+            </Badge>
+          </Group>
           <SimpleGrid cols={2} spacing="md" mt="md">
             {analisisData.zonas_frecuentes.map((zona, idx) => (
               <Card 
@@ -2441,28 +2565,45 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                 withBorder 
                 padding="sm"
                 style={{ cursor: 'pointer' }}
-                onClick={() => centrarMapa(zona.lat, zona.lon)}
+                onClick={() => {
+                  // Centrar mapa y dibujar el área
+                  centrarMapa(zona.lat, zona.lon, 16);
+                  setZonaFrecuenteSeleccionada({
+                    lat: zona.lat,
+                    lon: zona.lon,
+                    radio: zona.radio,
+                    frecuencia: zona.frecuencia,
+                    idx: idx
+                  });
+                }}
               >
-                <Group>
-                  <Badge size="lg" variant="filled" color="grape" style={{ display: 'inline-flex', minWidth: 'max-content', padding: '4px 8px' }}>
-                    Zona {idx + 1}
-                  </Badge>
-                  <Stack gap={0}>
-                    <Text size="xs">
-                      Centro: {zona.lat.toFixed(6)}, {zona.lon.toFixed(6)}
+                <Stack gap="xs">
+                  <Group justify="space-between">
+                    <Badge size="lg" variant="filled" color="grape" style={{ display: 'inline-flex', minWidth: 'max-content', padding: '4px 8px' }}>
+                      Zona {idx + 1}
+                    </Badge>
+                    {zona.porcentaje_paradas && (
+                      <Badge size="sm" variant="light" color="orange">
+                        {zona.porcentaje_paradas}% paradas
+                      </Badge>
+                    )}
+                  </Group>
+                  <Text size="xs" c="dimmed">
+                    Radio: {zona.radio.toFixed(1)}m • {zona.frecuencia} puntos
+                  </Text>
+                  {zona.tiempo_parado_minutos && (
+                    <Text size="xs" c="blue" fw={500}>
+                      🕐 {zona.tiempo_parado_minutos} min parado
                     </Text>
-                    <Text size="xs">
-                      Radio: {zona.radio.toFixed(2)} metros
-                    </Text>
-                    <Text size="xs">
-                      Puntos: {zona.frecuencia}
-                    </Text>
-                  </Stack>
-                </Group>
+                  )}
+                  <Text size="xs" c="dimmed">
+                    {zona.lat.toFixed(4)}, {zona.lon.toFixed(4)}
+                  </Text>
+                </Stack>
               </Card>
             ))}
           </SimpleGrid>
-        </Paper>
+        </Paper> */}
 
         {/* Análisis de Velocidades */}
         {analisisData?.analisis_velocidad && (
@@ -3186,9 +3327,35 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
         );
 
       case 'analisis':
+        // Preparar datos para el selector de vehículo de análisis
+        const opcionesAnalisis = [
+          { value: 'filtros-gps', label: '📊 Filtros GPS' },
+          ...vehiculosDisponibles.map(v => ({ value: v.value, label: v.label }))
+        ];
+
         return (
           <Stack gap="md">
-            <Box style={{ height: 16 }} />
+            {/* Selector de vehículo para análisis */}
+            <Select
+              label="Datos a Analizar"
+              placeholder="Selecciona un vehículo o Filtros GPS"
+              data={opcionesAnalisis}
+              value={vehiculoAnalisis}
+              onChange={(value) => setVehiculoAnalisis(value)}
+              searchable
+              clearable
+              leftSection={<IconSparkles size={18} />}
+            />
+
+            {/* Información sobre la selección */}
+            {vehiculoAnalisis === 'filtros-gps' && (
+              <Alert icon={<IconInfoCircle size={16} />} color="blue">
+                <Text size="sm">
+                  Analizarás las <strong>{lecturasFiltradas.length}</strong> posiciones GPS actualmente filtradas.
+                </Text>
+              </Alert>
+            )}
+
             <Group gap="sm" mb="md">
               <Button  
               variant="light" 
@@ -3196,7 +3363,7 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
               leftSection={<IconSparkles size={18} />}
               onClick={handleAnalisisInteligente}
               loading={loadingAnalisis}
-              disabled={!vehiculoObjetivo || lecturas.length === 0}
+              disabled={!vehiculoAnalisis || (vehiculoAnalisis === 'filtros-gps' && lecturasFiltradas.length === 0)}
             >
               Analizar Datos
             </Button>
@@ -3209,12 +3376,26 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
             >
               Ver Detalle
             </Button>
+            {analisisData && (
+              <ActionIcon
+                variant="light"
+                color="red"
+                onClick={() => {
+                  setAnalisisData(null);
+                  setSelectedInfo(null);
+                  setZonaFrecuenteSeleccionada(null);
+                }}
+                title="Limpiar resultados"
+              >
+                <IconX size={20} />
+              </ActionIcon>
+            )}
           </Group>
 
           {/* Solo mostrar mensaje de ayuda o loading, NO informe ni exportación aquí */}
           {!analisisData && !loadingAnalisis && (
             <Alert icon={<IconInfoCircle size={16} />} color="blue">
-              Selecciona un vehículo y carga datos GPS para realizar un análisis inteligente de sus patrones de movimiento.
+              Selecciona un vehículo o "Filtros GPS" para realizar un análisis inteligente de patrones de movimiento.
             </Alert>
           )}
 
@@ -4587,6 +4768,147 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                 );
               })}
             </LayerGroup>
+
+            {/* Marcador de análisis (lugar frecuente, punto inicio/fin) */}
+            {selectedInfo && (selectedInfo.tipo === 'lugar_frecuente' || selectedInfo.tipo === 'punto_inicio' || selectedInfo.tipo === 'punto_fin') && (
+              <LayerGroup>
+                <Marker
+                  position={[selectedInfo.Coordenada_Y, selectedInfo.Coordenada_X]}
+                  icon={L.divIcon({
+                    className: 'custom-div-icon',
+                    html: `
+                      <div style="
+                        background-color: #fa5252;
+                        border: 3px solid white;
+                        width: 20px;
+                        height: 20px;
+                        border-radius: 50%;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                      "></div>
+                    `,
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
+                  })}
+                  zIndexOffset={300}
+                >
+                  <Popup>
+                    <div style={{ minWidth: 250, maxWidth: 400 }}>
+                      <div style={{ fontWeight: 700, fontSize: 16, color: '#fa5252', marginBottom: 4 }}>
+                        {selectedInfo.tipo === 'lugar_frecuente' && '📍 Lugar Frecuente'}
+                        {selectedInfo.tipo === 'punto_inicio' && '🚗 Punto de Inicio'}
+                        {selectedInfo.tipo === 'punto_fin' && '🏁 Punto de Fin'}
+                      </div>
+                      {selectedInfo.descripcion && (
+                        <div style={{ fontSize: 13, marginBottom: 2 }}>
+                          <b>Descripción:</b> {selectedInfo.descripcion}
+                        </div>
+                      )}
+                      <div style={{ fontSize: 13, marginBottom: 8 }}>
+                        <b>Coordenadas:</b> {selectedInfo.Coordenada_Y.toFixed(6)}, {selectedInfo.Coordenada_X.toFixed(6)}
+                      </div>
+                      {selectedInfo.frecuencia && (
+                        <>
+                          <div style={{ fontSize: 13, marginBottom: 8, fontWeight: 500 }}>
+                            <b>Total apariciones:</b> {selectedInfo.frecuencia} veces
+                          </div>
+                          {selectedInfo.fechas && selectedInfo.fechas.length > 0 && (
+                            <div style={{ marginBottom: 8 }}>
+                              <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
+                                Detalle de apariciones:
+                              </div>
+                              <div style={{ 
+                                maxHeight: '150px', 
+                                overflowY: 'auto', 
+                                border: '1px solid #e0e0e0', 
+                                borderRadius: '4px',
+                                padding: '4px'
+                              }}>
+                                {selectedInfo.fechas.map((fecha: string, idx: number) => (
+                                  <div key={idx} style={{ fontSize: 11, padding: '2px 4px', borderBottom: idx < selectedInfo.fechas.length - 1 ? '1px solid #f0f0f0' : 'none' }}>
+                                    {new Date(fecha).toLocaleString('es-ES')}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                      <div style={{ borderTop: '1px solid #e0e0e0', marginTop: 8, paddingTop: 8 }}>
+                        <a
+                          href={`https://www.google.com/maps?q=${selectedInfo.Coordenada_Y},${selectedInfo.Coordenada_X}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontSize: 13,
+                            color: '#4285F4',
+                            textDecoration: 'none',
+                            fontWeight: 500
+                          }}
+                        >
+                          <IconMap size={16} /> Ver en Google Maps
+                        </a>
+                      </div>
+                    </div>
+                  </Popup>
+                </Marker>
+              </LayerGroup>
+            )}
+
+            {/* Área de zona frecuente detectada - DESACTIVADO TEMPORALMENTE */}
+            {/* {zonaFrecuenteSeleccionada && (
+              <LayerGroup>
+                <Circle
+                  center={[zonaFrecuenteSeleccionada.lat, zonaFrecuenteSeleccionada.lon]}
+                  radius={zonaFrecuenteSeleccionada.radio}
+                  pathOptions={{
+                    color: '#fa5252',
+                    fillColor: '#fa5252',
+                    fillOpacity: 0.2,
+                    weight: 3,
+                    opacity: 0.8
+                  }}
+                >
+                  <Popup>
+                    <div style={{ minWidth: 200 }}>
+                      <div style={{ fontWeight: 700, fontSize: 16, color: '#fa5252', marginBottom: 4 }}>
+                        🎯 Zona Frecuente {zonaFrecuenteSeleccionada.idx + 1}
+                      </div>
+                      <div style={{ fontSize: 13, marginBottom: 2 }}>
+                        <b>Radio:</b> {zonaFrecuenteSeleccionada.radio.toFixed(2)} metros
+                      </div>
+                      <div style={{ fontSize: 13, marginBottom: 2 }}>
+                        <b>Frecuencia:</b> {zonaFrecuenteSeleccionada.frecuencia} puntos
+                      </div>
+                      <div style={{ fontSize: 13, marginBottom: 2 }}>
+                        <b>Centro:</b> {zonaFrecuenteSeleccionada.lat.toFixed(6)}, {zonaFrecuenteSeleccionada.lon.toFixed(6)}
+                      </div>
+                    </div>
+                  </Popup>
+                </Circle>
+                <Marker
+                  position={[zonaFrecuenteSeleccionada.lat, zonaFrecuenteSeleccionada.lon]}
+                  icon={L.divIcon({
+                    className: 'custom-div-icon',
+                    html: `
+                      <div style="
+                        background-color: #fa5252;
+                        border: 3px solid white;
+                        width: 18px;
+                        height: 18px;
+                        border-radius: 50%;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                      "></div>
+                    `,
+                    iconSize: [18, 18],
+                    iconAnchor: [9, 9]
+                  })}
+                  zIndexOffset={310}
+                />
+              </LayerGroup>
+            )} */}
           </GpsMapStandalone>
         </Paper>
       </div>
@@ -5603,6 +5925,147 @@ const GpsAnalysisPanel: React.FC<GpsAnalysisPanelProps> = ({ casoId, puntoSelecc
                 .filter(Boolean)
               }
             </LayerGroup>
+
+            {/* Marcador de análisis (lugar frecuente, punto inicio/fin) */}
+            {selectedInfo && (selectedInfo.tipo === 'lugar_frecuente' || selectedInfo.tipo === 'punto_inicio' || selectedInfo.tipo === 'punto_fin') && (
+              <LayerGroup>
+                <Marker
+                  position={[selectedInfo.Coordenada_Y, selectedInfo.Coordenada_X]}
+                  icon={L.divIcon({
+                    className: 'custom-div-icon',
+                    html: `
+                      <div style="
+                        background-color: #fa5252;
+                        border: 3px solid white;
+                        width: 20px;
+                        height: 20px;
+                        border-radius: 50%;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                      "></div>
+                    `,
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
+                  })}
+                  zIndexOffset={300}
+                >
+                  <Popup>
+                    <div style={{ minWidth: 250, maxWidth: 400 }}>
+                      <div style={{ fontWeight: 700, fontSize: 16, color: '#fa5252', marginBottom: 4 }}>
+                        {selectedInfo.tipo === 'lugar_frecuente' && '📍 Lugar Frecuente'}
+                        {selectedInfo.tipo === 'punto_inicio' && '🚗 Punto de Inicio'}
+                        {selectedInfo.tipo === 'punto_fin' && '🏁 Punto de Fin'}
+                      </div>
+                      {selectedInfo.descripcion && (
+                        <div style={{ fontSize: 13, marginBottom: 2 }}>
+                          <b>Descripción:</b> {selectedInfo.descripcion}
+                        </div>
+                      )}
+                      <div style={{ fontSize: 13, marginBottom: 8 }}>
+                        <b>Coordenadas:</b> {selectedInfo.Coordenada_Y.toFixed(6)}, {selectedInfo.Coordenada_X.toFixed(6)}
+                      </div>
+                      {selectedInfo.frecuencia && (
+                        <>
+                          <div style={{ fontSize: 13, marginBottom: 8, fontWeight: 500 }}>
+                            <b>Total apariciones:</b> {selectedInfo.frecuencia} veces
+                          </div>
+                          {selectedInfo.fechas && selectedInfo.fechas.length > 0 && (
+                            <div style={{ marginBottom: 8 }}>
+                              <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
+                                Detalle de apariciones:
+                              </div>
+                              <div style={{ 
+                                maxHeight: '150px', 
+                                overflowY: 'auto', 
+                                border: '1px solid #e0e0e0', 
+                                borderRadius: '4px',
+                                padding: '4px'
+                              }}>
+                                {selectedInfo.fechas.map((fecha: string, idx: number) => (
+                                  <div key={idx} style={{ fontSize: 11, padding: '2px 4px', borderBottom: idx < selectedInfo.fechas.length - 1 ? '1px solid #f0f0f0' : 'none' }}>
+                                    {new Date(fecha).toLocaleString('es-ES')}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                      <div style={{ borderTop: '1px solid #e0e0e0', marginTop: 8, paddingTop: 8 }}>
+                        <a
+                          href={`https://www.google.com/maps?q=${selectedInfo.Coordenada_Y},${selectedInfo.Coordenada_X}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontSize: 13,
+                            color: '#4285F4',
+                            textDecoration: 'none',
+                            fontWeight: 500
+                          }}
+                        >
+                          <IconMap size={16} /> Ver en Google Maps
+                        </a>
+                      </div>
+                    </div>
+                  </Popup>
+                </Marker>
+              </LayerGroup>
+            )}
+
+            {/* Área de zona frecuente detectada - DESACTIVADO TEMPORALMENTE */}
+            {/* {zonaFrecuenteSeleccionada && (
+              <LayerGroup>
+                <Circle
+                  center={[zonaFrecuenteSeleccionada.lat, zonaFrecuenteSeleccionada.lon]}
+                  radius={zonaFrecuenteSeleccionada.radio}
+                  pathOptions={{
+                    color: '#fa5252',
+                    fillColor: '#fa5252',
+                    fillOpacity: 0.2,
+                    weight: 3,
+                    opacity: 0.8
+                  }}
+                >
+                  <Popup>
+                    <div style={{ minWidth: 200 }}>
+                      <div style={{ fontWeight: 700, fontSize: 16, color: '#fa5252', marginBottom: 4 }}>
+                        🎯 Zona Frecuente {zonaFrecuenteSeleccionada.idx + 1}
+                      </div>
+                      <div style={{ fontSize: 13, marginBottom: 2 }}>
+                        <b>Radio:</b> {zonaFrecuenteSeleccionada.radio.toFixed(2)} metros
+                      </div>
+                      <div style={{ fontSize: 13, marginBottom: 2 }}>
+                        <b>Frecuencia:</b> {zonaFrecuenteSeleccionada.frecuencia} puntos
+                      </div>
+                      <div style={{ fontSize: 13, marginBottom: 2 }}>
+                        <b>Centro:</b> {zonaFrecuenteSeleccionada.lat.toFixed(6)}, {zonaFrecuenteSeleccionada.lon.toFixed(6)}
+                      </div>
+                    </div>
+                  </Popup>
+                </Circle>
+                <Marker
+                  position={[zonaFrecuenteSeleccionada.lat, zonaFrecuenteSeleccionada.lon]}
+                  icon={L.divIcon({
+                    className: 'custom-div-icon',
+                    html: `
+                      <div style="
+                        background-color: #fa5252;
+                        border: 3px solid white;
+                        width: 18px;
+                        height: 18px;
+                        border-radius: 50%;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                      "></div>
+                    `,
+                    iconSize: [18, 18],
+                    iconAnchor: [9, 9]
+                  })}
+                  zIndexOffset={310}
+                />
+              </LayerGroup>
+            )} */}
             </GpsMapStandalone>
           </Paper>
         </Box>
