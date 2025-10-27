@@ -33,7 +33,9 @@ def solucionar_lector_problematico():
 
             print("\n📝 Lecturas que impiden la eliminación:")
             for lectura in lecturas:
-                print(f"   ID: {lectura[0]}, Matrícula: {lectura[1]}, Fecha: {lectura[2]}, Caso: {lectura[3]}")
+                print(
+                    f"   ID: {lectura[0]}, Matrícula: {lectura[1]}, Fecha: {lectura[2]}, Caso: {lectura[3]}"
+                )
 
         print("\n🛠️  OPCIONES DE SOLUCIÓN:")
         print("=" * 60)
@@ -98,12 +100,17 @@ def corregir_matricula(cursor, conn, lector_id, nueva_matricula):
         print(f"\n✏️  Corrigiendo matrícula de {lector_id} a {nueva_matricula}...")
 
         # Actualizar las lecturas con la nueva matrícula
-        cursor.execute("UPDATE lectura SET Matricula = ? WHERE ID_Lector = ?", (nueva_matricula, lector_id))
+        cursor.execute(
+            "UPDATE lectura SET Matricula = ? WHERE ID_Lector = ?",
+            (nueva_matricula, lector_id),
+        )
         lecturas_actualizadas = cursor.rowcount
 
         conn.commit()
 
-        print(f"✅ Actualizadas {lecturas_actualizadas} lecturas con la nueva matrícula")
+        print(
+            f"✅ Actualizadas {lecturas_actualizadas} lecturas con la nueva matrícula"
+        )
         print("✅ Ahora puedes eliminar el lector desde la interfaz")
 
         return True
@@ -117,7 +124,9 @@ def corregir_matricula(cursor, conn, lector_id, nueva_matricula):
 def reasignar_a_lector(cursor, conn, lector_viejo, lector_nuevo):
     try:
         # Verificar que el nuevo lector existe
-        cursor.execute("SELECT ID_Lector FROM lector WHERE ID_Lector = ?", (lector_nuevo,))
+        cursor.execute(
+            "SELECT ID_Lector FROM lector WHERE ID_Lector = ?", (lector_nuevo,)
+        )
         if not cursor.fetchone():
             print(f"❌ El lector {lector_nuevo} no existe")
             return False
@@ -125,12 +134,17 @@ def reasignar_a_lector(cursor, conn, lector_viejo, lector_nuevo):
         print(f"\n🔄 Reasignando lecturas de {lector_viejo} a {lector_nuevo}...")
 
         # Reasignar las lecturas
-        cursor.execute("UPDATE lectura SET ID_Lector = ? WHERE ID_Lector = ?", (lector_nuevo, lector_viejo))
+        cursor.execute(
+            "UPDATE lectura SET ID_Lector = ? WHERE ID_Lector = ?",
+            (lector_nuevo, lector_viejo),
+        )
         lecturas_reasignadas = cursor.rowcount
 
         conn.commit()
 
-        print(f"✅ Reasignadas {lecturas_reasignadas} lecturas al lector {lector_nuevo}")
+        print(
+            f"✅ Reasignadas {lecturas_reasignadas} lecturas al lector {lector_nuevo}"
+        )
         print("✅ Ahora puedes eliminar el lector erróneo desde la interfaz")
 
         return True

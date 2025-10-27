@@ -73,7 +73,9 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["caso_id"], ["casos.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_archivos_excel_id"), "archivos_excel", ["id"], unique=False)
+    op.create_index(
+        op.f("ix_archivos_excel_id"), "archivos_excel", ["id"], unique=False
+    )
     op.create_table(
         "capas_bitacora",
         sa.Column("id", sa.Integer(), nullable=False),
@@ -83,7 +85,9 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["caso_id"], ["casos.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_capas_bitacora_id"), "capas_bitacora", ["id"], unique=False)
+    op.create_index(
+        op.f("ix_capas_bitacora_id"), "capas_bitacora", ["id"], unique=False
+    )
     op.create_table(
         "saved_searches",
         sa.Column("id", sa.Integer(), nullable=False),
@@ -95,7 +99,9 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["caso_id"], ["casos.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_saved_searches_id"), "saved_searches", ["id"], unique=False)
+    op.create_index(
+        op.f("ix_saved_searches_id"), "saved_searches", ["id"], unique=False
+    )
     op.create_table(
         "puntos_bitacora",
         sa.Column("id", sa.Integer(), nullable=False),
@@ -109,7 +115,9 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["capa_id"], ["capas_bitacora.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_puntos_bitacora_id"), "puntos_bitacora", ["id"], unique=False)
+    op.create_index(
+        op.f("ix_puntos_bitacora_id"), "puntos_bitacora", ["id"], unique=False
+    )
     # ### end Alembic commands ###
 
 

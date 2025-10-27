@@ -48,15 +48,27 @@ class Caso(Base):
     ID_Caso = Column(Integer, primary_key=True, index=True, autoincrement=True)
     Nombre_del_Caso = Column(Text, unique=True, nullable=False, index=True)
     Año = Column(Integer, nullable=False)  # Obligatorio
-    NIV = Column(String(50), nullable=True)  # Opcional, String con longitud por si acaso
+    NIV = Column(
+        String(50), nullable=True
+    )  # Opcional, String con longitud por si acaso
     Descripcion = Column(Text)
     Fecha_de_Creacion = Column(Date, nullable=False, default=datetime.date.today)
-    Estado = Column(String(50), default=EstadoCasoEnum.NUEVO.value, nullable=False, index=True)
-    ID_Grupo = Column(Integer, ForeignKey("Grupos.ID_Grupo"), nullable=False, index=True)
+    Estado = Column(
+        String(50), default=EstadoCasoEnum.NUEVO.value, nullable=False, index=True
+    )
+    ID_Grupo = Column(
+        Integer, ForeignKey("Grupos.ID_Grupo"), nullable=False, index=True
+    )
 
-    archivos = relationship("ArchivoExcel", back_populates="caso", cascade="all, delete-orphan")
-    saved_searches = relationship("SavedSearch", back_populates="caso", cascade="all, delete-orphan")
-    external_data = relationship("ExternalData", back_populates="caso", cascade="all, delete-orphan")
+    archivos = relationship(
+        "ArchivoExcel", back_populates="caso", cascade="all, delete-orphan"
+    )
+    saved_searches = relationship(
+        "SavedSearch", back_populates="caso", cascade="all, delete-orphan"
+    )
+    external_data = relationship(
+        "ExternalData", back_populates="caso", cascade="all, delete-orphan"
+    )
     grupo = relationship("Grupo", back_populates="casos")
 
 
@@ -65,12 +77,18 @@ class ArchivoExcel(Base):
     ID_Archivo = Column(Integer, primary_key=True, index=True, autoincrement=True)
     ID_Caso = Column(Integer, ForeignKey("Casos.ID_Caso"), nullable=False)
     Nombre_del_Archivo = Column(Text, nullable=False)
-    Tipo_de_Archivo = Column(Text, CheckConstraint("Tipo_de_Archivo IN ('GPS', 'LPR', 'EXTERNO')"), nullable=False)
+    Tipo_de_Archivo = Column(
+        Text,
+        CheckConstraint("Tipo_de_Archivo IN ('GPS', 'LPR', 'EXTERNO')"),
+        nullable=False,
+    )
     Fecha_de_Importacion = Column(Date, nullable=False, default=datetime.date.today)
     Total_Registros = Column(Integer, nullable=False, default=0)
 
     caso = relationship("Caso", back_populates="archivos")
-    lecturas = relationship("Lectura", back_populates="archivo", cascade="all, delete-orphan")
+    lecturas = relationship(
+        "Lectura", back_populates="archivo", cascade="all, delete-orphan"
+    )
 
 
 class Lector(Base):
@@ -81,7 +99,9 @@ class Lector(Base):
     Carretera = Column(String(100), nullable=True)
     Provincia = Column(String(50), nullable=True)
     Localidad = Column(String(100), nullable=True)
-    Sentido = Column(String(50), nullable=True)  # Ej: "Creciente", "Decreciente", "Norte", "Sur"
+    Sentido = Column(
+        String(50), nullable=True
+    )  # Ej: "Creciente", "Decreciente", "Norte", "Sur"
     Orientacion = Column(String(100), nullable=True)  # Ej: "Hacia Madrid", "90 grados"
     Organismo_Regulador = Column(String(100), nullable=True, index=True)
     Contacto = Column(String(255), nullable=True)
@@ -104,7 +124,9 @@ class Lectura(Base):
     Carril = Column(String(50), nullable=True)
     Velocidad = Column(Float, nullable=True)
     # Asegurar que ForeignKey coincide con el tipo y longitud de Lector.ID_Lector
-    ID_Lector = Column(String(50), ForeignKey("lector.ID_Lector"), nullable=True, index=True)
+    ID_Lector = Column(
+        String(50), ForeignKey("lector.ID_Lector"), nullable=True, index=True
+    )
     Coordenada_X = Column(Float, nullable=True)
     Coordenada_Y = Column(Float, nullable=True)
     Tipo_Fuente = Column(String(10), nullable=False)  # 'LPR' o 'GPS'
@@ -114,14 +136,21 @@ class Lectura(Base):
     # Relación con Lector
     lector = relationship("Lector", back_populates="lecturas")
     # Relación con LecturaRelevante (uno a uno o cero)
-    relevancia = relationship("LecturaRelevante", back_populates="lectura", uselist=False, cascade="all, delete-orphan")
+    relevancia = relationship(
+        "LecturaRelevante",
+        back_populates="lectura",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
 
 
 # Nueva tabla para lecturas relevantes
 class LecturaRelevante(Base):
     __tablename__ = "LecturasRelevantes"
     ID_Relevante = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    ID_Lectura = Column(Integer, ForeignKey("lectura.ID_Lectura"), unique=True, nullable=False)
+    ID_Lectura = Column(
+        Integer, ForeignKey("lectura.ID_Lectura"), unique=True, nullable=False
+    )
     Fecha_Marcada = Column(DateTime, nullable=False, default=datetime.datetime.utcnow)
     Nota = Column(Text, nullable=True)
 
@@ -151,12 +180,19 @@ class SavedSearch(Base):
     __tablename__ = "saved_searches"
 
     id = Column(Integer, primary_key=True, index=True)
-    caso_id = Column(Integer, ForeignKey("Casos.ID_Caso", ondelete="CASCADE"), nullable=False, index=True)
+    caso_id = Column(
+        Integer,
+        ForeignKey("Casos.ID_Caso", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     name = Column(String(150), nullable=False)
     filters = Column(JSON, nullable=False)  # Almacena los filtros como JSON
     results = Column(JSON, nullable=False)  # Almacena los resultados como JSON
     created_at = Column(DateTime, nullable=False, default=func.now())
-    updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
+    updated_at = Column(
+        DateTime, nullable=False, default=func.now(), onupdate=func.now()
+    )
 
     caso = relationship("Caso", back_populates="saved_searches")
 
@@ -215,7 +251,9 @@ class LocalizacionInteres(Base):
     __tablename__ = "localizaciones_interes"
     id = Column(Integer, primary_key=True, index=True)
     caso_id = Column(Integer, ForeignKey("Casos.ID_Caso"), nullable=False, index=True)
-    id_lectura = Column(Integer, nullable=True, index=True)  # Puede estar asociada a una lectura GPS
+    id_lectura = Column(
+        Integer, nullable=True, index=True
+    )  # Puede estar asociada a una lectura GPS
     titulo = Column(String(100), nullable=False)
     descripcion = Column(Text, nullable=True)
     fecha_hora = Column(String(30), nullable=False)  # ISO string para simplicidad
@@ -232,7 +270,9 @@ class MapaGuardado(Base):
     nombre = Column(String(200), nullable=False)
     descripcion = Column(Text, nullable=True)
     fecha_creacion = Column(DateTime, nullable=False, default=func.now())
-    fecha_modificacion = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
+    fecha_modificacion = Column(
+        DateTime, nullable=False, default=func.now(), onupdate=func.now()
+    )
     thumbnail = Column(String(500), nullable=True)  # URL o path del thumbnail
     estado = Column(JSON, nullable=False)  # Estado completo del mapa serializado
 
@@ -248,9 +288,15 @@ class RolUsuarioEnum(enum.Enum):
 
 class Usuario(Base):
     __tablename__ = "usuarios"
-    User = Column(Integer, primary_key=True, index=True, unique=True, autoincrement=False)
+    User = Column(
+        Integer, primary_key=True, index=True, unique=True, autoincrement=False
+    )
     Contraseña = Column(String(128), nullable=False)
-    Rol = Column(SQLAlchemyEnum(RolUsuarioEnum), nullable=False, default=RolUsuarioEnum.admingrupo.value)
+    Rol = Column(
+        SQLAlchemyEnum(RolUsuarioEnum),
+        nullable=False,
+        default=RolUsuarioEnum.admingrupo.value,
+    )
     ID_Grupo = Column(Integer, ForeignKey("Grupos.ID_Grupo"), nullable=True)
 
     grupo = relationship("Grupo")

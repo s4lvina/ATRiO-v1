@@ -23,7 +23,9 @@ class AnalisisRequest(BaseModel):
     lecturas: List[GpsLectura]
 
 
-def encontrar_lugares_frecuentes(df: pd.DataFrame, min_tiempo_parada: int = 5) -> List[Dict[str, Any]]:
+def encontrar_lugares_frecuentes(
+    df: pd.DataFrame, min_tiempo_parada: int = 5
+) -> List[Dict[str, Any]]:
     """
     Encuentra lugares donde el vehículo se detiene frecuentemente.
     min_tiempo_parada: tiempo mínimo en minutos para considerar una parada
@@ -38,7 +40,9 @@ def encontrar_lugares_frecuentes(df: pd.DataFrame, min_tiempo_parada: int = 5) -
     df["tiempo_detenido"] = df["Fecha_y_Hora"].diff().dt.total_seconds() / 60
 
     # Identificar paradas (velocidad baja y tiempo significativo)
-    paradas = df[(df["Velocidad"].fillna(0) < 5) & (df["tiempo_detenido"] >= min_tiempo_parada)]
+    paradas = df[
+        (df["Velocidad"].fillna(0) < 5) & (df["tiempo_detenido"] >= min_tiempo_parada)
+    ]
 
     # Agrupar paradas cercanas usando DBSCAN
     coords = paradas[["Coordenada_Y", "Coordenada_X"]].values
@@ -55,7 +59,13 @@ def encontrar_lugares_frecuentes(df: pd.DataFrame, min_tiempo_parada: int = 5) -
         center_lat = cluster_points["Coordenada_Y"].mean()
         center_lon = cluster_points["Coordenada_X"].mean()
 
-        lugares_frecuentes.append({"lat": float(center_lat), "lon": float(center_lon), "frecuencia": len(cluster_points)})
+        lugares_frecuentes.append(
+            {
+                "lat": float(center_lat),
+                "lon": float(center_lon),
+                "frecuencia": len(cluster_points),
+            }
+        )
 
     return sorted(lugares_frecuentes, key=lambda x: x["frecuencia"], reverse=True)[:5]
 
@@ -64,21 +74,45 @@ def analizar_actividad_horaria(df: pd.DataFrame) -> List[Dict[str, Any]]:
     """Analiza la actividad por hora del día"""
     df["hora"] = pd.to_datetime(df["Fecha_y_Hora"]).dt.hour
     actividad = df.groupby("hora").size().reset_index()
-    return [{"hora": int(row["hora"]), "frecuencia": int(row[1])} for _, row in actividad.iterrows()]
+    return [
+        {"hora": int(row["hora"]), "frecuencia": int(row[1])}
+        for _, row in actividad.iterrows()
+    ]
 
 
 def analizar_actividad_semanal(df: pd.DataFrame) -> List[Dict[str, Any]]:
     """Analiza la actividad por día de la semana"""
     df["dia"] = pd.to_datetime(df["Fecha_y_Hora"]).dt.day_name()
-    dias_orden = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-    dias_esp = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+    dias_orden = [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
+    ]
+    dias_esp = [
+        "Lunes",
+        "Martes",
+        "Miércoles",
+        "Jueves",
+        "Viernes",
+        "Sábado",
+        "Domingo",
+    ]
     mapping = dict(zip(dias_orden, dias_esp))
 
     actividad = df.groupby("dia").size().reindex(dias_orden).fillna(0)
-    return [{"dia": mapping[dia], "frecuencia": int(freq)} for dia, freq in actividad.items()]
+    return [
+        {"dia": mapping[dia], "frecuencia": int(freq)}
+        for dia, freq in actividad.items()
+    ]
 
 
-def encontrar_puntos_inicio_fin(df: pd.DataFrame) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+def encontrar_puntos_inicio_fin(
+    df: pd.DataFrame,
+) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     """Identifica puntos comunes de inicio y fin de trayectos"""
     df = df.sort_values("Fecha_y_Hora")
 
@@ -135,7 +169,8 @@ def detectar_zonas_frecuentes(df: pd.DataFrame) -> List[Dict[str, Any]]:
 
         # Calcular radio aproximado del cluster
         distances = np.sqrt(
-            (cluster_points["Coordenada_Y"] - center_lat) ** 2 + (cluster_points["Coordenada_X"] - center_lon) ** 2
+            (cluster_points["Coordenada_Y"] - center_lat) ** 2
+            + (cluster_points["Coordenada_X"] - center_lon) ** 2
         )
         radio = float(distances.max() * 111000)  # Convertir a metros (aprox)
 

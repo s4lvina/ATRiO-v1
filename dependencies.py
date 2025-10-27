@@ -42,9 +42,13 @@ async def get_current_active_user(
     except JWTError as e:
         # Token inválido (expirado, malformado, etc.)
         if "Signature has expired" in str(e):
-            logger.debug(f"Token expirado en get_current_active_user: {e}")  # DEBUG en lugar de ERROR para tokens expirados
+            logger.debug(
+                f"Token expirado en get_current_active_user: {e}"
+            )  # DEBUG en lugar de ERROR para tokens expirados
         else:
-            logger.error(f"JWTError en get_current_active_user: {e}", exc_info=True)  # ERROR solo para otros errores JWT
+            logger.error(
+                f"JWTError en get_current_active_user: {e}", exc_info=True
+            )  # ERROR solo para otros errores JWT
         raise credentials_exception  # Aquí sí lanzamos error porque se proveyó un token inválido
 
     # Convertir el username (str desde el token) a int para la búsqueda en BD
@@ -52,26 +56,41 @@ async def get_current_active_user(
         user_id_from_token = int(token_data.username)
     except (ValueError, TypeError):
         # Si username no es un int válido, no se puede buscar el usuario
-        logger.error(f"Error convirtiendo token_data.username ({token_data.username}) a int.", exc_info=True)
+        logger.error(
+            f"Error convirtiendo token_data.username ({token_data.username}) a int.",
+            exc_info=True,
+        )
         raise credentials_exception
 
-    user = db.query(models.Usuario).filter(models.Usuario.User == user_id_from_token).first()
+    user = (
+        db.query(models.Usuario)
+        .filter(models.Usuario.User == user_id_from_token)
+        .first()
+    )
     if user is None:
         # Usuario no encontrado en DB para el token dado
         raise credentials_exception
     return user
 
 
-async def get_current_active_superadmin(current_user: models.Usuario = Depends(get_current_active_user)) -> models.Usuario:
+async def get_current_active_superadmin(
+    current_user: models.Usuario = Depends(get_current_active_user),
+) -> models.Usuario:
     if current_user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    user_rol_value = current_user.Rol.value if hasattr(current_user.Rol, "value") else current_user.Rol
+    user_rol_value = (
+        current_user.Rol.value
+        if hasattr(current_user.Rol, "value")
+        else current_user.Rol
+    )
     if user_rol_value != "superadmin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
+        )
     return current_user
 
 
@@ -80,7 +99,11 @@ async def get_current_active_superadmin_optional(
 ) -> Optional[models.Usuario]:
     if current_user is None:
         return None
-    user_rol_value = current_user.Rol.value if hasattr(current_user.Rol, "value") else current_user.Rol
+    user_rol_value = (
+        current_user.Rol.value
+        if hasattr(current_user.Rol, "value")
+        else current_user.Rol
+    )
     if user_rol_value != "superadmin":
         return None
     return current_user
@@ -95,13 +118,21 @@ async def get_current_active_admin_or_superadmin(
             detail="Authentication required",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    user_rol_value = current_user.Rol.value if hasattr(current_user.Rol, "value") else current_user.Rol
+    user_rol_value = (
+        current_user.Rol.value
+        if hasattr(current_user.Rol, "value")
+        else current_user.Rol
+    )
     if user_rol_value not in ["admingrupo", "superadmin"]:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
+        )
     return current_user
 
 
-async def get_current_active_user_required(current_user: models.Usuario = Depends(get_current_active_user)) -> models.Usuario:
+async def get_current_active_user_required(
+    current_user: models.Usuario = Depends(get_current_active_user),
+) -> models.Usuario:
     """
     Dependency that requires authentication for all users (any role).
     Returns the current user or raises 401 if not authenticated.

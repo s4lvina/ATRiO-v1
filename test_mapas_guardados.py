@@ -87,7 +87,9 @@ def test_mapas_guardados():
 
         # 2. Probar crear un nuevo mapa guardado
         print("\n2️⃣ Probando POST /casos/{caso_id}/mapas_guardados")
-        response = requests.post(f"{BASE_URL}/casos/{CASO_ID}/mapas_guardados", json=test_mapa)
+        response = requests.post(
+            f"{BASE_URL}/casos/{CASO_ID}/mapas_guardados", json=test_mapa
+        )
         print(f"   Status: {response.status_code}")
         if response.status_code == 200:
             mapa_creado = response.json()
@@ -117,8 +119,13 @@ def test_mapas_guardados():
 
         # 4. Probar actualizar el mapa
         print(f"\n4️⃣ Probando PUT /casos/{CASO_ID}/mapas_guardados/{mapa_id}")
-        update_data = {"nombre": "Mapa de prueba actualizado", "descripcion": "Descripción actualizada"}
-        response = requests.put(f"{BASE_URL}/casos/{CASO_ID}/mapas_guardados/{mapa_id}", json=update_data)
+        update_data = {
+            "nombre": "Mapa de prueba actualizado",
+            "descripcion": "Descripción actualizada",
+        }
+        response = requests.put(
+            f"{BASE_URL}/casos/{CASO_ID}/mapas_guardados/{mapa_id}", json=update_data
+        )
         print(f"   Status: {response.status_code}")
         if response.status_code == 200:
             mapa_actualizado = response.json()
@@ -132,7 +139,8 @@ def test_mapas_guardados():
         # 5. Probar duplicar el mapa
         print(f"\n5️⃣ Probando POST /casos/{CASO_ID}/mapas_guardados/{mapa_id}/duplicate")
         response = requests.post(
-            f"{BASE_URL}/casos/{CASO_ID}/mapas_guardados/{mapa_id}/duplicate", json={"nombre": "Copia del mapa de prueba"}
+            f"{BASE_URL}/casos/{CASO_ID}/mapas_guardados/{mapa_id}/duplicate",
+            json={"nombre": "Copia del mapa de prueba"},
         )
         print(f"   Status: {response.status_code}")
         if response.status_code == 200:
@@ -146,8 +154,12 @@ def test_mapas_guardados():
             return False
 
         # 6. Probar eliminar el mapa duplicado
-        print(f"\n6️⃣ Probando DELETE /casos/{CASO_ID}/mapas_guardados/{mapa_duplicado_id}")
-        response = requests.delete(f"{BASE_URL}/casos/{CASO_ID}/mapas_guardados/{mapa_duplicado_id}")
+        print(
+            f"\n6️⃣ Probando DELETE /casos/{CASO_ID}/mapas_guardados/{mapa_duplicado_id}"
+        )
+        response = requests.delete(
+            f"{BASE_URL}/casos/{CASO_ID}/mapas_guardados/{mapa_duplicado_id}"
+        )
         print(f"   Status: {response.status_code}")
         if response.status_code == 200:
             print(f"   Mapa duplicado eliminado exitosamente")
@@ -172,7 +184,9 @@ def test_mapas_guardados():
         return True
 
     except requests.exceptions.ConnectionError:
-        print("❌ Error: No se pudo conectar al servidor. Asegúrate de que esté ejecutándose.")
+        print(
+            "❌ Error: No se pudo conectar al servidor. Asegúrate de que esté ejecutándose."
+        )
         return False
     except Exception as e:
         print(f"❌ Error inesperado: {str(e)}")

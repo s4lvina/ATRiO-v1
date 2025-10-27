@@ -22,7 +22,9 @@ CACHE_SIZE = -1048576  # 1GB en KB (negativo para indicar KB)
 def _log_cache_config():
     try:
         total_memory = psutil.virtual_memory().total
-        logging.info(f"Memoria total del sistema: {total_memory / (1024*1024*1024):.2f}GB")
+        logging.info(
+            f"Memoria total del sistema: {total_memory / (1024*1024*1024):.2f}GB"
+        )
         logging.info(f"Tamaño de caché configurado: {abs(CACHE_SIZE/1024/1024):.2f}GB")
     except Exception as e:
         logging.warning(f"Error al detectar memoria del sistema: {e}")

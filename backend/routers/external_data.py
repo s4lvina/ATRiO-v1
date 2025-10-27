@@ -1,4 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status, BackgroundTasks
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    UploadFile,
+    File,
+    Form,
+    status,
+    BackgroundTasks,
+)
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_, text
 from typing import List, Dict, Any, Optional
@@ -52,7 +61,11 @@ async def get_external_data(
 ):
     """Obtener datos externos de un caso"""
     external_data = (
-        db.query(models.ExternalData).filter(models.ExternalData.caso_id == caso_id).offset(skip).limit(limit).all()
+        db.query(models.ExternalData)
+        .filter(models.ExternalData.caso_id == caso_id)
+        .offset(skip)
+        .limit(limit)
+        .all()
     )
 
     return external_data
@@ -82,10 +95,16 @@ async def create_external_data(
 
 @router.delete("/{external_data_id}")
 async def delete_external_data(
-    external_data_id: int, db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_active_user)
+    external_data_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_active_user),
 ):
     """Eliminar datos externos"""
-    external_data = db.query(models.ExternalData).filter(models.ExternalData.id == external_data_id).first()
+    external_data = (
+        db.query(models.ExternalData)
+        .filter(models.ExternalData.id == external_data_id)
+        .first()
+    )
 
     if not external_data:
         raise HTTPException(status_code=404, detail="Datos externos no encontrados")
@@ -96,7 +115,11 @@ async def delete_external_data(
     return {"message": "Datos externos eliminados correctamente"}
 
 
-@router.post("/import", response_model=ExternalDataTaskInitResponse, status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/import",
+    response_model=ExternalDataTaskInitResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
 async def import_external_data(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
@@ -114,10 +137,15 @@ async def import_external_data(
             column_mappings_dict = json.loads(column_mappings)
             selected_columns_list = json.loads(selected_columns)
         except json.JSONDecodeError:
-            raise HTTPException(status_code=400, detail="Error al parsear parámetros JSON")
+            raise HTTPException(
+                status_code=400, detail="Error al parsear parámetros JSON"
+            )
 
         if "matricula" not in column_mappings_dict:
-            raise HTTPException(status_code=400, detail="Es obligatorio mapear una columna como 'matricula'")
+            raise HTTPException(
+                status_code=400,
+                detail="Es obligatorio mapear una columna como 'matricula'",
+            )
 
         # Verificar que el caso existe
         caso = db.query(models.Caso).filter(models.Caso.ID_Caso == caso_id).first()
@@ -134,7 +162,9 @@ async def import_external_data(
         temp_filename = f"external_processing_{task_id}_{original_filename}"
         temp_file_path = str(caso_folder / temp_filename)
 
-        logger.info(f"[External Task {task_id}] Saving temporary file to: {temp_file_path}")
+        logger.info(
+            f"[External Task {task_id}] Saving temporary file to: {temp_file_path}"
+        )
 
         try:
             with open(temp_file_path, "wb") as buffer:
@@ -147,7 +177,9 @@ async def import_external_data(
                     os.remove(temp_file_path)
                 except:
                     pass
-            raise HTTPException(status_code=500, detail="No se pudo guardar el archivo temporalmente")
+            raise HTTPException(
+                status_code=500, detail="No se pudo guardar el archivo temporalmente"
+            )
         finally:
             file.file.close()
 
@@ -188,7 +220,9 @@ async def import_external_data(
         logger.error(f"Error al iniciar importación de datos externos: {e}")
         logger.error(f"Tipo de error: {type(e)}")
         logger.error(f"current_user: {current_user}")
-        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error interno del servidor: {str(e)}"
+        )
 
 
 @router.post("/cross-with-lpr", response_model=List[schemas.ExternalDataCrossResult])
@@ -200,16 +234,22 @@ async def cross_with_lpr(
     """Cruzar datos externos con lecturas LPR (versión síncrona)"""
     try:
         # Validar que el caso existe
-        caso = db.query(models.Caso).filter(models.Caso.ID_Caso == filters.caso_id).first()
+        caso = (
+            db.query(models.Caso).filter(models.Caso.ID_Caso == filters.caso_id).first()
+        )
         if not caso:
             raise HTTPException(status_code=404, detail="Caso no encontrado")
 
         # PASO 1: Obtener matrículas que existen en datos externos con filtros aplicados
-        external_query = db.query(models.ExternalData.matricula).filter(models.ExternalData.caso_id == filters.caso_id)
+        external_query = db.query(models.ExternalData.matricula).filter(
+            models.ExternalData.caso_id == filters.caso_id
+        )
 
         # Aplicar filtros a datos externos
         if filters.source_name:
-            external_query = external_query.filter(models.ExternalData.source_name == filters.source_name)
+            external_query = external_query.filter(
+                models.ExternalData.source_name == filters.source_name
+            )
 
         if filters.custom_filters:
             for field, value in filters.custom_filters.items():
@@ -218,7 +258,9 @@ async def cross_with_lpr(
                 ).params(value=value)
 
         # Obtener matrículas únicas de datos externos
-        external_matriculas = set([row.matricula for row in external_query.distinct().all()])
+        external_matriculas = set(
+            [row.matricula for row in external_query.distinct().all()]
+        )
 
         if not external_matriculas:
             return []
@@ -232,21 +274,37 @@ async def cross_with_lpr(
                 models.Lectura.ID_Lector,
                 models.Lector.Nombre.label("lector_nombre"),
             )
-            .join(models.ArchivoExcel, models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo)
-            .outerjoin(models.Lector, models.Lectura.ID_Lector == models.Lector.ID_Lector)
-            .filter(and_(models.ArchivoExcel.ID_Caso == filters.caso_id, models.Lectura.Matricula.in_(external_matriculas)))
+            .join(
+                models.ArchivoExcel,
+                models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo,
+            )
+            .outerjoin(
+                models.Lector, models.Lectura.ID_Lector == models.Lector.ID_Lector
+            )
+            .filter(
+                and_(
+                    models.ArchivoExcel.ID_Caso == filters.caso_id,
+                    models.Lectura.Matricula.in_(external_matriculas),
+                )
+            )
             .order_by(models.Lectura.Fecha_y_Hora.asc())
         )
 
         # Aplicar filtros adicionales a lecturas LPR
         if filters.matricula:
-            lpr_query = lpr_query.filter(models.Lectura.Matricula.ilike(f"%{filters.matricula}%"))
+            lpr_query = lpr_query.filter(
+                models.Lectura.Matricula.ilike(f"%{filters.matricula}%")
+            )
 
         if filters.fecha_desde:
-            lpr_query = lpr_query.filter(models.Lectura.Fecha_y_Hora >= filters.fecha_desde)
+            lpr_query = lpr_query.filter(
+                models.Lectura.Fecha_y_Hora >= filters.fecha_desde
+            )
 
         if filters.fecha_hasta:
-            lpr_query = lpr_query.filter(models.Lectura.Fecha_y_Hora <= filters.fecha_hasta)
+            lpr_query = lpr_query.filter(
+                models.Lectura.Fecha_y_Hora <= filters.fecha_hasta
+            )
 
         # Ejecutar consulta de lecturas LPR
         lpr_results = lpr_query.all()
@@ -262,28 +320,39 @@ async def cross_with_lpr(
         lpr_matriculas = set([lpr.Matricula for lpr in lpr_results])
         coincident_matriculas = external_matriculas.intersection(lpr_matriculas)
 
-        logger.info(f"Encontradas {len(coincident_matriculas)} matrículas coincidentes (síncrono)")
+        logger.info(
+            f"Encontradas {len(coincident_matriculas)} matrículas coincidentes (síncrono)"
+        )
 
         # Limitar a MAX_RESULTS matrículas si es necesario
         if len(coincident_matriculas) > MAX_RESULTS:
-            logger.warning(f"Limitando a {MAX_RESULTS} matrículas de {len(coincident_matriculas)} encontradas (síncrono)")
+            logger.warning(
+                f"Limitando a {MAX_RESULTS} matrículas de {len(coincident_matriculas)} encontradas (síncrono)"
+            )
             coincident_matriculas = set(list(coincident_matriculas)[:MAX_RESULTS])
 
         # Crear exactamente UNA coincidencia por matrícula
         for matricula in coincident_matriculas:
             # Obtener UN registro de datos externos para esta matrícula (con filtros)
             external_data_query = db.query(models.ExternalData).filter(
-                and_(models.ExternalData.caso_id == filters.caso_id, models.ExternalData.matricula == matricula)
+                and_(
+                    models.ExternalData.caso_id == filters.caso_id,
+                    models.ExternalData.matricula == matricula,
+                )
             )
 
             # Aplicar filtros si existen
             if filters.source_name:
-                external_data_query = external_data_query.filter(models.ExternalData.source_name == filters.source_name)
+                external_data_query = external_data_query.filter(
+                    models.ExternalData.source_name == filters.source_name
+                )
 
             if filters.custom_filters:
                 for field, value in filters.custom_filters.items():
                     external_data_query = external_data_query.filter(
-                        text(f"json_extract(external_data.data_json, '$.{field}') = :value")
+                        text(
+                            f"json_extract(external_data.data_json, '$.{field}') = :value"
+                        )
                     ).params(value=value)
 
             external_data = external_data_query.first()
@@ -299,9 +368,19 @@ async def cross_with_lpr(
                     models.Lectura.ID_Lector,
                     models.Lector.Nombre.label("lector_nombre"),
                 )
-                .join(models.ArchivoExcel, models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo)
-                .outerjoin(models.Lector, models.Lectura.ID_Lector == models.Lector.ID_Lector)
-                .filter(and_(models.ArchivoExcel.ID_Caso == filters.caso_id, models.Lectura.Matricula == matricula))
+                .join(
+                    models.ArchivoExcel,
+                    models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo,
+                )
+                .outerjoin(
+                    models.Lector, models.Lectura.ID_Lector == models.Lector.ID_Lector
+                )
+                .filter(
+                    and_(
+                        models.ArchivoExcel.ID_Caso == filters.caso_id,
+                        models.Lectura.Matricula == matricula,
+                    )
+                )
                 .order_by(models.Lectura.Fecha_y_Hora.asc())
                 .first()
             )
@@ -328,10 +407,16 @@ async def cross_with_lpr(
         raise
     except Exception as e:
         logger.error(f"Error en cruce de datos: {e}")
-        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error interno del servidor: {str(e)}"
+        )
 
 
-@router.post("/cross-with-lpr-async", response_model=CrossDataTaskInitResponse, status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/cross-with-lpr-async",
+    response_model=CrossDataTaskInitResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
 async def cross_with_lpr_async(
     background_tasks: BackgroundTasks,
     filters: schemas.ExternalDataSearchFilters,
@@ -341,7 +426,9 @@ async def cross_with_lpr_async(
     """Iniciar cruce de datos externos con lecturas LPR en segundo plano"""
     try:
         # Validar que el caso existe
-        caso = db.query(models.Caso).filter(models.Caso.ID_Caso == filters.caso_id).first()
+        caso = (
+            db.query(models.Caso).filter(models.Caso.ID_Caso == filters.caso_id).first()
+        )
         if not caso:
             raise HTTPException(status_code=404, detail="Caso no encontrado")
 
@@ -359,9 +446,13 @@ async def cross_with_lpr_async(
         }
 
         # Iniciar procesamiento en segundo plano
-        background_tasks.add_task(process_cross_data_in_background, task_id, filters.dict(), current_user.User)
+        background_tasks.add_task(
+            process_cross_data_in_background, task_id, filters.dict(), current_user.User
+        )
 
-        logger.info(f"[Cross Task {task_id}] Cruce de datos para caso {filters.caso_id} iniciado en segundo plano.")
+        logger.info(
+            f"[Cross Task {task_id}] Cruce de datos para caso {filters.caso_id} iniciado en segundo plano."
+        )
 
         return CrossDataTaskInitResponse(
             task_id=task_id,
@@ -374,16 +465,25 @@ async def cross_with_lpr_async(
         logger.error(f"Error al iniciar cruce de datos: {e}")
         logger.error(f"Tipo de error: {type(e)}")
         logger.error(f"current_user: {current_user}")
-        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error interno del servidor: {str(e)}"
+        )
 
 
 @router.get("/sources/{caso_id}")
 async def get_external_sources(
-    caso_id: int, db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_active_user)
+    caso_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_active_user),
 ):
     """Obtener fuentes de datos externos disponibles para un caso"""
     # Solo mostrar fuentes que tienen datos activos (no solo nombres históricos)
-    sources = db.query(models.ExternalData.source_name).filter(models.ExternalData.caso_id == caso_id).distinct().all()
+    sources = (
+        db.query(models.ExternalData.source_name)
+        .filter(models.ExternalData.caso_id == caso_id)
+        .distinct()
+        .all()
+    )
 
     # Filtrar fuentes que realmente tienen datos
     active_sources = []
@@ -392,7 +492,10 @@ async def get_external_sources(
         # Verificar que la fuente tiene datos activos
         count = (
             db.query(models.ExternalData)
-            .filter(models.ExternalData.caso_id == caso_id, models.ExternalData.source_name == source_name)
+            .filter(
+                models.ExternalData.caso_id == caso_id,
+                models.ExternalData.source_name == source_name,
+            )
             .count()
         )
 
@@ -410,7 +513,9 @@ async def get_available_fields(
     current_user: models.Usuario = Depends(get_current_active_user),
 ):
     """Obtener campos disponibles en los datos externos"""
-    query = db.query(models.ExternalData.data_json).filter(models.ExternalData.caso_id == caso_id)
+    query = db.query(models.ExternalData.data_json).filter(
+        models.ExternalData.caso_id == caso_id
+    )
 
     if source_name:
         query = query.filter(models.ExternalData.source_name == source_name)
@@ -440,11 +545,17 @@ async def preview_external_file(
         # Tomar solo las primeras 10 filas para preview
         preview_df = df.head(10)
 
-        return {"columns": df.columns.tolist(), "total_rows": len(df), "preview_data": preview_df.to_dict("records")}
+        return {
+            "columns": df.columns.tolist(),
+            "total_rows": len(df),
+            "preview_data": preview_df.to_dict("records"),
+        }
 
     except Exception as e:
         logger.error(f"Error al previsualizar archivo: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error al previsualizar archivo: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error al previsualizar archivo: {str(e)}"
+        )
 
 
 def process_external_data_in_background(
@@ -465,11 +576,18 @@ def process_external_data_in_background(
         # Crear conexión de base de datos para el hilo en background
         db = next(get_db_sync())
 
-        logger.info(f"[External Task {task_id}] Iniciando procesamiento de {original_filename}")
+        logger.info(
+            f"[External Task {task_id}] Iniciando procesamiento de {original_filename}"
+        )
 
         # Actualizar estado: leyendo archivo
         task_statuses[task_id].update(
-            {"status": "processing", "message": "Leyendo archivo Excel...", "progress": 10, "stage": "reading_file"}
+            {
+                "status": "processing",
+                "message": "Leyendo archivo Excel...",
+                "progress": 10,
+                "stage": "reading_file",
+            }
         )
 
         # Parsear parámetros
@@ -479,24 +597,39 @@ def process_external_data_in_background(
         # Leer archivo Excel
         df = pd.read_excel(temp_file_path)
         total_rows = len(df)
-        logger.info(f"[External Task {task_id}] Archivo leído: {total_rows} filas, {len(df.columns)} columnas")
+        logger.info(
+            f"[External Task {task_id}] Archivo leído: {total_rows} filas, {len(df.columns)} columnas"
+        )
 
         # Actualizar estado: validando datos
         task_statuses[task_id].update(
-            {"message": "Validando estructura de datos...", "progress": 20, "total": total_rows, "stage": "validating_data"}
+            {
+                "message": "Validando estructura de datos...",
+                "progress": 20,
+                "total": total_rows,
+                "stage": "validating_data",
+            }
         )
 
         # Validar columna de matrícula
         matricula_column = column_mappings_dict["matricula"]
         if matricula_column not in df.columns:
             task_statuses[task_id].update(
-                {"status": "failed", "message": f"La columna '{matricula_column}' no existe en el archivo", "progress": 0}
+                {
+                    "status": "failed",
+                    "message": f"La columna '{matricula_column}' no existe en el archivo",
+                    "progress": 0,
+                }
             )
             return
 
         # Actualizar estado: procesando datos
         task_statuses[task_id].update(
-            {"message": "Procesando e importando datos...", "progress": 30, "stage": "processing_data"}
+            {
+                "message": "Procesando e importando datos...",
+                "progress": 30,
+                "stage": "processing_data",
+            }
         )
 
         # Procesar datos
@@ -509,7 +642,10 @@ def process_external_data_in_background(
                 if index % 100 == 0:
                     progress = 30 + (index / total_rows) * 60  # De 30% a 90%
                     task_statuses[task_id].update(
-                        {"message": f"Procesando fila {index + 1} de {total_rows}...", "progress": progress}
+                        {
+                            "message": f"Procesando fila {index + 1} de {total_rows}...",
+                            "progress": progress,
+                        }
                     )
 
                 # Obtener matrícula
@@ -533,7 +669,11 @@ def process_external_data_in_background(
 
                 # Crear entrada en base de datos
                 db_external_data = models.ExternalData(
-                    caso_id=caso_id, matricula=matricula, source_name=source_name, data_json=data_json, user_id=user_id
+                    caso_id=caso_id,
+                    matricula=matricula,
+                    source_name=source_name,
+                    data_json=data_json,
+                    user_id=user_id,
                 )
 
                 db.add(db_external_data)
@@ -545,7 +685,11 @@ def process_external_data_in_background(
 
         # Actualizar estado: guardando en base de datos
         task_statuses[task_id].update(
-            {"message": "Guardando datos en base de datos...", "progress": 90, "stage": "saving_data"}
+            {
+                "message": "Guardando datos en base de datos...",
+                "progress": 90,
+                "stage": "saving_data",
+            }
         )
 
         # Confirmar cambios en external_data
@@ -553,7 +697,10 @@ def process_external_data_in_background(
 
         # Registrar archivo importado en ArchivosExcel
         archivo_excel = models.ArchivoExcel(
-            ID_Caso=caso_id, Nombre_del_Archivo=original_filename, Tipo_de_Archivo="EXTERNO", Total_Registros=imported_count
+            ID_Caso=caso_id,
+            Nombre_del_Archivo=original_filename,
+            Tipo_de_Archivo="EXTERNO",
+            Total_Registros=imported_count,
         )
         db.add(archivo_excel)
         db.commit()
@@ -563,15 +710,21 @@ def process_external_data_in_background(
         final_file_path = caso_folder / original_filename
         try:
             shutil.copy(temp_file_path, final_file_path)
-            logger.info(f"[External Task {task_id}] Archivo definitivo guardado en: {final_file_path}")
+            logger.info(
+                f"[External Task {task_id}] Archivo definitivo guardado en: {final_file_path}"
+            )
         except Exception as e:
-            logger.warning(f"[External Task {task_id}] No se pudo mover archivo a ubicación final: {e}")
+            logger.warning(
+                f"[External Task {task_id}] No se pudo mover archivo a ubicación final: {e}"
+            )
 
         # Limpiar archivo temporal
         try:
             os.remove(temp_file_path)
         except Exception as e:
-            logger.warning(f"[External Task {task_id}] No se pudo eliminar archivo temporal: {e}")
+            logger.warning(
+                f"[External Task {task_id}] No se pudo eliminar archivo temporal: {e}"
+            )
 
         # Preparar resultado final
         result_data = {
@@ -601,14 +754,18 @@ def process_external_data_in_background(
         # Marcar tarea como completada con timestamp
         mark_task_completed(task_id)
 
-        logger.info(f"[External Task {task_id}] Procesamiento completado exitosamente: {imported_count} registros")
+        logger.info(
+            f"[External Task {task_id}] Procesamiento completado exitosamente: {imported_count} registros"
+        )
 
     except Exception as e:
         error_msg = f"Error durante procesamiento: {str(e)}"
         logger.error(f"[External Task {task_id}] {error_msg}", exc_info=True)
 
         # Actualizar estado: error
-        task_statuses[task_id].update({"status": "failed", "message": error_msg, "progress": 0})
+        task_statuses[task_id].update(
+            {"status": "failed", "message": error_msg, "progress": 0}
+        )
 
         # Marcar tarea como completada (fallida) con timestamp
         mark_task_completed(task_id)
@@ -649,7 +806,12 @@ def process_cross_data_in_background(task_id: str, filters_dict: dict, user_id: 
 
         # Actualizar estado: analizando datos
         task_statuses[task_id].update(
-            {"status": "processing", "message": "Analizando datos disponibles...", "progress": 10, "stage": "analyzing"}
+            {
+                "status": "processing",
+                "message": "Analizando datos disponibles...",
+                "progress": 10,
+                "stage": "analyzing",
+            }
         )
 
         # Recrear el objeto filters desde el diccionario
@@ -657,23 +819,35 @@ def process_cross_data_in_background(task_id: str, filters_dict: dict, user_id: 
 
         # PASO 1: Obtener matrículas que existen en datos externos con filtros aplicados
         task_statuses[task_id].update(
-            {"message": "Buscando matrículas en datos externos...", "progress": 20, "stage": "external_search"}
+            {
+                "message": "Buscando matrículas en datos externos...",
+                "progress": 20,
+                "stage": "external_search",
+            }
         )
 
-        external_query = db.query(models.ExternalData.matricula).filter(models.ExternalData.caso_id == filters.caso_id)
+        external_query = db.query(models.ExternalData.matricula).filter(
+            models.ExternalData.caso_id == filters.caso_id
+        )
 
         # Aplicar filtros a datos externos
         if filters.source_name:
-            external_query = external_query.filter(models.ExternalData.source_name == filters.source_name)
+            external_query = external_query.filter(
+                models.ExternalData.source_name == filters.source_name
+            )
 
         if filters.custom_filters:
             for field, value in filters.custom_filters.items():
                 external_query = external_query.filter(
-                    text(f"LOWER(json_extract(external_data.data_json, '$.{field}')) = LOWER(:value)")
+                    text(
+                        f"LOWER(json_extract(external_data.data_json, '$.{field}')) = LOWER(:value)"
+                    )
                 ).params(value=value)
 
         # Obtener matrículas únicas de datos externos
-        external_matriculas = set([row.matricula for row in external_query.distinct().all()])
+        external_matriculas = set(
+            [row.matricula for row in external_query.distinct().all()]
+        )
 
         if not external_matriculas:
             # No hay datos externos que coincidan con los filtros
@@ -692,10 +866,14 @@ def process_cross_data_in_background(task_id: str, filters_dict: dict, user_id: 
                 }
             )
             mark_task_completed(task_id)
-            logger.info(f"[Cross Task {task_id}] No hay datos externos que coincidan con los filtros")
+            logger.info(
+                f"[Cross Task {task_id}] No hay datos externos que coincidan con los filtros"
+            )
             return
 
-        logger.info(f"[Cross Task {task_id}] Encontradas {len(external_matriculas)} matrículas únicas en datos externos")
+        logger.info(
+            f"[Cross Task {task_id}] Encontradas {len(external_matriculas)} matrículas únicas en datos externos"
+        )
 
         # PASO 2: Buscar lecturas LPR que coincidan con esas matrículas
         task_statuses[task_id].update(
@@ -715,21 +893,37 @@ def process_cross_data_in_background(task_id: str, filters_dict: dict, user_id: 
                 models.Lectura.ID_Lector,
                 models.Lector.Nombre.label("lector_nombre"),
             )
-            .join(models.ArchivoExcel, models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo)
-            .outerjoin(models.Lector, models.Lectura.ID_Lector == models.Lector.ID_Lector)
-            .filter(and_(models.ArchivoExcel.ID_Caso == filters.caso_id, models.Lectura.Matricula.in_(external_matriculas)))
+            .join(
+                models.ArchivoExcel,
+                models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo,
+            )
+            .outerjoin(
+                models.Lector, models.Lectura.ID_Lector == models.Lector.ID_Lector
+            )
+            .filter(
+                and_(
+                    models.ArchivoExcel.ID_Caso == filters.caso_id,
+                    models.Lectura.Matricula.in_(external_matriculas),
+                )
+            )
             .order_by(models.Lectura.Fecha_y_Hora.asc())
         )
 
         # Aplicar filtros adicionales a lecturas LPR
         if filters.matricula:
-            lpr_query = lpr_query.filter(models.Lectura.Matricula.ilike(f"%{filters.matricula}%"))
+            lpr_query = lpr_query.filter(
+                models.Lectura.Matricula.ilike(f"%{filters.matricula}%")
+            )
 
         if filters.fecha_desde:
-            lpr_query = lpr_query.filter(models.Lectura.Fecha_y_Hora >= filters.fecha_desde)
+            lpr_query = lpr_query.filter(
+                models.Lectura.Fecha_y_Hora >= filters.fecha_desde
+            )
 
         if filters.fecha_hasta:
-            lpr_query = lpr_query.filter(models.Lectura.Fecha_y_Hora <= filters.fecha_hasta)
+            lpr_query = lpr_query.filter(
+                models.Lectura.Fecha_y_Hora <= filters.fecha_hasta
+            )
 
         # Ejecutar consulta de lecturas LPR
         lpr_results = lpr_query.all()
@@ -751,14 +945,22 @@ def process_cross_data_in_background(task_id: str, filters_dict: dict, user_id: 
                 }
             )
             mark_task_completed(task_id)
-            logger.info(f"[Cross Task {task_id}] No hay lecturas LPR que coincidan con los datos externos")
+            logger.info(
+                f"[Cross Task {task_id}] No hay lecturas LPR que coincidan con los datos externos"
+            )
             return
 
-        logger.info(f"[Cross Task {task_id}] Encontradas {len(lpr_results)} lecturas LPR que coinciden")
+        logger.info(
+            f"[Cross Task {task_id}] Encontradas {len(lpr_results)} lecturas LPR que coinciden"
+        )
 
         # PASO 3: Encontrar SOLO matrículas que aparecen en ambos sistemas
         task_statuses[task_id].update(
-            {"message": f"Encontrando matrículas coincidentes...", "progress": 60, "stage": "optimizing"}
+            {
+                "message": f"Encontrando matrículas coincidentes...",
+                "progress": 60,
+                "stage": "optimizing",
+            }
         )
 
         cross_results = []
@@ -768,7 +970,9 @@ def process_cross_data_in_background(task_id: str, filters_dict: dict, user_id: 
         lpr_matriculas = set([lpr.Matricula for lpr in lpr_results])
         coincident_matriculas = external_matriculas.intersection(lpr_matriculas)
 
-        logger.info(f"[Cross Task {task_id}] Encontradas {len(coincident_matriculas)} matrículas coincidentes")
+        logger.info(
+            f"[Cross Task {task_id}] Encontradas {len(coincident_matriculas)} matrículas coincidentes"
+        )
 
         # Limitar a MAX_RESULTS matrículas si es necesario
         if len(coincident_matriculas) > MAX_RESULTS:
@@ -789,17 +993,24 @@ def process_cross_data_in_background(task_id: str, filters_dict: dict, user_id: 
         for i, matricula in enumerate(coincident_matriculas):
             # Obtener UN registro de datos externos para esta matrícula (con filtros)
             external_data_query = db.query(models.ExternalData).filter(
-                and_(models.ExternalData.caso_id == filters.caso_id, models.ExternalData.matricula == matricula)
+                and_(
+                    models.ExternalData.caso_id == filters.caso_id,
+                    models.ExternalData.matricula == matricula,
+                )
             )
 
             # Aplicar filtros si existen
             if filters.source_name:
-                external_data_query = external_data_query.filter(models.ExternalData.source_name == filters.source_name)
+                external_data_query = external_data_query.filter(
+                    models.ExternalData.source_name == filters.source_name
+                )
 
             if filters.custom_filters:
                 for field, value in filters.custom_filters.items():
                     external_data_query = external_data_query.filter(
-                        text(f"LOWER(json_extract(external_data.data_json, '$.{field}')) = LOWER(:value)")
+                        text(
+                            f"LOWER(json_extract(external_data.data_json, '$.{field}')) = LOWER(:value)"
+                        )
                     ).params(value=value)
 
             external_data = external_data_query.first()
@@ -816,9 +1027,19 @@ def process_cross_data_in_background(task_id: str, filters_dict: dict, user_id: 
                     models.Lectura.ID_Lector,
                     models.Lector.Nombre.label("lector_nombre"),
                 )
-                .join(models.ArchivoExcel, models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo)
-                .outerjoin(models.Lector, models.Lectura.ID_Lector == models.Lector.ID_Lector)
-                .filter(and_(models.ArchivoExcel.ID_Caso == filters.caso_id, models.Lectura.Matricula == matricula))
+                .join(
+                    models.ArchivoExcel,
+                    models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo,
+                )
+                .outerjoin(
+                    models.Lector, models.Lectura.ID_Lector == models.Lector.ID_Lector
+                )
+                .filter(
+                    and_(
+                        models.ArchivoExcel.ID_Caso == filters.caso_id,
+                        models.Lectura.Matricula == matricula,
+                    )
+                )
                 .order_by(models.Lectura.Fecha_y_Hora.asc())
                 .first()
             )
@@ -831,7 +1052,11 @@ def process_cross_data_in_background(task_id: str, filters_dict: dict, user_id: 
                 {
                     "lectura_id": lpr_reading.ID_Lectura,
                     "matricula": matricula,
-                    "fecha_lectura": lpr_reading.Fecha_y_Hora.isoformat() if lpr_reading.Fecha_y_Hora else None,
+                    "fecha_lectura": (
+                        lpr_reading.Fecha_y_Hora.isoformat()
+                        if lpr_reading.Fecha_y_Hora
+                        else None
+                    ),
                     "lector_id": lpr_reading.ID_Lector,
                     "lector_nombre": lpr_reading.lector_nombre,
                     "external_data": external_data.data_json,
@@ -854,7 +1079,9 @@ def process_cross_data_in_background(task_id: str, filters_dict: dict, user_id: 
         # Preparar mensaje final
         final_message = f"Cruce de datos completado: {total_matches} matrículas coincidentes encontradas"
         if total_matches >= MAX_RESULTS:
-            final_message += f" (limitado a {MAX_RESULTS} resultados para optimizar rendimiento)"
+            final_message += (
+                f" (limitado a {MAX_RESULTS} resultados para optimizar rendimiento)"
+            )
 
         # Preparar resultado final
         result_data = {
@@ -870,7 +1097,11 @@ def process_cross_data_in_background(task_id: str, filters_dict: dict, user_id: 
             {
                 "status": "completed",
                 "message": f"Cruce completado: {total_matches} matrículas coincidentes encontradas"
-                + (f" (limitado a {MAX_RESULTS})" if total_matches >= MAX_RESULTS else ""),
+                + (
+                    f" (limitado a {MAX_RESULTS})"
+                    if total_matches >= MAX_RESULTS
+                    else ""
+                ),
                 "progress": 100,
                 "result": result_data,
                 "stage": None,
@@ -880,14 +1111,18 @@ def process_cross_data_in_background(task_id: str, filters_dict: dict, user_id: 
         # Marcar tarea como completada con timestamp
         mark_task_completed(task_id)
 
-        logger.info(f"[Cross Task {task_id}] Cruce completado exitosamente: {total_matches} matrículas coincidentes")
+        logger.info(
+            f"[Cross Task {task_id}] Cruce completado exitosamente: {total_matches} matrículas coincidentes"
+        )
 
     except Exception as e:
         error_msg = f"Error durante cruce de datos: {str(e)}"
         logger.error(f"[Cross Task {task_id}] {error_msg}", exc_info=True)
 
         # Actualizar estado: error
-        task_statuses[task_id].update({"status": "failed", "message": error_msg, "progress": 0})
+        task_statuses[task_id].update(
+            {"status": "failed", "message": error_msg, "progress": 0}
+        )
 
         # Marcar tarea como completada (fallida) con timestamp
         mark_task_completed(task_id)

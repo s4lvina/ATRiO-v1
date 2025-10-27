@@ -8,7 +8,9 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 
 # Configurar logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger("atrio.monitoring")
 
 
@@ -30,7 +32,9 @@ class QueryMonitor:
         cursor.execute("PRAGMA mmap_size=268435456")  # 256MB
         return conn
 
-    def benchmark_query(self, query: str, params: tuple = None, iterations: int = 5) -> Dict:
+    def benchmark_query(
+        self, query: str, params: tuple = None, iterations: int = 5
+    ) -> Dict:
         """Ejecuta una consulta varias veces y mide su rendimiento"""
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -69,7 +73,10 @@ class QueryMonitor:
     def monitor_common_queries(self) -> Dict[str, Dict]:
         """Monitorea las consultas más comunes en ATRIO v1"""
         common_queries = {
-            "búsqueda_por_matrícula": ("SELECT * FROM lectura WHERE Matricula LIKE ? LIMIT 1000", ("7%",)),
+            "búsqueda_por_matrícula": (
+                "SELECT * FROM lectura WHERE Matricula LIKE ? LIMIT 1000",
+                ("7%",),
+            ),
             "lecturas_último_día": (
                 """
                 SELECT * FROM lectura 
@@ -78,7 +85,10 @@ class QueryMonitor:
                 """,
                 None,
             ),
-            "conteo_por_lector": ("SELECT ID_Lector, COUNT(*) FROM lectura GROUP BY ID_Lector", None),
+            "conteo_por_lector": (
+                "SELECT ID_Lector, COUNT(*) FROM lectura GROUP BY ID_Lector",
+                None,
+            ),
             "búsqueda_compleja": (
                 """
                 SELECT l.*, lr.Nota as Nota_Relevante, lr.Fecha_Marcada,

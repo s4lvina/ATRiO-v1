@@ -10,8 +10,18 @@ SUPERADMIN_PASS = "0902"
 USUARIOS = [
     {"User": 20001, "Contraseña": "testpass123", "Rol": "admingrupo", "ID_Grupo": None},
     {"User": 20002, "Contraseña": "testpass123", "Rol": "admingrupo", "ID_Grupo": None},
-    {"User": 20003, "Contraseña": "testpass123", "Rol": "user_consulta", "ID_Grupo": None},
-    {"User": 20004, "Contraseña": "testpass123", "Rol": "user_consulta", "ID_Grupo": None},
+    {
+        "User": 20003,
+        "Contraseña": "testpass123",
+        "Rol": "user_consulta",
+        "ID_Grupo": None,
+    },
+    {
+        "User": 20004,
+        "Contraseña": "testpass123",
+        "Rol": "user_consulta",
+        "ID_Grupo": None,
+    },
 ]
 GRUPOS = [
     {"Nombre": "GrupoTestA", "Descripcion": "Grupo de prueba A"},
@@ -81,7 +91,9 @@ async def test_rbac_full():
 
 # --- Helpers ---
 async def login(client, user, password):
-    resp = await client.post("/api/auth/token", data={"username": user, "password": password})
+    resp = await client.post(
+        "/api/auth/token", data={"username": user, "password": password}
+    )
     assert resp.status_code == 200, f"Login fallido para {user}: {resp.text}"
     return resp.json()["access_token"]
 
@@ -113,10 +125,14 @@ async def ensure_usuario(client, usuario, headers):
 async def check_casos_filtrado(client, token, id_grupo, casos):
     headers = {"Authorization": f"Bearer {token}"}
     resp = await client.get("/casos", headers=headers)
-    assert resp.status_code == 200, f"No se pudo listar casos para grupo {id_grupo}: {resp.text}"
+    assert (
+        resp.status_code == 200
+    ), f"No se pudo listar casos para grupo {id_grupo}: {resp.text}"
     casos_vistos = resp.json()
     for caso in casos_vistos:
-        assert caso["ID_Grupo"] == id_grupo, f"Caso {caso['ID_Caso']} visible fuera de su grupo"
+        assert (
+            caso["ID_Grupo"] == id_grupo
+        ), f"Caso {caso['ID_Caso']} visible fuera de su grupo"
 
 
 async def check_casos_superadmin(client, token, casos):
@@ -128,7 +144,9 @@ async def check_casos_superadmin(client, token, casos):
     assert ids.issubset(ids_vistos), "Superadmin no ve todos los casos"
 
 
-async def check_permisos(client, tokens_usuarios, token_superadmin_directo, casos, grupo_ids):
+async def check_permisos(
+    client, tokens_usuarios, token_superadmin_directo, casos, grupo_ids
+):
     # Ejemplo: consultaA no puede crear casos
     headers_consulta_A = {"Authorization": f"Bearer {tokens_usuarios[20003]}"}
     caso_payload_no_permitido = {
@@ -137,7 +155,9 @@ async def check_permisos(client, tokens_usuarios, token_superadmin_directo, caso
         "Descripcion": "Consulta no debería poder crear este caso",
         "ID_Grupo": grupo_ids[0],
     }
-    resp_consulta_crea = await client.post("/casos", json=caso_payload_no_permitido, headers=headers_consulta_A)
+    resp_consulta_crea = await client.post(
+        "/casos", json=caso_payload_no_permitido, headers=headers_consulta_A
+    )
     assert resp_consulta_crea.status_code in (
         401,
         403,
@@ -151,16 +171,24 @@ async def check_permisos(client, tokens_usuarios, token_superadmin_directo, caso
         "Descripcion": "AdminGrupoA crea este caso en su grupo",
         "ID_Grupo": grupo_ids[0],
     }
-    resp_admingrupo_crea = await client.post("/casos", json=caso_payload_permitido_admingrupo, headers=headers_admingrupo_A)
+    resp_admingrupo_crea = await client.post(
+        "/casos", json=caso_payload_permitido_admingrupo, headers=headers_admingrupo_A
+    )
     assert (
         resp_admingrupo_crea.status_code == 201
     ), f"admingrupoA no pudo crear caso en su grupo (status: {resp_admingrupo_crea.status_code}, resp: {resp_admingrupo_crea.text})"
     id_caso_creado_admingrupoA = resp_admingrupo_crea.json()["ID_Caso"]
 
     # admingrupoA no puede borrar caso de otro grupo
-    id_caso_otro_grupo = next((c["ID_Caso"] for c in casos if c["ID_Grupo"] == grupo_ids[1]), None)
-    assert id_caso_otro_grupo is not None, "No se encontró un caso del grupo B para la prueba de borrado no permitido"
-    resp_admingrupo_borra_otro = await client.delete(f"/casos/{id_caso_otro_grupo}", headers=headers_admingrupo_A)
+    id_caso_otro_grupo = next(
+        (c["ID_Caso"] for c in casos if c["ID_Grupo"] == grupo_ids[1]), None
+    )
+    assert (
+        id_caso_otro_grupo is not None
+    ), "No se encontró un caso del grupo B para la prueba de borrado no permitido"
+    resp_admingrupo_borra_otro = await client.delete(
+        f"/casos/{id_caso_otro_grupo}", headers=headers_admingrupo_A
+    )
     assert resp_admingrupo_borra_otro.status_code in (
         401,
         403,
@@ -168,7 +196,9 @@ async def check_permisos(client, tokens_usuarios, token_superadmin_directo, caso
 
     # Superadmin puede borrar cualquier caso
     headers_superadmin_directo = {"Authorization": f"Bearer {token_superadmin_directo}"}
-    resp_superadmin_borra = await client.delete(f"/casos/{id_caso_creado_admingrupoA}", headers=headers_superadmin_directo)
+    resp_superadmin_borra = await client.delete(
+        f"/casos/{id_caso_creado_admingrupoA}", headers=headers_superadmin_directo
+    )
     assert (
         resp_superadmin_borra.status_code == 204
     ), f"Superadmin no pudo borrar el caso creado por admingrupoA (status: {resp_superadmin_borra.status_code}, resp: {resp_superadmin_borra.text})"

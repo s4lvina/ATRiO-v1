@@ -32,7 +32,9 @@ def get_db():
 
 def get_backups_list():
     """Obtiene la lista de backups disponibles"""
-    backup_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backups")
+    backup_dir = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backups"
+    )
     if not os.path.exists(backup_dir):
         return []
 
@@ -47,7 +49,9 @@ def get_backups_list():
                     "path": full_path,
                     "timestamp": timestamp,
                     "size_bytes": os.path.getsize(full_path),
-                    "created_at": datetime.strptime(timestamp, "%Y%m%d_%H%M%S").isoformat(),
+                    "created_at": datetime.strptime(
+                        timestamp, "%Y%m%d_%H%M%S"
+                    ).isoformat(),
                 }
             )
 
@@ -75,11 +79,16 @@ def get_database_status(db: Session = Depends(get_db)):
             tables.append({"name": table, "count": count})
 
         # Verificar si existe algún superadmin
-        superadmin_count = db.query(models.Usuario).filter(models.Usuario.Rol == "superadmin").count()
+        superadmin_count = (
+            db.query(models.Usuario).filter(models.Usuario.Rol == "superadmin").count()
+        )
         needs_superadmin_setup = superadmin_count == 0
 
         # Obtener tamaño del archivo de la base de datos
-        db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "database/secure/atrio.db")
+        db_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "database/secure/atrio.db",
+        )
         size_bytes = os.path.getsize(db_path) if os.path.exists(db_path) else 0
 
         # Obtener lista de backups
@@ -102,8 +111,13 @@ def get_database_status(db: Session = Depends(get_db)):
 def create_backup(background_tasks: BackgroundTasks):
     """Crea una copia de seguridad de la base de datos"""
     try:
-        db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "database/secure/atrio.db")
-        backup_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backups")
+        db_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "database/secure/atrio.db",
+        )
+        backup_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backups"
+        )
 
         os.makedirs(backup_dir, exist_ok=True)
 
@@ -116,7 +130,9 @@ def create_backup(background_tasks: BackgroundTasks):
                 connection.commit()  # Asegurar que el pragma se ejecute y complete
             logger.info("WAL checkpoint TRUNCATE ejecutado antes del backup.")
         except Exception as e_checkpoint:
-            logger.error(f"Error al ejecutar WAL checkpoint: {e_checkpoint}", exc_info=True)
+            logger.error(
+                f"Error al ejecutar WAL checkpoint: {e_checkpoint}", exc_info=True
+            )
             # Considerar si esto debe ser un error fatal para el backup.
             # Por ahora, solo loguear.
 
@@ -134,7 +150,10 @@ def create_backup(background_tasks: BackgroundTasks):
 async def restore_database(backup_file: UploadFile = File(...)):
     """Restaura la base de datos desde un archivo de backup"""
     try:
-        db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "database/secure/atrio.db")
+        db_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "database/secure/atrio.db",
+        )
         temp_path = f"temp_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
         with open(temp_path, "wb") as buffer:
             content = await backup_file.read()
@@ -148,7 +167,9 @@ async def restore_database(backup_file: UploadFile = File(...)):
         temp_file_hash = hasher.hexdigest()
         logger.info(f"MD5 hash del archivo temporal ({temp_path}): {temp_file_hash}")
 
-        logger.info(f"Archivo recibido para restaurar: {backup_file.filename}, tamaño: {os.path.getsize(temp_path)} bytes")
+        logger.info(
+            f"Archivo recibido para restaurar: {backup_file.filename}, tamaño: {os.path.getsize(temp_path)} bytes"
+        )
         try:
             test_engine = create_engine(f"sqlite:///{temp_path}")
             conn = test_engine.connect()
@@ -157,7 +178,10 @@ async def restore_database(backup_file: UploadFile = File(...)):
         except Exception as e:
             logger.error(f"Archivo subido no es una base de datos SQLite válida: {e}")
             os.remove(temp_path)
-            raise HTTPException(status_code=400, detail="El archivo no es una base de datos SQLite válida")
+            raise HTTPException(
+                status_code=400,
+                detail="El archivo no es una base de datos SQLite válida",
+            )
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         current_backup = f"pre_restore_backup_{timestamp}.db"
         shutil.copy2(db_path, current_backup)
@@ -169,40 +193,60 @@ async def restore_database(backup_file: UploadFile = File(...)):
         try:
             from database_config import engine as main_app_engine  # Motor correcto
 
-            logger.info("Intentando disponer del motor principal de SQLAlchemy (upload)...")
+            logger.info(
+                "Intentando disponer del motor principal de SQLAlchemy (upload)..."
+            )
             main_app_engine.dispose()
             logger.info("Motor principal de SQLAlchemy dispuesto (upload).")
 
-            logger.info("Intentando operación de lectura post-dispose para refrescar el pool (upload)...")
+            logger.info(
+                "Intentando operación de lectura post-dispose para refrescar el pool (upload)..."
+            )
             with main_app_engine.connect() as connection:
                 result = connection.execute(text("SELECT sqlite_version();")).scalar()
-                logger.info(f"Operación de lectura post-dispose exitosa (upload). Versión de SQLite: {result}")
+                logger.info(
+                    f"Operación de lectura post-dispose exitosa (upload). Versión de SQLite: {result}"
+                )
 
         except Exception as e_dispose_refresh:
-            logger.error(f"Error durante el dispose/refresh del motor principal (upload): {e_dispose_refresh}", exc_info=True)
+            logger.error(
+                f"Error durante el dispose/refresh del motor principal (upload): {e_dispose_refresh}",
+                exc_info=True,
+            )
 
         # Verificar el estado de la base de datos inmediatamente después de la restauración
         final_counts_upload = {}
         try:
-            logger.info("Verificando conteos post-restauración (upload) inmediatamente...")
+            logger.info(
+                "Verificando conteos post-restauración (upload) inmediatamente..."
+            )
             with SessionLocal() as db_check:
                 tables_to_check = ["usuarios", "Grupos", "Casos"]
                 for table_name in tables_to_check:
                     if table_name in Base.metadata.tables:
-                        count = db_check.execute(text(f"SELECT COUNT(*) FROM {table_name}")).scalar_one_or_none()
+                        count = db_check.execute(
+                            text(f"SELECT COUNT(*) FROM {table_name}")
+                        ).scalar_one_or_none()
                         final_counts_upload[table_name] = count
-                        logger.info(f"Conteo post-restauración (upload) para tabla '{table_name}': {count}")
+                        logger.info(
+                            f"Conteo post-restauración (upload) para tabla '{table_name}': {count}"
+                        )
                     else:
                         logger.warning(
                             f"Tabla '{table_name}' no encontrada en metadatos para conteo post-restauración (upload)."
                         )
         except Exception as e_check:
-            logger.error(f"Error al verificar conteos post-restauración (upload): {e_check}", exc_info=True)
+            logger.error(
+                f"Error al verificar conteos post-restauración (upload): {e_check}",
+                exc_info=True,
+            )
 
         response_msg = f"Base de datos restaurada exitosamente. Conteos (ver logs): {json.dumps(final_counts_upload)}"
         return {"message": response_msg, "final_counts_debug": final_counts_upload}
     except Exception as e:
-        logger.error(f"Error inesperado al restaurar la base de datos: {e}", exc_info=True)
+        logger.error(
+            f"Error inesperado al restaurar la base de datos: {e}", exc_info=True
+        )
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -243,7 +287,9 @@ def reset_database(db: Session = Depends(get_db)):
 
 def get_last_backup_date():
     """Obtiene la fecha del último backup realizado"""
-    backup_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backups")
+    backup_dir = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backups"
+    )
     if not os.path.exists(backup_dir):
         return None
 
@@ -259,13 +305,17 @@ def get_last_backup_date():
 async def download_backup(filename: str):
     """Descarga un archivo de backup específico"""
     try:
-        backup_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backups")
+        backup_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backups"
+        )
         backup_path = os.path.join(backup_dir, filename)
 
         if not os.path.exists(backup_path):
             raise HTTPException(status_code=404, detail="Backup no encontrado")
 
-        return FileResponse(backup_path, media_type="application/octet-stream", filename=filename)
+        return FileResponse(
+            backup_path, media_type="application/octet-stream", filename=filename
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -292,7 +342,9 @@ def clear_except_lectores(db: Session = Depends(get_db)):
 def delete_backup(filename: str):
     """Elimina un archivo de backup específico."""
     try:
-        backup_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backups")
+        backup_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backups"
+        )
         backup_path = os.path.join(backup_dir, filename)
         if not os.path.exists(backup_path):
             raise HTTPException(status_code=404, detail="Backup no encontrado")
@@ -311,15 +363,26 @@ class RestoreRequest(BaseModel):
 async def restore_database_from_filename(request_data: RestoreRequest):
     """Restaura la base de datos desde un archivo de backup existente en el servidor."""
     backup_filename = request_data.filename
-    logger.info(f"Solicitud para restaurar desde el archivo en servidor: {backup_filename}")
+    logger.info(
+        f"Solicitud para restaurar desde el archivo en servidor: {backup_filename}"
+    )
 
-    db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "database/secure/atrio.db")
-    backup_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backups")
+    db_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "database/secure/atrio.db",
+    )
+    backup_dir = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backups"
+    )
     source_backup_path = os.path.join(backup_dir, backup_filename)
 
     if not os.path.exists(source_backup_path):
-        logger.error(f"Archivo de backup no encontrado en el servidor: {source_backup_path}")
-        error_msg = f"Archivo de backup '{backup_filename}' no encontrado en el servidor."
+        logger.error(
+            f"Archivo de backup no encontrado en el servidor: {source_backup_path}"
+        )
+        error_msg = (
+            f"Archivo de backup '{backup_filename}' no encontrado en el servidor."
+        )
         raise HTTPException(status_code=404, detail=error_msg)
 
     try:
@@ -329,32 +392,46 @@ async def restore_database_from_filename(request_data: RestoreRequest):
             conn = test_engine.connect()
             conn.close()
             test_engine.dispose()
-            logger.info(f"Archivo de backup '{backup_filename}' es una BD SQLite válida.")
+            logger.info(
+                f"Archivo de backup '{backup_filename}' es una BD SQLite válida."
+            )
         except Exception as e_test:
-            logger.error(f"Archivo de backup '{backup_filename}' no es una BD SQLite válida: {e_test}")
-            error_msg = f"El archivo de backup seleccionado ('{backup_filename}') " f"no es una base de datos SQLite válida."
+            logger.error(
+                f"Archivo de backup '{backup_filename}' no es una BD SQLite válida: {e_test}"
+            )
+            error_msg = (
+                f"El archivo de backup seleccionado ('{backup_filename}') "
+                f"no es una base de datos SQLite válida."
+            )
             raise HTTPException(status_code=400, detail=error_msg)
 
         # Crear un backup del estado actual ANTES de restaurar
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         pre_restore_backup_name = f"pre_restore_backup_{timestamp}.db"
         pre_restore_backup_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), pre_restore_backup_name
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            pre_restore_backup_name,
         )
         shutil.copy2(db_path, pre_restore_backup_path)
         logger.info(f"Backup pre-restauración creado: {pre_restore_backup_name}")
 
         # Restaurar: copiar el archivo de backup de origen sobre el archivo de BD principal
         shutil.copy2(source_backup_path, db_path)
-        logger.info(f"Base de datos restaurada desde '{backup_filename}' a '{db_path}'.")
+        logger.info(
+            f"Base de datos restaurada desde '{backup_filename}' a '{db_path}'."
+        )
 
         # Forzar al motor principal de SQLAlchemy a cerrar las conexiones existentes
         try:
             from database_config import engine as main_app_engine
 
-            logger.info(f"Intentando disponer del motor principal de SQLAlchemy (filename: {backup_filename})...")
+            logger.info(
+                f"Intentando disponer del motor principal de SQLAlchemy (filename: {backup_filename})..."
+            )
             main_app_engine.dispose()
-            logger.info(f"Motor principal de SQLAlchemy dispuesto (filename: {backup_filename}).")
+            logger.info(
+                f"Motor principal de SQLAlchemy dispuesto (filename: {backup_filename})."
+            )
 
             logger.info(
                 f"Intentando operación de lectura post-dispose para refrescar el pool (filename: {backup_filename})..."
@@ -374,12 +451,16 @@ async def restore_database_from_filename(request_data: RestoreRequest):
         # Verificar el estado de la base de datos inmediatamente después de la restauración
         final_counts_filename = {}
         try:
-            logger.info(f"Verificando conteos post-restauración (filename: {backup_filename}) inmediatamente...")
+            logger.info(
+                f"Verificando conteos post-restauración (filename: {backup_filename}) inmediatamente..."
+            )
             with SessionLocal() as db_check:
                 tables_to_check = ["usuarios", "Grupos", "Casos"]
                 for table_name in tables_to_check:
                     if table_name in Base.metadata.tables:
-                        count = db_check.execute(text(f"SELECT COUNT(*) FROM {table_name}")).scalar_one_or_none()
+                        count = db_check.execute(
+                            text(f"SELECT COUNT(*) FROM {table_name}")
+                        ).scalar_one_or_none()
                         final_counts_filename[table_name] = count
                         logger.info(
                             f"Conteo post-restauración (filename: {backup_filename}) para tabla '{table_name}': {count}"
@@ -390,7 +471,8 @@ async def restore_database_from_filename(request_data: RestoreRequest):
                         )
         except Exception as e_check:
             logger.error(
-                f"Error al verificar conteos post-restauración (filename: {backup_filename}): {e_check}", exc_info=True
+                f"Error al verificar conteos post-restauración (filename: {backup_filename}): {e_check}",
+                exc_info=True,
             )
 
         response_msg = f"Base de datos restaurada exitosamente desde '{backup_filename}'. Conteos (ver logs): {json.dumps(final_counts_filename)}"
@@ -398,6 +480,9 @@ async def restore_database_from_filename(request_data: RestoreRequest):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error inesperado al restaurar la base de datos desde '{backup_filename}': {e}", exc_info=True)
+        logger.error(
+            f"Error inesperado al restaurar la base de datos desde '{backup_filename}': {e}",
+            exc_info=True,
+        )
         error_msg = f"Error inesperado al restaurar desde '{backup_filename}': {str(e)}"
         raise HTTPException(status_code=500, detail=error_msg)

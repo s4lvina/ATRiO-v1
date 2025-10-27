@@ -33,13 +33,19 @@ def cleanup_completed_tasks():
 
             # Verificar si han pasado más de 5 minutos
             completed_at = task_info.get("completed_at")
-            if isinstance(completed_at, datetime) and current_time - completed_at > timedelta(minutes=5):
+            if isinstance(
+                completed_at, datetime
+            ) and current_time - completed_at > timedelta(minutes=5):
                 tasks_to_remove.append(task_id)
 
         # Limpiar tareas que llevan más de 30 minutos en procesamiento (posible timeout)
         elif task_info.get("status") == "processing":
             created_at = task_info.get("created_at")
-            if created_at and isinstance(created_at, datetime) and current_time - created_at > timedelta(minutes=30):
+            if (
+                created_at
+                and isinstance(created_at, datetime)
+                and current_time - created_at > timedelta(minutes=30)
+            ):
                 print(f"Marcando tarea {task_id} como fallida por timeout")
                 task_info["status"] = "failed"
                 task_info["message"] = "Proceso interrumpido por timeout"
@@ -52,7 +58,9 @@ def cleanup_completed_tasks():
     # Programar siguiente limpieza solo si el timer sigue activo
     if cleanup_timer_active:
         cleanup_timer = threading.Timer(120, cleanup_completed_tasks)
-        cleanup_timer.daemon = True  # Hacer el thread daemon para que termine con el proceso principal
+        cleanup_timer.daemon = (
+            True  # Hacer el thread daemon para que termine con el proceso principal
+        )
         cleanup_timer.start()
 
 

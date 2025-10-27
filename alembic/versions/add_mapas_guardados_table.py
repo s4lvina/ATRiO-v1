@@ -38,8 +38,12 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_mapas_guardados_caso_id"), "mapas_guardados", ["caso_id"], unique=False)
-    op.create_index(op.f("ix_mapas_guardados_id"), "mapas_guardados", ["id"], unique=False)
+    op.create_index(
+        op.f("ix_mapas_guardados_caso_id"), "mapas_guardados", ["caso_id"], unique=False
+    )
+    op.create_index(
+        op.f("ix_mapas_guardados_id"), "mapas_guardados", ["id"], unique=False
+    )
     # ### end Alembic commands ###
 
 

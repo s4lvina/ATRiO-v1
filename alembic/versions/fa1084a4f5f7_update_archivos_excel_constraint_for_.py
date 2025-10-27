@@ -39,7 +39,9 @@ def upgrade() -> None:
         sa.Column("Nombre_del_Archivo", sa.Text(), nullable=False),
         sa.Column("Tipo_de_Archivo", sa.Text(), nullable=False),
         sa.Column("Fecha_de_Importacion", sa.Date(), nullable=False),
-        sa.CheckConstraint("Tipo_de_Archivo IN ('GPS', 'LPR', 'EXTERNO')", name="check_tipo_archivo"),
+        sa.CheckConstraint(
+            "Tipo_de_Archivo IN ('GPS', 'LPR', 'EXTERNO')", name="check_tipo_archivo"
+        ),
         sa.ForeignKeyConstraint(
             ["ID_Caso"],
             ["Casos.ID_Caso"],
@@ -53,7 +55,9 @@ def upgrade() -> None:
     # Eliminar todas las vistas que dependen de ArchivosExcel
     # Primero obtener todas las vistas que referencian la tabla
     connection = op.get_bind()
-    views_result = connection.execute(text("SELECT name FROM sqlite_master WHERE type='view'")).fetchall()
+    views_result = connection.execute(
+        text("SELECT name FROM sqlite_master WHERE type='view'")
+    ).fetchall()
 
     # Eliminar cada vista que depende de ArchivosExcel
     for view in views_result:
@@ -61,7 +65,9 @@ def upgrade() -> None:
         try:
             # Obtener el SQL de la vista para verificar si depende de ArchivosExcel
             view_sql_result = connection.execute(
-                text(f"SELECT sql FROM sqlite_master WHERE type='view' AND name='{view_name}'")
+                text(
+                    f"SELECT sql FROM sqlite_master WHERE type='view' AND name='{view_name}'"
+                )
             ).fetchone()
 
             if view_sql_result and "ArchivosExcel" in view_sql_result[0]:
@@ -119,8 +125,15 @@ def upgrade() -> None:
     )
 
     # Recrear índices si los había
-    op.create_index(op.f("ix_ArchivosExcel_ID_Archivo"), "ArchivosExcel", ["ID_Archivo"], unique=False)
-    op.create_index(op.f("ix_ArchivosExcel_ID_Caso"), "ArchivosExcel", ["ID_Caso"], unique=False)
+    op.create_index(
+        op.f("ix_ArchivosExcel_ID_Archivo"),
+        "ArchivosExcel",
+        ["ID_Archivo"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_ArchivosExcel_ID_Caso"), "ArchivosExcel", ["ID_Caso"], unique=False
+    )
 
 
 def downgrade() -> None:
@@ -141,7 +154,9 @@ def downgrade() -> None:
         sa.Column("Nombre_del_Archivo", sa.Text(), nullable=False),
         sa.Column("Tipo_de_Archivo", sa.Text(), nullable=False),
         sa.Column("Fecha_de_Importacion", sa.Date(), nullable=False),
-        sa.CheckConstraint("Tipo_de_Archivo IN ('GPS', 'LPR')", name="check_tipo_archivo"),
+        sa.CheckConstraint(
+            "Tipo_de_Archivo IN ('GPS', 'LPR')", name="check_tipo_archivo"
+        ),
         sa.ForeignKeyConstraint(
             ["ID_Caso"],
             ["Casos.ID_Caso"],
@@ -150,12 +165,16 @@ def downgrade() -> None:
     )
 
     # Copiar solo los datos que cumplen con la constraint original
-    op.execute("INSERT INTO ArchivosExcel_temp SELECT * FROM ArchivosExcel WHERE Tipo_de_Archivo IN ('GPS', 'LPR')")
+    op.execute(
+        "INSERT INTO ArchivosExcel_temp SELECT * FROM ArchivosExcel WHERE Tipo_de_Archivo IN ('GPS', 'LPR')"
+    )
 
     # Eliminar todas las vistas que dependen de ArchivosExcel
     # Primero obtener todas las vistas que referencian la tabla
     connection = op.get_bind()
-    views_result = connection.execute(text("SELECT name FROM sqlite_master WHERE type='view'")).fetchall()
+    views_result = connection.execute(
+        text("SELECT name FROM sqlite_master WHERE type='view'")
+    ).fetchall()
 
     # Eliminar cada vista que depende de ArchivosExcel
     for view in views_result:
@@ -163,7 +182,9 @@ def downgrade() -> None:
         try:
             # Obtener el SQL de la vista para verificar si depende de ArchivosExcel
             view_sql_result = connection.execute(
-                text(f"SELECT sql FROM sqlite_master WHERE type='view' AND name='{view_name}'")
+                text(
+                    f"SELECT sql FROM sqlite_master WHERE type='view' AND name='{view_name}'"
+                )
             ).fetchone()
 
             if view_sql_result and "ArchivosExcel" in view_sql_result[0]:
@@ -221,5 +242,12 @@ def downgrade() -> None:
     )
 
     # Recrear índices si los había
-    op.create_index(op.f("ix_ArchivosExcel_ID_Archivo"), "ArchivosExcel", ["ID_Archivo"], unique=False)
-    op.create_index(op.f("ix_ArchivosExcel_ID_Caso"), "ArchivosExcel", ["ID_Caso"], unique=False)
+    op.create_index(
+        op.f("ix_ArchivosExcel_ID_Archivo"),
+        "ArchivosExcel",
+        ["ID_Archivo"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_ArchivosExcel_ID_Caso"), "ArchivosExcel", ["ID_Caso"], unique=False
+    )

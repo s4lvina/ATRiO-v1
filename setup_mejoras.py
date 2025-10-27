@@ -29,7 +29,9 @@ def run_command(command, description, check=True):
     print(f"Comando: {command}")
 
     try:
-        result = subprocess.run(command, shell=True, check=check, capture_output=True, text=True)
+        result = subprocess.run(
+            command, shell=True, check=check, capture_output=True, text=True
+        )
         print("✅ Éxito")
         if result.stdout:
             print(result.stdout)
@@ -65,7 +67,10 @@ def install_redis():
     elif os_type == "macos":
         return run_command("brew install redis", "Instalando Redis con Homebrew")
     else:  # Linux
-        return run_command("sudo apt-get update && sudo apt-get install -y redis-server", "Instalando Redis con apt")
+        return run_command(
+            "sudo apt-get update && sudo apt-get install -y redis-server",
+            "Instalando Redis con apt",
+        )
 
 
 def start_redis():
@@ -78,7 +83,9 @@ def start_redis():
     elif os_type == "macos":
         return run_command("brew services start redis", "Iniciando Redis con Homebrew")
     else:  # Linux
-        return run_command("sudo systemctl start redis-server", "Iniciando Redis con systemctl")
+        return run_command(
+            "sudo systemctl start redis-server", "Iniciando Redis con systemctl"
+        )
 
 
 def install_python_dependencies():
@@ -88,7 +95,10 @@ def install_python_dependencies():
     commands = [
         ("pip install --upgrade pip", "Actualizando pip"),
         ("pip install -r requirements.txt", "Instalando dependencias principales"),
-        ("pip install pytest pytest-cov pytest-asyncio pytest-mock", "Instalando dependencias de testing"),
+        (
+            "pip install pytest pytest-cov pytest-asyncio pytest-mock",
+            "Instalando dependencias de testing",
+        ),
         ("pip install black flake8 mypy", "Instalando herramientas de linting"),
     ]
 
@@ -140,7 +150,10 @@ def run_tests():
 
     commands = [
         ("python -m pytest tests/ -v", "Ejecutando tests unitarios"),
-        ("python -m pytest tests/ --cov=. --cov-report=term-missing", "Ejecutando tests con cobertura"),
+        (
+            "python -m pytest tests/ --cov=. --cov-report=term-missing",
+            "Ejecutando tests con cobertura",
+        ),
     ]
 
     for command, description in commands:

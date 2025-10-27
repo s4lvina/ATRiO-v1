@@ -4,7 +4,9 @@ import os
 from pathlib import Path
 
 # Configurar logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger("atrio.indexing")
 
 
@@ -15,7 +17,9 @@ def apply_composite_index():
         "./database/secure/atrio.db",
         "./atrio.db",
         "atrio.db",
-        os.path.join(os.path.dirname(os.path.dirname(__file__)), "database/secure/atrio.db"),
+        os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "database/secure/atrio.db"
+        ),
         os.path.join(os.path.dirname(os.path.dirname(__file__)), "atrio.db"),
     ]
 
@@ -49,7 +53,9 @@ def apply_composite_index():
         cursor.execute("PRAGMA synchronous=NORMAL")
 
         # Verificar si el índice ya existe
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='index' AND name='ix_lectura_tipo_fecha'")
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='index' AND name='ix_lectura_tipo_fecha'"
+        )
         if cursor.fetchone():
             logger.info("El índice compuesto ya existe")
             return True

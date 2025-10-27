@@ -73,12 +73,22 @@ def client():
 def superadmin_user(db_session):
     """Usuario superadmin para tests"""
     # Crear grupo primero
-    grupo = models.Grupo(ID_Grupo=1, Nombre="Grupo Test", Descripcion="Grupo para tests", Fecha_Creacion=2024)
+    grupo = models.Grupo(
+        ID_Grupo=1,
+        Nombre="Grupo Test",
+        Descripcion="Grupo para tests",
+        Fecha_Creacion=2024,
+    )
     db_session.add(grupo)
     db_session.commit()
 
     # Crear usuario superadmin
-    user = models.Usuario(User=1, Contraseña=get_password_hash("admin123"), Rol=models.RolUsuarioEnum.superadmin, ID_Grupo=1)
+    user = models.Usuario(
+        User=1,
+        Contraseña=get_password_hash("admin123"),
+        Rol=models.RolUsuarioEnum.superadmin,
+        ID_Grupo=1,
+    )
     db_session.add(user)
     db_session.commit()
     db_session.refresh(user)
@@ -89,12 +99,22 @@ def superadmin_user(db_session):
 def admingrupo_user(db_session):
     """Usuario admingrupo para tests"""
     # Crear grupo primero
-    grupo = models.Grupo(ID_Grupo=2, Nombre="Grupo Admin", Descripcion="Grupo para admin tests", Fecha_Creacion=2024)
+    grupo = models.Grupo(
+        ID_Grupo=2,
+        Nombre="Grupo Admin",
+        Descripcion="Grupo para admin tests",
+        Fecha_Creacion=2024,
+    )
     db_session.add(grupo)
     db_session.commit()
 
     # Crear usuario admingrupo
-    user = models.Usuario(User=2, Contraseña=get_password_hash("admin123"), Rol=models.RolUsuarioEnum.admingrupo, ID_Grupo=2)
+    user = models.Usuario(
+        User=2,
+        Contraseña=get_password_hash("admin123"),
+        Rol=models.RolUsuarioEnum.admingrupo,
+        ID_Grupo=2,
+    )
     db_session.add(user)
     db_session.commit()
     db_session.refresh(user)
@@ -139,7 +159,11 @@ def test_lector(db_session):
 def test_archivo(db_session, test_caso):
     """Archivo de prueba"""
     archivo = models.ArchivoExcel(
-        ID_Archivo=1, ID_Caso=test_caso.ID_Caso, Nombre_del_Archivo="test.xlsx", Tipo_de_Archivo="LPR", Total_Registros=100
+        ID_Archivo=1,
+        ID_Caso=test_caso.ID_Caso,
+        Nombre_del_Archivo="test.xlsx",
+        Tipo_de_Archivo="LPR",
+        Total_Registros=100,
     )
     db_session.add(archivo)
     db_session.commit()
@@ -170,7 +194,10 @@ def test_lecturas(db_session, test_archivo, test_lector):
 @pytest.fixture
 def auth_headers_superadmin(client, superadmin_user):
     """Headers de autenticación para superadmin"""
-    response = client.post("/api/auth/token", data={"username": str(superadmin_user.User), "password": "admin123"})
+    response = client.post(
+        "/api/auth/token",
+        data={"username": str(superadmin_user.User), "password": "admin123"},
+    )
     token = response.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
 
@@ -178,7 +205,10 @@ def auth_headers_superadmin(client, superadmin_user):
 @pytest.fixture
 def auth_headers_admingrupo(client, admingrupo_user):
     """Headers de autenticación para admingrupo"""
-    response = client.post("/api/auth/token", data={"username": str(admingrupo_user.User), "password": "admin123"})
+    response = client.post(
+        "/api/auth/token",
+        data={"username": str(admingrupo_user.User), "password": "admin123"},
+    )
     token = response.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
 

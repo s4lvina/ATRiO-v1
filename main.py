@@ -1,4 +1,16 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Request, UploadFile, File, Form, Query, Body, BackgroundTasks
+from fastapi import (
+    FastAPI,
+    Depends,
+    HTTPException,
+    status,
+    Request,
+    UploadFile,
+    File,
+    Form,
+    Query,
+    Body,
+    BackgroundTasks,
+)
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -41,7 +53,11 @@ from math import radians, sin, cos, sqrt, asin
 from schemas import Lectura as LecturaSchema
 from gps_capas import router as gps_capas_router
 from models import LocalizacionInteres
-from schemas import LocalizacionInteresCreate, LocalizacionInteresUpdate, LocalizacionInteresOut
+from schemas import (
+    LocalizacionInteresCreate,
+    LocalizacionInteresUpdate,
+    LocalizacionInteresOut,
+)
 from admin.database_manager import router as admin_database_router
 from backend.routers.gps_analysis import router as gps_analysis_router
 from backend.routers.external_data import router as external_data_router
@@ -67,7 +83,9 @@ from dependencies import (
     TokenData,
 )
 from schemas import Token  # ADDED
-from models import RolUsuarioEnum  # Asegúrate que RolUsuarioEnum está disponible (o usa la cadena directa)
+from models import (
+    RolUsuarioEnum,
+)  # Asegúrate que RolUsuarioEnum está disponible (o usa la cadena directa)
 import enum  # AÑADIDO: Importar enum
 import uuid
 from system_config import get_host_config, update_host_config
@@ -109,7 +127,9 @@ class UploadTaskStatus(BaseModel):
     message: Optional[str] = None
     progress: Optional[float] = None  # e.g., percentage or records processed
     total: Optional[int] = None  # total records to process
-    result: Optional[schemas.UploadResponse] = None  # To hold the final response on completion
+    result: Optional[schemas.UploadResponse] = (
+        None  # To hold the final response on completion
+    )
 
 
 class TaskStatus(BaseModel):
@@ -142,7 +162,13 @@ def dms_to_decimal(dms_str: str) -> Optional[float]:
 
     # Normalizar la cadena: remover caracteres especiales y convertir a mayúsculas
     normalized_str = (
-        dms_str.strip().upper().replace("°", "").replace("'", "").replace('"', "").replace("º", "").replace(" ", "")
+        dms_str.strip()
+        .upper()
+        .replace("°", "")
+        .replace("'", "")
+        .replace('"', "")
+        .replace("º", "")
+        .replace(" ", "")
     )
     # logger.info(f"[DMS Conversion] Cadena normalizada: '{normalized_str}'")
 
@@ -164,8 +190,16 @@ def dms_to_decimal(dms_str: str) -> Optional[float]:
             else:
                 # Si no hay decimal, asumir MMSS o solo MM
                 if len(mmss_combined_str) >= 2:
-                    minutes = float(mmss_combined_str[:-2]) if len(mmss_combined_str) > 2 else 0.0
-                    seconds = float(mmss_combined_str[-2:]) if len(mmss_combined_str) >= 2 else 0.0
+                    minutes = (
+                        float(mmss_combined_str[:-2])
+                        if len(mmss_combined_str) > 2
+                        else 0.0
+                    )
+                    seconds = (
+                        float(mmss_combined_str[-2:])
+                        if len(mmss_combined_str) >= 2
+                        else 0.0
+                    )
                 else:  # Solo minutos o formato inválido
                     minutes = float(mmss_combined_str)
                     seconds = 0.0
@@ -183,15 +217,21 @@ def dms_to_decimal(dms_str: str) -> Optional[float]:
             return final_decimal
 
         except ValueError as ve:
-            logger.debug(f"[DMS Conversion] Error de valor al parsear DMS '{dms_str}': {ve}")
+            logger.debug(
+                f"[DMS Conversion] Error de valor al parsear DMS '{dms_str}': {ve}"
+            )
             return None
         except Exception as e:
-            logger.debug(f"[DMS Conversion] Error inesperado al parsear DMS '{dms_str}': {e}")
+            logger.debug(
+                f"[DMS Conversion] Error inesperado al parsear DMS '{dms_str}': {e}"
+            )
             return None
 
     # Si el formato DMS específico no coincide, intentar parsear como un float decimal simple con dirección
     # e.g., "40.4461 N" o "79.8156 W"
-    parts = re.findall(r"([-+]?\d+\.\d*)|([NSEW])", dms_str)  # Capturar floats con signo y direcciones
+    parts = re.findall(
+        r"([-+]?\d+\.\d*)|([NSEW])", dms_str
+    )  # Capturar floats con signo y direcciones
 
     decimal_val = None
     direction_char = None
@@ -213,7 +253,9 @@ def dms_to_decimal(dms_str: str) -> Optional[float]:
         # logger.info(f"[DMS Conversion] Parseado como decimal con dirección: {final_decimal}")
         return final_decimal
 
-    logger.debug(f"[DMS Conversion] No se pudo parsear como DMS ni como decimal con dirección: {dms_str}")
+    logger.debug(
+        f"[DMS Conversion] No se pudo parsear como DMS ni como decimal con dirección: {dms_str}"
+    )
     return None
 
 
@@ -263,7 +305,10 @@ def validate_coordinates(lat: Optional[float], lon: Optional[float]) -> bool:
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.FileHandler("atrio_backend.log", mode="w"), logging.StreamHandler()],
+    handlers=[
+        logging.FileHandler("atrio_backend.log", mode="w"),
+        logging.StreamHandler(),
+    ],
 )
 logger = logging.getLogger(__name__)
 
@@ -271,7 +316,11 @@ logger = logging.getLogger(__name__)
 # models.create_db_and_tables()
 
 # Importar las funciones de optimización
-from optimizations import create_optimized_indices, optimize_common_queries, vacuum_database
+from optimizations import (
+    create_optimized_indices,
+    optimize_common_queries,
+    vacuum_database,
+)
 
 # --- START JWT/OAuth2 Core Setup ---
 # oauth2_scheme and authentication functions are now imported from dependencies.py
@@ -281,10 +330,14 @@ auth_router = APIRouter()
 
 
 @auth_router.post("/token", response_model=Token)
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+async def login_for_access_token(
+    form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
+):
     # form_data.username es str. models.Usuario.User es int.
     try:
-        user_id_to_query = int(form_data.username)  # Convertir el username del form a int
+        user_id_to_query = int(
+            form_data.username
+        )  # Convertir el username del form a int
     except ValueError:
         # Si no se puede convertir a int, no es un User ID válido
         raise HTTPException(
@@ -293,7 +346,9 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    user = db.query(models.Usuario).filter(models.Usuario.User == user_id_to_query).first()  # Comparar int con int
+    user = (
+        db.query(models.Usuario).filter(models.Usuario.User == user_id_to_query).first()
+    )  # Comparar int con int
     if not user or not verify_password(form_data.password, user.Contraseña):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -306,11 +361,17 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
         expires_delta=access_token_expires,  # user.User (int) se convertirá a str en create_access_token
     )
     refresh_token = create_refresh_token(data={"sub": user.User})
-    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+    }
 
 
 @auth_router.post("/refresh", response_model=Token)
-async def refresh_access_token(refresh_request: schemas.RefreshTokenRequest, db: Session = Depends(get_db)):
+async def refresh_access_token(
+    refresh_request: schemas.RefreshTokenRequest, db: Session = Depends(get_db)
+):
     """Renueva un token de acceso usando un token de renovación válido"""
     try:
         # Decodificar el token de renovación
@@ -349,7 +410,9 @@ async def refresh_access_token(refresh_request: schemas.RefreshTokenRequest, db:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        user = db.query(models.Usuario).filter(models.Usuario.User == user_id_int).first()
+        user = (
+            db.query(models.Usuario).filter(models.Usuario.User == user_id_int).first()
+        )
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -359,10 +422,16 @@ async def refresh_access_token(refresh_request: schemas.RefreshTokenRequest, db:
 
         # Crear nuevos tokens
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-        access_token = create_access_token(data={"sub": user.User}, expires_delta=access_token_expires)
+        access_token = create_access_token(
+            data={"sub": user.User}, expires_delta=access_token_expires
+        )
         refresh_token = create_refresh_token(data={"sub": user.User})
 
-        return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+        }
 
     except JWTError:
         raise HTTPException(
@@ -374,7 +443,8 @@ async def refresh_access_token(refresh_request: schemas.RefreshTokenRequest, db:
 
 @auth_router.get("/me", response_model=schemas.Usuario)
 async def read_users_me(
-    current_user: Optional[models.Usuario] = Depends(get_current_active_user), db: Session = Depends(get_db)
+    current_user: Optional[models.Usuario] = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
 ):  # Added db dependency, made current_user Optional explicitly
     if current_user is None:
         # This case implies no token was provided or it was invalid in a way that get_current_active_user returned None (e.g. auto_error=False and no token)
@@ -390,12 +460,18 @@ async def read_users_me(
     # Asegurar que el grupo se carga si existe para la respuesta
     if current_user.ID_Grupo and not current_user.grupo:
         # Need db session here
-        current_user.grupo = db.query(models.Grupo).filter(models.Grupo.ID_Grupo == current_user.ID_Grupo).first()
+        current_user.grupo = (
+            db.query(models.Grupo)
+            .filter(models.Grupo.ID_Grupo == current_user.ID_Grupo)
+            .first()
+        )
     return current_user
 
 
 @auth_router.get("/check-superadmin")
-async def check_superadmin_status(current_user: models.Usuario = Depends(get_current_active_superadmin)):
+async def check_superadmin_status(
+    current_user: models.Usuario = Depends(get_current_active_superadmin),
+):
     return {"is_superadmin": True, "user": current_user.User}
 
 
@@ -464,7 +540,10 @@ async def get_upload_status(task_id: str):
         # It's important to return a well-formed UploadTaskStatus even for errors if possible,
         # or ensure the frontend can handle a 404 gracefully.
         # For now, raising HTTPException is standard.
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task ID not found or task not initiated.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task ID not found or task not initiated.",
+        )
 
     # Construct the Pydantic model from the dictionary stored in task_statuses
     return UploadTaskStatus(
@@ -473,14 +552,18 @@ async def get_upload_status(task_id: str):
         message=status_info.get("message"),
         progress=status_info.get("progress"),
         total=status_info.get("total"),
-        result=status_info.get("result"),  # This will be None until completion, then dict from UploadResponse
+        result=status_info.get(
+            "result"
+        ),  # This will be None until completion, then dict from UploadResponse
     )
 
 
 # --- END Endpoint to check background task status ---
 
 # --- INCLUDE auth_router EARLY ---
-app.include_router(auth_router, prefix="/api/auth", tags=["Autenticación"])  # MODIFIED: Added /api prefix
+app.include_router(
+    auth_router, prefix="/api/auth", tags=["Autenticación"]
+)  # MODIFIED: Added /api prefix
 # --- END INCLUDE auth_router EARLY ---
 
 # Configurar CORS - ÚNICA CONFIGURACIÓN
@@ -518,12 +601,20 @@ def get_footer_config():
             config = json.load(f)
             return config
     except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Archivo de configuración del footer no encontrado")
+        raise HTTPException(
+            status_code=404, detail="Archivo de configuración del footer no encontrado"
+        )
     except json.JSONDecodeError:
-        raise HTTPException(status_code=500, detail="Error al decodificar el archivo JSON de configuración del footer")
+        raise HTTPException(
+            status_code=500,
+            detail="Error al decodificar el archivo JSON de configuración del footer",
+        )
     except Exception as e:
         logger.error(f"Error al leer la configuración del footer: {e}")
-        raise HTTPException(status_code=500, detail="Error interno del servidor al obtener la configuración del footer")
+        raise HTTPException(
+            status_code=500,
+            detail="Error interno del servidor al obtener la configuración del footer",
+        )
 
 
 @config_router.post("/footer")
@@ -536,7 +627,10 @@ def update_footer_config(config: FooterConfigUpdate):
             return {"message": "Configuración del footer actualizada correctamente"}
     except Exception as e:
         logger.error(f"Error al guardar la configuración del footer: {e}")
-        raise HTTPException(status_code=500, detail="Error interno del servidor al actualizar la configuración del footer")
+        raise HTTPException(
+            status_code=500,
+            detail="Error interno del servidor al actualizar la configuración del footer",
+        )
 
 
 # --- END NEW CONFIGURATION ROUTER ---
@@ -548,13 +642,26 @@ app.include_router(config_router)  # ADDED: Include the new config router
 localizaciones_router = APIRouter()
 
 
-@localizaciones_router.get("/casos/{caso_id}/localizaciones-interes", response_model=List[LocalizacionInteresOut])
+@localizaciones_router.get(
+    "/casos/{caso_id}/localizaciones-interes",
+    response_model=List[LocalizacionInteresOut],
+)
 def get_localizaciones_interes(caso_id: int, db: Session = Depends(get_db)):
-    return db.query(LocalizacionInteres).filter(LocalizacionInteres.caso_id == caso_id).all()
+    return (
+        db.query(LocalizacionInteres)
+        .filter(LocalizacionInteres.caso_id == caso_id)
+        .all()
+    )
 
 
-@localizaciones_router.post("/casos/{caso_id}/localizaciones-interes", response_model=LocalizacionInteresOut, status_code=201)
-def create_localizacion_interes(caso_id: int, loc: LocalizacionInteresCreate, db: Session = Depends(get_db)):
+@localizaciones_router.post(
+    "/casos/{caso_id}/localizaciones-interes",
+    response_model=LocalizacionInteresOut,
+    status_code=201,
+)
+def create_localizacion_interes(
+    caso_id: int, loc: LocalizacionInteresCreate, db: Session = Depends(get_db)
+):
     db_loc = LocalizacionInteres(**loc.model_dump(), caso_id=caso_id)
     db.add(db_loc)
     db.commit()
@@ -562,10 +669,22 @@ def create_localizacion_interes(caso_id: int, loc: LocalizacionInteresCreate, db
     return db_loc
 
 
-@localizaciones_router.put("/casos/{caso_id}/localizaciones-interes/{loc_id}", response_model=LocalizacionInteresOut)
-def update_localizacion_interes(caso_id: int, loc_id: int, loc: LocalizacionInteresUpdate, db: Session = Depends(get_db)):
+@localizaciones_router.put(
+    "/casos/{caso_id}/localizaciones-interes/{loc_id}",
+    response_model=LocalizacionInteresOut,
+)
+def update_localizacion_interes(
+    caso_id: int,
+    loc_id: int,
+    loc: LocalizacionInteresUpdate,
+    db: Session = Depends(get_db),
+):
     db_loc = (
-        db.query(LocalizacionInteres).filter(LocalizacionInteres.id == loc_id, LocalizacionInteres.caso_id == caso_id).first()
+        db.query(LocalizacionInteres)
+        .filter(
+            LocalizacionInteres.id == loc_id, LocalizacionInteres.caso_id == caso_id
+        )
+        .first()
     )
     if not db_loc:
         raise HTTPException(status_code=404, detail="Localización no encontrada")
@@ -576,10 +695,18 @@ def update_localizacion_interes(caso_id: int, loc_id: int, loc: LocalizacionInte
     return db_loc
 
 
-@localizaciones_router.delete("/casos/{caso_id}/localizaciones-interes/{loc_id}", status_code=204)
-def delete_localizacion_interes(caso_id: int, loc_id: int, db: Session = Depends(get_db)):
+@localizaciones_router.delete(
+    "/casos/{caso_id}/localizaciones-interes/{loc_id}", status_code=204
+)
+def delete_localizacion_interes(
+    caso_id: int, loc_id: int, db: Session = Depends(get_db)
+):
     db_loc = (
-        db.query(LocalizacionInteres).filter(LocalizacionInteres.id == loc_id, LocalizacionInteres.caso_id == caso_id).first()
+        db.query(LocalizacionInteres)
+        .filter(
+            LocalizacionInteres.id == loc_id, LocalizacionInteres.caso_id == caso_id
+        )
+        .first()
     )
     if not db_loc:
         raise HTTPException(status_code=404, detail="Localización no encontrada")
@@ -610,7 +737,9 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 # --- Manejador global de excepciones ---
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    logger.exception(f"Error no manejado en {request.method} {request.url.path}: {str(exc)}")
+    logger.exception(
+        f"Error no manejado en {request.method} {request.url.path}: {str(exc)}"
+    )
 
     # Para errores HTTP ya manejados, mantener su comportamiento
     if isinstance(exc, HTTPException):
@@ -654,7 +783,9 @@ def parsear_ubicacion(ubicacion_str: str) -> Optional[Tuple[float, float]]:
     logger.debug(f"Intentando parsear ubicación: '{ubicacion_str}'")
 
     # 1. Intentar formato "lat SEPARADOR lon" (coma o espacio como separador)
-    match_latlon = re.match(r"^(-?\d+(?:\.\d+)?)\s*(?:,|\s+)\s*(-?\d+(?:\.\d+)?)$", ubicacion_str)
+    match_latlon = re.match(
+        r"^(-?\d+(?:\.\d+)?)\s*(?:,|\s+)\s*(-?\d+(?:\.\d+)?)$", ubicacion_str
+    )
     if match_latlon:
         try:
             lat = float(match_latlon.group(1))
@@ -671,17 +802,23 @@ def parsear_ubicacion(ubicacion_str: str) -> Optional[Tuple[float, float]]:
             return None
 
     # 2. Intentar formato enlace Google Maps (@lat,lon,...)
-    match_gmaps = re.search(r"google\.[a-z.]+/maps/.*?@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)", ubicacion_str)
+    match_gmaps = re.search(
+        r"google\.[a-z.]+/maps/.*?@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)", ubicacion_str
+    )
     if match_gmaps:
         try:
             lat = float(match_gmaps.group(1))
             lon = float(match_gmaps.group(2))
             # Validar rangos
             if -90 <= lat <= 90 and -180 <= lon <= 180:
-                logger.info(f"Coordenadas parseadas de Google Maps: Lat={lat}, Lon={lon}")
+                logger.info(
+                    f"Coordenadas parseadas de Google Maps: Lat={lat}, Lon={lon}"
+                )
                 return lat, lon
             else:
-                logger.warning(f"Coordenadas de Google Maps fuera de rango: Lat={lat}, Lon={lon}")
+                logger.warning(
+                    f"Coordenadas de Google Maps fuera de rango: Lat={lat}, Lon={lon}"
+                )
                 return None
         except ValueError:
             logger.warning("Error al convertir lat/lon de Google Maps a float.")
@@ -702,28 +839,49 @@ def read_root():
 # === CASOS ===
 @app.post("/casos", response_model=schemas.Caso, status_code=status.HTTP_201_CREATED)
 def create_caso(
-    caso: schemas.CasoCreate, db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_active_user)
+    caso: schemas.CasoCreate,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_active_user),
 ):
     logger.info(
         f"Usuario {current_user.User} (Rol: {getattr(current_user.Rol, 'value', current_user.Rol)}) creando caso: {caso.Nombre_del_Caso}"
     )
 
-    user_rol_value = current_user.Rol.value if hasattr(current_user.Rol, "value") else current_user.Rol
+    user_rol_value = (
+        current_user.Rol.value
+        if hasattr(current_user.Rol, "value")
+        else current_user.Rol
+    )
     is_superadmin = user_rol_value == "superadmin"
     is_admingrupo = user_rol_value == "admingrupo"
 
     # Solo superadmin o admingrupo pueden crear casos
     if not is_superadmin and not is_admingrupo:
-        logger.warning(f"Usuario {current_user.User} (Rol: {user_rol_value}) intentó crear caso. Acción no permitida.")
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tiene permiso para crear casos.")
+        logger.warning(
+            f"Usuario {current_user.User} (Rol: {user_rol_value}) intentó crear caso. Acción no permitida."
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tiene permiso para crear casos.",
+        )
 
     # Check for duplicate case name and year
     existing_caso = (
-        db.query(models.Caso).filter(models.Caso.Nombre_del_Caso == caso.Nombre_del_Caso, models.Caso.Año == caso.Año).first()
+        db.query(models.Caso)
+        .filter(
+            models.Caso.Nombre_del_Caso == caso.Nombre_del_Caso,
+            models.Caso.Año == caso.Año,
+        )
+        .first()
     )
     if existing_caso:
-        logger.warning(f"Intento de crear caso duplicado: {caso.Nombre_del_Caso} ({caso.Año}) por usuario {current_user.User}")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Ya existe un caso con el mismo nombre y año.")
+        logger.warning(
+            f"Intento de crear caso duplicado: {caso.Nombre_del_Caso} ({caso.Año}) por usuario {current_user.User}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Ya existe un caso con el mismo nombre y año.",
+        )
 
     try:
         caso_data = caso.model_dump(exclude_unset=True)
@@ -731,20 +889,30 @@ def create_caso(
         # Handle Estado: Use provided, else default to NUEVO. Validate enum value.
         estado_str = caso_data.get("Estado", models.EstadoCasoEnum.NUEVO.value)
         if estado_str not in [item.value for item in models.EstadoCasoEnum]:
-            logger.error(f"Valor de Estado inválido '{estado_str}' proporcionado por usuario {current_user.User}")
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Valor de Estado inválido: {estado_str}")
+            logger.error(
+                f"Valor de Estado inválido '{estado_str}' proporcionado por usuario {current_user.User}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Valor de Estado inválido: {estado_str}",
+            )
 
         assigned_id_grupo = caso_data.get("ID_Grupo")
 
         if not is_superadmin:  # Esta lógica ahora es solo para admingrupo
             if current_user.ID_Grupo is None:  # admingrupo debe tener un grupo
-                logger.warning(f"Usuario admingrupo {current_user.User} (sin grupo) intentó crear caso. Prohibido.")
+                logger.warning(
+                    f"Usuario admingrupo {current_user.User} (sin grupo) intentó crear caso. Prohibido."
+                )
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Como admingrupo, debe tener un grupo asignado para crear casos.",
                 )
 
-            if assigned_id_grupo is not None and assigned_id_grupo != current_user.ID_Grupo:
+            if (
+                assigned_id_grupo is not None
+                and assigned_id_grupo != current_user.ID_Grupo
+            ):
                 logger.warning(
                     f"Usuario {current_user.User} (Grupo: {current_user.ID_Grupo}) intentó crear caso para grupo ajeno ({assigned_id_grupo}). Prohibido."
                 )
@@ -756,7 +924,11 @@ def create_caso(
         else:
             # Superadmin: Can assign to any existing group, or no group (None).
             if assigned_id_grupo is not None:
-                grupo_exists = db.query(models.Grupo).filter(models.Grupo.ID_Grupo == assigned_id_grupo).first()
+                grupo_exists = (
+                    db.query(models.Grupo)
+                    .filter(models.Grupo.ID_Grupo == assigned_id_grupo)
+                    .first()
+                )
                 if not grupo_exists:
                     logger.warning(
                         f"Superadmin {current_user.User} intentó crear caso para grupo inexistente ID: {assigned_id_grupo}."
@@ -787,8 +959,14 @@ def create_caso(
         raise http_exc
     except Exception as e:
         db.rollback()
-        logger.error(f"Error al crear el caso '{caso.Nombre_del_Caso}' para usuario {current_user.User}: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error interno al crear el caso.")
+        logger.error(
+            f"Error al crear el caso '{caso.Nombre_del_Caso}' para usuario {current_user.User}: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno al crear el caso.",
+        )
 
 
 @app.get("/casos", response_model=List[schemas.Caso])
@@ -799,17 +977,27 @@ def read_casos(
     current_user: models.Usuario = Depends(get_current_active_user),
 ):
     if current_user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated"
+        )
 
     query = db.query(models.Caso).options(
-        joinedload(models.Caso.grupo), joinedload(models.Caso.archivos)  # CORREGIDO: de archivos_excel a archivos
+        joinedload(models.Caso.grupo),
+        joinedload(models.Caso.archivos),  # CORREGIDO: de archivos_excel a archivos
     )
 
-    user_rol = current_user.Rol.value if hasattr(current_user.Rol, "value") else current_user.Rol
+    user_rol = (
+        current_user.Rol.value
+        if hasattr(current_user.Rol, "value")
+        else current_user.Rol
+    )
 
     if user_rol == RolUsuarioEnum.superadmin.value:
         pass
-    elif user_rol == RolUsuarioEnum.admingrupo.value or user_rol == RolUsuarioEnum.user_consulta.value:  # MODIFICADO
+    elif (
+        user_rol == RolUsuarioEnum.admingrupo.value
+        or user_rol == RolUsuarioEnum.user_consulta.value
+    ):  # MODIFICADO
         if current_user.ID_Grupo is not None:
             query = query.filter(models.Caso.ID_Grupo == current_user.ID_Grupo)
         else:
@@ -819,10 +1007,14 @@ def read_casos(
         # Otros roles desconocidos o no autorizados.
         return []
 
-    casos_db = query.order_by(models.Caso.ID_Caso.desc()).offset(skip).limit(limit).all()
+    casos_db = (
+        query.order_by(models.Caso.ID_Caso.desc()).offset(skip).limit(limit).all()
+    )
 
     casos_response = []
-    for caso_db_item in casos_db:  # Renombrada variable para evitar confusión con el schema `caso`
+    for (
+        caso_db_item
+    ) in casos_db:  # Renombrada variable para evitar confusión con el schema `caso`
         casos_response.append(
             schemas.Caso(
                 ID_Caso=caso_db_item.ID_Caso,
@@ -832,12 +1024,21 @@ def read_casos(
                 Año=caso_db_item.Año,
                 NIV=caso_db_item.NIV,
                 Estado=(
-                    caso_db_item.Estado.value if isinstance(caso_db_item.Estado, enum.Enum) else caso_db_item.Estado
+                    caso_db_item.Estado.value
+                    if isinstance(caso_db_item.Estado, enum.Enum)
+                    else caso_db_item.Estado
                 ),  # Asegurar que se envía el valor del enum
                 Fecha_de_Creacion=caso_db_item.Fecha_de_Creacion,
-                grupo=schemas.Grupo.model_validate(caso_db_item.grupo) if caso_db_item.grupo else None,
+                grupo=(
+                    schemas.Grupo.model_validate(caso_db_item.grupo)
+                    if caso_db_item.grupo
+                    else None
+                ),
                 archivos=(
-                    [schemas.ArchivoExcel.model_validate(archivo) for archivo in caso_db_item.archivos]
+                    [
+                        schemas.ArchivoExcel.model_validate(archivo)
+                        for archivo in caso_db_item.archivos
+                    ]
                     if caso_db_item.archivos
                     else []
                 ),  # CORREGIDO: de archivos_excel a archivos
@@ -847,33 +1048,53 @@ def read_casos(
 
 
 @app.get("/casos/{caso_id}", response_model=schemas.Caso)
-def read_caso(caso_id: int, db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_active_user)):
+def read_caso(
+    caso_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_active_user),
+):
     logger.info(
         f"Usuario {current_user.User} (Rol: {getattr(current_user.Rol, 'value', current_user.Rol)}) solicitando GET /casos/{caso_id}"
     )
 
     db_caso = db.query(models.Caso).filter(models.Caso.ID_Caso == caso_id).first()
     if db_caso is None:
-        logger.warning(f"Caso ID {caso_id} no encontrado (solicitado por {current_user.User}).")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Caso no encontrado")
+        logger.warning(
+            f"Caso ID {caso_id} no encontrado (solicitado por {current_user.User})."
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Caso no encontrado"
+        )
 
-    user_rol_value = current_user.Rol.value if hasattr(current_user.Rol, "value") else current_user.Rol
+    user_rol_value = (
+        current_user.Rol.value
+        if hasattr(current_user.Rol, "value")
+        else current_user.Rol
+    )
     is_superadmin = user_rol_value == "superadmin"
 
     if not is_superadmin:
         if current_user.ID_Grupo is None:
-            logger.warning(f"Usuario {current_user.User} (sin grupo) intentó acceder al caso {caso_id}. Prohibido.")
+            logger.warning(
+                f"Usuario {current_user.User} (sin grupo) intentó acceder al caso {caso_id}. Prohibido."
+            )
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="No tiene un grupo asignado. No puede acceder a casos."
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tiene un grupo asignado. No puede acceder a casos.",
             )
 
         if db_caso.ID_Grupo != current_user.ID_Grupo:
             logger.warning(
                 f"Usuario {current_user.User} (Grupo: {current_user.ID_Grupo}) intentó acceder al caso {caso_id} (Grupo: {db_caso.ID_Grupo}). Prohibido."
             )
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tiene permiso para acceder a este caso.")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tiene permiso para acceder a este caso.",
+            )
 
-    logger.info(f"Usuario {current_user.User} autorizado para acceder al caso {caso_id}.")
+    logger.info(
+        f"Usuario {current_user.User} autorizado para acceder al caso {caso_id}."
+    )
     return db_caso
 
 
@@ -892,7 +1113,9 @@ def update_caso_estado(
         logger.warning(
             f"[Update Estado Caso] Caso con ID {caso_id} no encontrado (solicitado por {current_user.User})."
         )  # MODIFIED
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Caso no encontrado")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Caso no encontrado"
+        )
 
     # Validar que el nuevo estado (string) es válido
     nuevo_estado_str = estado_update.Estado
@@ -900,7 +1123,10 @@ def update_caso_estado(
         logger.error(
             f"Valor de Estado inválido '{nuevo_estado_str}' para actualizar caso {caso_id} (solicitado por {current_user.User})."
         )  # MODIFIED
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Valor de Estado inválido: {nuevo_estado_str}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Valor de Estado inválido: {nuevo_estado_str}",
+        )
 
     # TODO: Add authorization: Check if current_user can modify db_caso (e.g., is superadmin or belongs to db_caso.ID_Grupo)
 
@@ -919,13 +1145,16 @@ def update_caso_estado(
             exc_info=True,
         )  # MODIFIED
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error interno al actualizar el estado del caso."
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno al actualizar el estado del caso.",
         )
 
 
 @app.delete("/casos/{caso_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_caso(
-    caso_id: int, db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_active_user)  # MODIFICADO
+    caso_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_active_user),  # MODIFICADO
 ):
     logger.info(
         f"Intento de eliminación del caso ID {caso_id} por usuario {current_user.User} (Rol: {current_user.Rol.value})"
@@ -933,32 +1162,58 @@ async def delete_caso(
     db_caso = db.query(models.Caso).filter(models.Caso.ID_Caso == caso_id).first()
 
     if not db_caso:
-        logger.warning(f"Caso ID {caso_id} no encontrado para eliminar (solicitado por {current_user.User}).")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Caso con ID {caso_id} no encontrado")
+        logger.warning(
+            f"Caso ID {caso_id} no encontrado para eliminar (solicitado por {current_user.User})."
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Caso con ID {caso_id} no encontrado",
+        )
 
-    user_rol = current_user.Rol.value if hasattr(current_user.Rol, "value") else current_user.Rol
+    user_rol = (
+        current_user.Rol.value
+        if hasattr(current_user.Rol, "value")
+        else current_user.Rol
+    )
 
     if user_rol == RolUsuarioEnum.superadmin.value:
         # Superadmin puede eliminar cualquier caso
         pass
     elif user_rol == RolUsuarioEnum.admingrupo.value:
         if current_user.ID_Grupo is None:
-            logger.warning(f"Admingrupo {current_user.User} intentó eliminar caso {caso_id} pero no tiene grupo asignado.")
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admingrupo no tiene un grupo asignado.")
+            logger.warning(
+                f"Admingrupo {current_user.User} intentó eliminar caso {caso_id} pero no tiene grupo asignado."
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admingrupo no tiene un grupo asignado.",
+            )
         if db_caso.ID_Grupo != current_user.ID_Grupo:
             logger.warning(
                 f"Admingrupo {current_user.User} (Grupo: {current_user.ID_Grupo}) intentó eliminar caso {caso_id} (Grupo: {db_caso.ID_Grupo}) sin permisos."
             )
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tiene permisos para eliminar este caso.")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tiene permisos para eliminar este caso.",
+            )
     else:
         # Otros roles no pueden eliminar casos
-        logger.warning(f"Usuario {current_user.User} (Rol: {user_rol}) intentó eliminar caso {caso_id} sin permisos.")
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tiene permisos para eliminar casos.")
+        logger.warning(
+            f"Usuario {current_user.User} (Rol: {user_rol}) intentó eliminar caso {caso_id} sin permisos."
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tiene permisos para eliminar casos.",
+        )
 
     # Proceder con la eliminación
     # Eliminar lecturas asociadas primero (LPR y GPS)
     try:
-        archivos_a_eliminar = db.query(models.ArchivoExcel).filter(models.ArchivoExcel.ID_Caso == caso_id).all()
+        archivos_a_eliminar = (
+            db.query(models.ArchivoExcel)
+            .filter(models.ArchivoExcel.ID_Caso == caso_id)
+            .all()
+        )
         logger.info(
             f"[Delete Caso Casc] Se encontraron {len(archivos_a_eliminar)} archivos asociados al caso {caso_id} (solicitud por {current_user.User})."
         )
@@ -998,16 +1253,21 @@ async def delete_caso(
                     f"[Delete Caso Casc] Registro ArchivoExcel ID {archivo_id_actual} no tiene nombre, no se puede eliminar archivo físico."
                 )
             db.delete(db_archivo)
-            logger.info(f"[Delete Caso Casc] Registro ArchivoExcel ID {archivo_id_actual} marcado para eliminar.")
+            logger.info(
+                f"[Delete Caso Casc] Registro ArchivoExcel ID {archivo_id_actual} marcado para eliminar."
+            )
         db.delete(db_caso)
         logger.info(f"[Delete Caso Casc] Caso ID {caso_id} marcado para eliminar.")
         db.commit()
-        logger.info(f"[Delete Caso Casc] Commit realizado. Eliminación completada para caso ID {caso_id} y sus asociados.")
+        logger.info(
+            f"[Delete Caso Casc] Commit realizado. Eliminación completada para caso ID {caso_id} y sus asociados."
+        )
         return None
     except Exception as e:
         db.rollback()
         logger.error(
-            f"[Delete Caso Casc] Error durante la eliminación del caso ID {caso_id}. Rollback realizado: {e}", exc_info=True
+            f"[Delete Caso Casc] Error durante la eliminación del caso ID {caso_id}. Rollback realizado: {e}",
+            exc_info=True,
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -1054,7 +1314,9 @@ async def validate_lectores_preview(
         map_interno_a_cliente = {v: k for k, v in map_cliente_a_interno.items()}
 
         # Aplicar mapeo
-        columnas_a_renombrar = {k: v for k, v in map_interno_a_cliente.items() if k in df.columns}
+        columnas_a_renombrar = {
+            k: v for k, v in map_interno_a_cliente.items() if k in df.columns
+        }
         df.rename(columns=columnas_a_renombrar, inplace=True)
 
         resultado = {
@@ -1068,10 +1330,16 @@ async def validate_lectores_preview(
 
         if tipo_archivo == "LPR" and "ID_Lector" in df.columns:
             # Obtener lectores únicos del archivo
-            lectores_archivo = df["ID_Lector"].dropna().astype(str).str.strip().unique().tolist()
+            lectores_archivo = (
+                df["ID_Lector"].dropna().astype(str).str.strip().unique().tolist()
+            )
 
             # Verificar cuáles existen en BD
-            lectores_existentes = db.query(models.Lector.ID_Lector).filter(models.Lector.ID_Lector.in_(lectores_archivo)).all()
+            lectores_existentes = (
+                db.query(models.Lector.ID_Lector)
+                .filter(models.Lector.ID_Lector.in_(lectores_archivo))
+                .all()
+            )
             lectores_existentes_set = {l[0] for l in lectores_existentes}
 
             # Clasificar lectores
@@ -1080,14 +1348,20 @@ async def validate_lectores_preview(
                     continue
 
                 if lector_id in lectores_existentes_set:
-                    resultado["lectores_existentes"].append({"id": lector_id, "estado": "existente"})
+                    resultado["lectores_existentes"].append(
+                        {"id": lector_id, "estado": "existente"}
+                    )
                 else:
                     # Validar si es seguro crear este lector
                     validacion = validar_lector_seguro(lector_id)
 
                     if validacion["es_seguro"]:
                         resultado["lectores_nuevos"].append(
-                            {"id": lector_id, "estado": "nuevo_seguro", "razon": validacion["razon"]}
+                            {
+                                "id": lector_id,
+                                "estado": "nuevo_seguro",
+                                "razon": validacion["razon"],
+                            }
                         )
                     else:
                         resultado["lectores_problematicos"].append(
@@ -1121,10 +1395,18 @@ async def validate_lectores_preview(
 
     except Exception as e:
         logger.error(f"Error en validación de lectores: {e}")
-        return {"error": str(e), "es_seguro_proceder": False, "advertencias": ["Error al validar el archivo"]}
+        return {
+            "error": str(e),
+            "es_seguro_proceder": False,
+            "advertencias": ["Error al validar el archivo"],
+        }
 
 
-@app.post("/casos/{caso_id}/archivos/upload", response_model=UploadInitiationResponse, status_code=status.HTTP_202_ACCEPTED)
+@app.post(
+    "/casos/{caso_id}/archivos/upload",
+    response_model=UploadInitiationResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
 async def upload_excel_submission(
     caso_id: int,
     background_tasks: BackgroundTasks,
@@ -1136,18 +1418,32 @@ async def upload_excel_submission(
 ):
     import os
 
-    logger.info(f"User {current_user.User} requesting to upload file '{excel_file.filename}' for caso {caso_id}")
+    logger.info(
+        f"User {current_user.User} requesting to upload file '{excel_file.filename}' for caso {caso_id}"
+    )
     db_caso = db.query(models.Caso).filter(models.Caso.ID_Caso == caso_id).first()
     if db_caso is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Caso no encontrado")
-    user_rol = current_user.Rol.value if hasattr(current_user.Rol, "value") else current_user.Rol
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Caso no encontrado"
+        )
+    user_rol = (
+        current_user.Rol.value
+        if hasattr(current_user.Rol, "value")
+        else current_user.Rol
+    )
     is_superadmin = user_rol == RolUsuarioEnum.superadmin.value
     is_admingrupo = user_rol == RolUsuarioEnum.admingrupo.value
     if not is_superadmin and not is_admingrupo:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permiso denegado para subir archivos.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permiso denegado para subir archivos.",
+        )
     if is_admingrupo:
         if current_user.ID_Grupo is None:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admingrupo no tiene un grupo asignado.")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admingrupo no tiene un grupo asignado.",
+            )
         if db_caso.ID_Grupo != current_user.ID_Grupo:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -1155,7 +1451,10 @@ async def upload_excel_submission(
             )
     archivo_existente = (
         db.query(models.ArchivoExcel)
-        .filter(models.ArchivoExcel.ID_Caso == caso_id, models.ArchivoExcel.Nombre_del_Archivo == excel_file.filename)
+        .filter(
+            models.ArchivoExcel.ID_Caso == caso_id,
+            models.ArchivoExcel.Nombre_del_Archivo == excel_file.filename,
+        )
         .first()
     )
     if archivo_existente:
@@ -1174,7 +1473,9 @@ async def upload_excel_submission(
     try:
         with open(temp_file_path, "wb") as buffer:
             shutil.copyfileobj(excel_file.file, buffer)
-        logger.info(f"[Task {task_id}] Temporary file saved successfully: {temp_file_path}")
+        logger.info(
+            f"[Task {task_id}] Temporary file saved successfully: {temp_file_path}"
+        )
     except Exception as e:
         logger.error(
             f"[Task {task_id}] CRÍTICO al guardar el archivo subido {original_filename} en {temp_file_path}: {e}",
@@ -1208,42 +1509,65 @@ async def upload_excel_submission(
         column_mapping,
         current_user.User,
     )
-    logger.info(f"[Task {task_id}] File '{original_filename}' for caso {caso_id} enqueued for background processing.")
+    logger.info(
+        f"[Task {task_id}] File '{original_filename}' for caso {caso_id} enqueued for background processing."
+    )
     return UploadInitiationResponse(
         task_id=task_id,
         message="File upload accepted and is being processed in the background. Check status endpoint for progress.",
     )
 
 
-@app.get("/casos/{caso_id}/archivos", response_model=List[schemas.ArchivoExcel])  # Schema ya incluye Total_Registros
+@app.get(
+    "/casos/{caso_id}/archivos", response_model=List[schemas.ArchivoExcel]
+)  # Schema ya incluye Total_Registros
 def read_archivos_por_caso(
-    caso_id: int, db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_active_user)
+    caso_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_active_user),
 ):
     logger.info(
         f"GET /casos/{caso_id}/archivos - Solicitado por {current_user.User} (Rol: {current_user.Rol.value if hasattr(current_user.Rol, 'value') else current_user.Rol})"
     )
     db_caso = db.query(models.Caso).filter(models.Caso.ID_Caso == caso_id).first()
     if db_caso is None:
-        logger.warning(f"Caso ID {caso_id} no encontrado al buscar archivos (solicitado por {current_user.User}).")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Caso no encontrado")
+        logger.warning(
+            f"Caso ID {caso_id} no encontrado al buscar archivos (solicitado por {current_user.User})."
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Caso no encontrado"
+        )
 
-    user_rol = current_user.Rol.value if hasattr(current_user.Rol, "value") else current_user.Rol
+    user_rol = (
+        current_user.Rol.value
+        if hasattr(current_user.Rol, "value")
+        else current_user.Rol
+    )
     if user_rol != RolUsuarioEnum.superadmin.value:  # No es superadmin, verificar grupo
         if current_user.ID_Grupo is None:
-            logger.warning(f"Usuario {current_user.User} sin grupo intentó listar archivos del caso {caso_id}.")
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tiene un grupo asignado.")
+            logger.warning(
+                f"Usuario {current_user.User} sin grupo intentó listar archivos del caso {caso_id}."
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tiene un grupo asignado.",
+            )
         if db_caso.ID_Grupo != current_user.ID_Grupo:
             logger.warning(
                 f"Usuario {current_user.User} (Grupo {current_user.ID_Grupo}) intentó listar archivos del caso {caso_id} (Grupo {db_caso.ID_Grupo}). Acceso denegado."
             )
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="No tiene permiso para acceder a los archivos de este caso."
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tiene permiso para acceder a los archivos de este caso.",
             )
 
     try:
         # Subconsulta para contar lecturas por ID_Archivo
         subquery = (
-            select(models.Lectura.ID_Archivo, func.count(models.Lectura.ID_Lectura).label("total_lecturas"))
+            select(
+                models.Lectura.ID_Archivo,
+                func.count(models.Lectura.ID_Lectura).label("total_lecturas"),
+            )
             .group_by(models.Lectura.ID_Archivo)
             .subquery()
         )
@@ -1256,7 +1580,9 @@ def read_archivos_por_caso(
                 # Seleccionar la columna 'total_lecturas' de la subconsulta, usando 0 si es NULL
                 func.coalesce(subquery.c.total_lecturas, 0).label("num_registros"),
             )
-            .outerjoin(subquery, models.ArchivoExcel.ID_Archivo == subquery.c.ID_Archivo)
+            .outerjoin(
+                subquery, models.ArchivoExcel.ID_Archivo == subquery.c.ID_Archivo
+            )
             .filter(models.ArchivoExcel.ID_Caso == caso_id)
             .order_by(models.ArchivoExcel.Fecha_de_Importacion.desc())
             .all()
@@ -1279,17 +1605,24 @@ def read_archivos_por_caso(
         return respuesta
 
     except Exception as e:
-        logger.error(f"Error al obtener archivos para caso {caso_id}: {e}", exc_info=True)
+        logger.error(
+            f"Error al obtener archivos para caso {caso_id}: {e}", exc_info=True
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error interno al obtener archivos: {e}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno al obtener archivos: {e}",
         )
 
 
 @app.delete("/archivos/{id_archivo}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_archivo(
-    id_archivo: int, db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_active_user)
+    id_archivo: int,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_active_user),
 ):
-    logger.info(f"Solicitud DELETE para archivo ID: {id_archivo} por usuario {current_user.User}")
+    logger.info(
+        f"Solicitud DELETE para archivo ID: {id_archivo} por usuario {current_user.User}"
+    )
     archivo_db = (
         db.query(models.ArchivoExcel)
         .options(joinedload(models.ArchivoExcel.caso))
@@ -1297,34 +1630,53 @@ async def delete_archivo(
         .first()
     )
     if archivo_db is None:
-        logger.warning(f"[Delete] Archivo ID {id_archivo} no encontrado (solicitado por {current_user.User}).")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Registro archivo no encontrado.")
+        logger.warning(
+            f"[Delete] Archivo ID {id_archivo} no encontrado (solicitado por {current_user.User})."
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Registro archivo no encontrado.",
+        )
 
     if not archivo_db.caso:
         logger.error(
             f"[Delete] Archivo ID {id_archivo} (solicitado por {current_user.User}) no está asociado a ningún caso. No se puede verificar permisos."
         )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error de consistencia de datos del archivo."
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error de consistencia de datos del archivo.",
         )
 
-    user_rol = current_user.Rol.value if hasattr(current_user.Rol, "value") else current_user.Rol
+    user_rol = (
+        current_user.Rol.value
+        if hasattr(current_user.Rol, "value")
+        else current_user.Rol
+    )
     if user_rol == RolUsuarioEnum.admingrupo.value:
         if current_user.ID_Grupo is None:
             logger.warning(
                 f"[Delete] Admingrupo {current_user.User} sin grupo asignado intentó eliminar archivo {id_archivo}."
             )
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admingrupo no tiene un grupo asignado.")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admingrupo no tiene un grupo asignado.",
+            )
         if archivo_db.caso.ID_Grupo != current_user.ID_Grupo:
             logger.warning(
                 f"[Delete] Admingrupo {current_user.User} (Grupo {current_user.ID_Grupo}) intentó eliminar archivo {id_archivo} del caso {archivo_db.ID_Caso} (Grupo {archivo_db.caso.ID_Grupo}). Acceso denegado."
             )
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tiene permiso para eliminar este archivo.")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tiene permiso para eliminar este archivo.",
+            )
     elif user_rol != RolUsuarioEnum.superadmin.value:
         logger.warning(
             f"[Delete] Usuario {current_user.User} (Rol {user_rol}) intentó eliminar archivo {id_archivo}. Acceso denegado."
         )
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permiso denegado para eliminar archivos.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permiso denegado para eliminar archivos.",
+        )
 
     file_path_to_delete = None
     if archivo_db.Nombre_del_Archivo and archivo_db.caso:
@@ -1334,11 +1686,19 @@ async def delete_archivo(
         file_path_to_delete = carpeta_caso / archivo_db.Nombre_del_Archivo
         logger.info(f"[Delete] Ruta física: {file_path_to_delete}")
     else:
-        logger.warning(f"[Delete] Registro ID {id_archivo} sin nombre o sin caso, no se borra archivo físico.")
+        logger.warning(
+            f"[Delete] Registro ID {id_archivo} sin nombre o sin caso, no se borra archivo físico."
+        )
     try:
         # Eliminar lecturas LPR/GPS asociadas
-        lecturas_eliminadas = db.query(models.Lectura).filter(models.Lectura.ID_Archivo == id_archivo).delete()
-        logger.info(f"[Delete] {lecturas_eliminadas} lecturas asociadas marcadas para eliminar.")
+        lecturas_eliminadas = (
+            db.query(models.Lectura)
+            .filter(models.Lectura.ID_Archivo == id_archivo)
+            .delete()
+        )
+        logger.info(
+            f"[Delete] {lecturas_eliminadas} lecturas asociadas marcadas para eliminar."
+        )
 
         # Si es un archivo EXTERNO, eliminar también los datos externos asociados
         external_data_eliminados = 0
@@ -1350,7 +1710,11 @@ async def delete_archivo(
 
             # Buscar registros externos que puedan corresponder a este archivo
             # (esto es una heurística ya que no hay relación directa)
-            external_entries = db.query(models.ExternalData).filter(models.ExternalData.caso_id == caso_id).all()
+            external_entries = (
+                db.query(models.ExternalData)
+                .filter(models.ExternalData.caso_id == caso_id)
+                .all()
+            )
 
             # Verificar cuáles podrían corresponder a este archivo basándose en fechas de importación cercanas
             import datetime
@@ -1384,11 +1748,15 @@ async def delete_archivo(
                     exc_info=True,
                 )
         elif file_path_to_delete:
-            logger.warning(f"[Delete] Archivo físico no existía: {file_path_to_delete}.")
+            logger.warning(
+                f"[Delete] Archivo físico no existía: {file_path_to_delete}."
+            )
 
         # Eliminar registro ArchivoExcel
         db.delete(archivo_db)
-        logger.info(f"[Delete] Registro ArchivoExcel ID {id_archivo} marcado para eliminar.")
+        logger.info(
+            f"[Delete] Registro ArchivoExcel ID {id_archivo} marcado para eliminar."
+        )
 
         # Confirmar cambios
         db.commit()
@@ -1398,26 +1766,41 @@ async def delete_archivo(
                 f"[Delete] Commit realizado. Eliminación completa archivo ID {id_archivo} y {external_data_eliminados} datos externos asociados."
             )
         else:
-            logger.info(f"[Delete] Commit realizado. Eliminación completa archivo ID {id_archivo}.")
+            logger.info(
+                f"[Delete] Commit realizado. Eliminación completa archivo ID {id_archivo}."
+            )
 
         return
     except Exception as e:
         db.rollback()
-        logger.error(f"[Delete] Error durante eliminación archivo ID {id_archivo}. Rollback: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error interno eliminando archivo: {e}")
+        logger.error(
+            f"[Delete] Error durante eliminación archivo ID {id_archivo}. Rollback: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno eliminando archivo: {e}",
+        )
 
 
 # === LECTORES ===
-@app.post("/lectores", response_model=schemas.Lector, status_code=status.HTTP_201_CREATED)
+@app.post(
+    "/lectores", response_model=schemas.Lector, status_code=status.HTTP_201_CREATED
+)
 def create_lector(
     lector: schemas.LectorCreate,
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_active_admin_or_superadmin),
 ):
-    db_lector_existente = db.query(models.Lector).filter(models.Lector.ID_Lector == lector.ID_Lector).first()
+    db_lector_existente = (
+        db.query(models.Lector)
+        .filter(models.Lector.ID_Lector == lector.ID_Lector)
+        .first()
+    )
     if db_lector_existente:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Ya existe un lector con el ID '{lector.ID_Lector}'"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Ya existe un lector con el ID '{lector.ID_Lector}'",
         )
     # Aquí usamos model_dump() de Pydantic V2 en lugar de dict()
     db_lector = models.Lector(**lector.model_dump())
@@ -1508,16 +1891,26 @@ def read_lectores(
 
 
 @app.get("/lectores/coordenadas", response_model=List[schemas.LectorCoordenadas])
-def read_lectores_coordenadas(db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_active_user)):
+def read_lectores_coordenadas(
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_active_user),
+):
     """Devuelve una lista de lectores con coordenadas válidas para el mapa."""
     logger.info(f"Solicitud GET /lectores/coordenadas por usuario {current_user.User}")
 
     # Consultar todos los lectores que tengan Coordenada_X Y Coordenada_Y no nulas
     lectores_con_coords = (
-        db.query(models.Lector).filter(models.Lector.Coordenada_X.isnot(None), models.Lector.Coordenada_Y.isnot(None)).all()
+        db.query(models.Lector)
+        .filter(
+            models.Lector.Coordenada_X.isnot(None),
+            models.Lector.Coordenada_Y.isnot(None),
+        )
+        .all()
     )
 
-    logger.info(f"Encontrados {len(lectores_con_coords)} lectores con coordenadas válidas.")
+    logger.info(
+        f"Encontrados {len(lectores_con_coords)} lectores con coordenadas válidas."
+    )
 
     lectores_coordenadas = [
         schemas.LectorCoordenadas(
@@ -1537,10 +1930,19 @@ def read_lectores_coordenadas(db: Session = Depends(get_db), current_user: model
 
 
 @app.get("/lectores/sugerencias", response_model=schemas.LectorSugerenciasResponse)
-def get_lector_sugerencias(db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_active_user)):
+def get_lector_sugerencias(
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_active_user),
+):
     """Obtiene listas de valores únicos existentes para campos de Lector."""
     logger.info(f"Solicitud GET /lectores/sugerencias por usuario {current_user.User}")
-    sugerencias = {"provincias": [], "localidades": [], "carreteras": [], "organismos": [], "contactos": []}
+    sugerencias = {
+        "provincias": [],
+        "localidades": [],
+        "carreteras": [],
+        "organismos": [],
+        "contactos": [],
+    }
     try:
         # Usar distinct() y filtrar no nulos/vacíos
         # Convertir a string explícitamente antes de filtrar por != '' podría ayudar
@@ -1548,7 +1950,10 @@ def get_lector_sugerencias(db: Session = Depends(get_db), current_user: models.U
             [
                 p[0]
                 for p in db.query(models.Lector.Provincia)
-                .filter(models.Lector.Provincia.isnot(None), func.trim(models.Lector.Provincia) != "")
+                .filter(
+                    models.Lector.Provincia.isnot(None),
+                    func.trim(models.Lector.Provincia) != "",
+                )
                 .distinct()
                 .all()
             ]
@@ -1557,7 +1962,10 @@ def get_lector_sugerencias(db: Session = Depends(get_db), current_user: models.U
             [
                 l[0]
                 for l in db.query(models.Lector.Localidad)
-                .filter(models.Lector.Localidad.isnot(None), func.trim(models.Lector.Localidad) != "")
+                .filter(
+                    models.Lector.Localidad.isnot(None),
+                    func.trim(models.Lector.Localidad) != "",
+                )
                 .distinct()
                 .all()
             ]
@@ -1566,7 +1974,10 @@ def get_lector_sugerencias(db: Session = Depends(get_db), current_user: models.U
             [
                 c[0]
                 for c in db.query(models.Lector.Carretera)
-                .filter(models.Lector.Carretera.isnot(None), func.trim(models.Lector.Carretera) != "")
+                .filter(
+                    models.Lector.Carretera.isnot(None),
+                    func.trim(models.Lector.Carretera) != "",
+                )
                 .distinct()
                 .all()
             ]
@@ -1575,7 +1986,10 @@ def get_lector_sugerencias(db: Session = Depends(get_db), current_user: models.U
             [
                 o[0]
                 for o in db.query(models.Lector.Organismo_Regulador)
-                .filter(models.Lector.Organismo_Regulador.isnot(None), func.trim(models.Lector.Organismo_Regulador) != "")
+                .filter(
+                    models.Lector.Organismo_Regulador.isnot(None),
+                    func.trim(models.Lector.Organismo_Regulador) != "",
+                )
                 .distinct()
                 .all()
             ]
@@ -1584,7 +1998,10 @@ def get_lector_sugerencias(db: Session = Depends(get_db), current_user: models.U
             [
                 co[0]
                 for co in db.query(models.Lector.Contacto)
-                .filter(models.Lector.Contacto.isnot(None), func.trim(models.Lector.Contacto) != "")
+                .filter(
+                    models.Lector.Contacto.isnot(None),
+                    func.trim(models.Lector.Contacto) != "",
+                )
                 .distinct()
                 .all()
             ]
@@ -1592,11 +2009,21 @@ def get_lector_sugerencias(db: Session = Depends(get_db), current_user: models.U
 
         # Log detallado de lo que se encontró
         logger.info(f"Sugerencias encontradas en BD (antes de devolver):")
-        logger.info(f"  Provincias ({len(sugerencias['provincias'])}): {sugerencias['provincias']}")
-        logger.info(f"  Localidades ({len(sugerencias['localidades'])}): {sugerencias['localidades']}")
-        logger.info(f"  Carreteras ({len(sugerencias['carreteras'])}): {sugerencias['carreteras']}")
-        logger.info(f"  Organismos ({len(sugerencias['organismos'])}): {sugerencias['organismos']}")
-        logger.info(f"  Contactos ({len(sugerencias['contactos'])}): {sugerencias['contactos']}")
+        logger.info(
+            f"  Provincias ({len(sugerencias['provincias'])}): {sugerencias['provincias']}"
+        )
+        logger.info(
+            f"  Localidades ({len(sugerencias['localidades'])}): {sugerencias['localidades']}"
+        )
+        logger.info(
+            f"  Carreteras ({len(sugerencias['carreteras'])}): {sugerencias['carreteras']}"
+        )
+        logger.info(
+            f"  Organismos ({len(sugerencias['organismos'])}): {sugerencias['organismos']}"
+        )
+        logger.info(
+            f"  Contactos ({len(sugerencias['contactos'])}): {sugerencias['contactos']}"
+        )
 
     except Exception as e:
         logger.error(f"Error al obtener sugerencias para lectores: {e}", exc_info=True)
@@ -1608,12 +2035,18 @@ def get_lector_sugerencias(db: Session = Depends(get_db), current_user: models.U
 # --- Ruta con parámetro DESPUÉS de las específicas ---
 @app.get("/lectores/{lector_id}", response_model=schemas.Lector)
 def read_lector(
-    lector_id: str, db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_active_user)
+    lector_id: str,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_active_user),
 ):
     logger.info(f"Solicitud GET /lectores/{lector_id} por usuario {current_user.User}")
-    db_lector = db.query(models.Lector).filter(models.Lector.ID_Lector == lector_id).first()
+    db_lector = (
+        db.query(models.Lector).filter(models.Lector.ID_Lector == lector_id).first()
+    )
     if db_lector is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lector no encontrado")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Lector no encontrado"
+        )
     return db_lector
 
 
@@ -1624,10 +2057,14 @@ def update_lector(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_active_admin_or_superadmin),
 ):
-    db_lector = db.query(models.Lector).filter(models.Lector.ID_Lector == lector_id).first()
+    db_lector = (
+        db.query(models.Lector).filter(models.Lector.ID_Lector == lector_id).first()
+    )
     if db_lector is None:
         logger.warning(f"[Update Lector] Lector con ID '{lector_id}' no encontrado.")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lector no encontrado")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Lector no encontrado"
+        )
 
     # Usar model_dump() para Pydantic V2
     update_data = lector_update.model_dump(exclude_unset=True)
@@ -1636,15 +2073,21 @@ def update_lector(
     # Procesar UbicacionInput por separado
     ubicacion_input_str = update_data.pop("UbicacionInput", None)
     if ubicacion_input_str:
-        logger.info(f"[Update Lector {lector_id}] Intentando parsear UbicacionInput: '{ubicacion_input_str}'")
+        logger.info(
+            f"[Update Lector {lector_id}] Intentando parsear UbicacionInput: '{ubicacion_input_str}'"
+        )
         parsed_coords = parsear_ubicacion(ubicacion_input_str)
         if parsed_coords:
             lat, lon = parsed_coords
-            logger.info(f"[Update Lector {lector_id}] Coordenadas parseadas: Lat={lat}, Lon={lon}")
+            logger.info(
+                f"[Update Lector {lector_id}] Coordenadas parseadas: Lat={lat}, Lon={lon}"
+            )
             db_lector.Coordenada_Y = lat
             db_lector.Coordenada_X = lon
         else:
-            logger.warning(f"[Update Lector {lector_id}] No se pudieron parsear coordenadas. Estableciendo a null.")
+            logger.warning(
+                f"[Update Lector {lector_id}] No se pudieron parsear coordenadas. Estableciendo a null."
+            )
             db_lector.Coordenada_Y = None
             db_lector.Coordenada_X = None
     else:
@@ -1653,7 +2096,9 @@ def update_lector(
         update_data.pop("Coordenada_Y", None)
 
     # Actualizar el resto de los campos
-    logger.debug(f"[Update Lector {lector_id}] Actualizando otros campos: {update_data}")
+    logger.debug(
+        f"[Update Lector {lector_id}] Actualizando otros campos: {update_data}"
+    )
     for key, value in update_data.items():
         if key not in ["Coordenada_X", "Coordenada_Y"]:
             setattr(db_lector, key, value)
@@ -1668,7 +2113,10 @@ def update_lector(
     except Exception as e:
         db.rollback()
         logger.error(f"[Update Lector {lector_id}] Error al guardar BD: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error interno al guardar: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno al guardar: {e}",
+        )
 
 
 @app.delete("/lectores/{lector_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -1677,10 +2125,16 @@ def delete_lector(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_active_admin_or_superadmin),
 ):
-    db_lector = db.query(models.Lector).filter(models.Lector.ID_Lector == lector_id).first()
+    db_lector = (
+        db.query(models.Lector).filter(models.Lector.ID_Lector == lector_id).first()
+    )
     if db_lector is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lector no encontrado")
-    lecturas_asociadas = db.query(models.Lectura).filter(models.Lectura.ID_Lector == lector_id).count()
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Lector no encontrado"
+        )
+    lecturas_asociadas = (
+        db.query(models.Lectura).filter(models.Lectura.ID_Lector == lector_id).count()
+    )
     if lecturas_asociadas > 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1692,14 +2146,23 @@ def delete_lector(
 
 
 # === VEHICULOS ===
-@app.post("/vehiculos", response_model=schemas.Vehiculo, status_code=status.HTTP_201_CREATED, tags=["Vehículos"])
+@app.post(
+    "/vehiculos",
+    response_model=schemas.Vehiculo,
+    status_code=status.HTTP_201_CREATED,
+    tags=["Vehículos"],
+)
 def create_vehiculo(
     vehiculo: schemas.VehiculoCreate,
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_active_superadmin),
 ):  # MODIFICADO
     """Crea un nuevo vehículo o devuelve el existente si la matrícula ya existe. Solo Superadmin."""
-    db_vehiculo = db.query(models.Vehiculo).filter(models.Vehiculo.Matricula == vehiculo.Matricula).first()
+    db_vehiculo = (
+        db.query(models.Vehiculo)
+        .filter(models.Vehiculo.Matricula == vehiculo.Matricula)
+        .first()
+    )
     if db_vehiculo:
         # Si ya existe, podrías devolver 409 Conflict o devolver el existente (como hacemos aquí)
         # raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Vehículo con esta matrícula ya existe")
@@ -1719,19 +2182,29 @@ def create_vehiculo(
         db.rollback()
         logger.error(f"Error de integridad al crear vehículo {vehiculo.Matricula}: {e}")
         # Esto podría pasar si hay una condición de carrera, aunque el check inicial debería prevenirlo
-        existing_vehiculo = db.query(models.Vehiculo).filter(models.Vehiculo.Matricula == vehiculo.Matricula).first()
+        existing_vehiculo = (
+            db.query(models.Vehiculo)
+            .filter(models.Vehiculo.Matricula == vehiculo.Matricula)
+            .first()
+        )
         if existing_vehiculo:
             return existing_vehiculo  # Devolver el que se creó concurrentemente
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error al crear vehículo: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al crear vehículo: {e}",
+        )
     except Exception as e:
         db.rollback()
         logger.error(f"Error inesperado al crear vehículo {vehiculo.Matricula}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error inesperado al crear vehículo: {e}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error inesperado al crear vehículo: {e}",
         )
 
 
-@app.put("/vehiculos/{vehiculo_id}", response_model=schemas.Vehiculo, tags=["Vehículos"])
+@app.put(
+    "/vehiculos/{vehiculo_id}", response_model=schemas.Vehiculo, tags=["Vehículos"]
+)
 def update_vehiculo(
     vehiculo_id: int,
     vehiculo_update: schemas.VehiculoUpdate,
@@ -1739,18 +2212,35 @@ def update_vehiculo(
     current_user: models.Usuario = Depends(get_current_active_user),
 ):
     """Actualiza los detalles de un vehículo existente por su ID numérico."""
-    db_vehiculo = db.query(models.Vehiculo).filter(models.Vehiculo.ID_Vehiculo == vehiculo_id).first()
+    db_vehiculo = (
+        db.query(models.Vehiculo)
+        .filter(models.Vehiculo.ID_Vehiculo == vehiculo_id)
+        .first()
+    )
     if not db_vehiculo:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Vehículo con ID {vehiculo_id} no encontrado")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Vehículo con ID {vehiculo_id} no encontrado",
+        )
 
-    user_rol = current_user.Rol.value if hasattr(current_user.Rol, "value") else current_user.Rol
+    user_rol = (
+        current_user.Rol.value
+        if hasattr(current_user.Rol, "value")
+        else current_user.Rol
+    )
     if user_rol == RolUsuarioEnum.admingrupo.value:  # Es admingrupo
         if current_user.ID_Grupo is None:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admingrupo no tiene un grupo asignado.")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admingrupo no tiene un grupo asignado.",
+            )
         # Verificar si el vehículo está en algún caso del grupo del admingrupo
         vehiculo_en_grupo = (
             db.query(models.Lectura)
-            .join(models.ArchivoExcel, models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo)
+            .join(
+                models.ArchivoExcel,
+                models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo,
+            )
             .join(models.Caso, models.ArchivoExcel.ID_Caso == models.Caso.ID_Caso)
             .filter(models.Lectura.Matricula == db_vehiculo.Matricula)
             .filter(models.Caso.ID_Grupo == current_user.ID_Grupo)
@@ -1762,7 +2252,9 @@ def update_vehiculo(
                 detail="No tiene permiso para actualizar este vehículo. No está en los casos de su grupo.",
             )
     elif user_rol != RolUsuarioEnum.superadmin.value:  # No es admingrupo ni superadmin
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permiso denegado.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Permiso denegado."
+        )
 
     update_data = vehiculo_update.model_dump(exclude_unset=True)
     for key, value in update_data.items():
@@ -1771,18 +2263,25 @@ def update_vehiculo(
     try:
         db.commit()
         db.refresh(db_vehiculo)
-        logger.info(f"Vehículo ID {vehiculo_id} (Matrícula: {db_vehiculo.Matricula}) actualizado.")
+        logger.info(
+            f"Vehículo ID {vehiculo_id} (Matrícula: {db_vehiculo.Matricula}) actualizado."
+        )
         return db_vehiculo
     except Exception as e:
         db.rollback()
         logger.error(f"Error al actualizar vehículo ID {vehiculo_id}: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error al actualizar vehículo: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al actualizar vehículo: {e}",
+        )
 
 
 @app.get("/casos/{caso_id}/vehiculos", response_model=List[schemas.VehiculoWithStats])
 @cached("vehiculos_caso", ttl=1800)  # Cache por 30 minutos
 def get_vehiculos_by_caso(
-    caso_id: int, db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_active_user)
+    caso_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_active_user),
 ):  # MODIFIED
     logger.info(
         f"Usuario {current_user.User} (Rol: {getattr(current_user.Rol, 'value', current_user.Rol)}) solicitando vehículos para caso ID: {caso_id}"
@@ -1790,8 +2289,13 @@ def get_vehiculos_by_caso(
     # Verificar que el caso existe
     caso = db.query(models.Caso).filter(models.Caso.ID_Caso == caso_id).first()
     if not caso:
-        logger.warning(f"Caso con ID {caso_id} no encontrado (solicitado por {current_user.User}).")  # ADDED
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Caso con ID {caso_id} no encontrado")
+        logger.warning(
+            f"Caso con ID {caso_id} no encontrado (solicitado por {current_user.User})."
+        )  # ADDED
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Caso con ID {caso_id} no encontrado",
+        )
 
     # Autenticación ya manejada por Depends(get_current_active_user)
     # user = db.query(models.Usuario).filter(models.Usuario.User == credentials.username).first() # REMOVED
@@ -1799,7 +2303,11 @@ def get_vehiculos_by_caso(
     #     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales incorrectas") # REMOVED
 
     # Verificar permisos: SuperAdmin puede acceder a cualquier caso
-    user_rol_value = current_user.Rol.value if hasattr(current_user.Rol, "value") else current_user.Rol  # MODIFIED
+    user_rol_value = (
+        current_user.Rol.value
+        if hasattr(current_user.Rol, "value")
+        else current_user.Rol
+    )  # MODIFIED
     is_superadmin = user_rol_value == "superadmin"  # MODIFIED
 
     if not is_superadmin and caso.ID_Grupo != current_user.ID_Grupo:  # MODIFIED
@@ -1807,7 +2315,8 @@ def get_vehiculos_by_caso(
             f"Usuario {current_user.User} (Grupo: {current_user.ID_Grupo}) no autorizado para acceder a vehículos del caso {caso_id} (Grupo caso: {caso.ID_Grupo})."
         )  # ADDED
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="No tiene permiso para acceder a los vehículos de este caso"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tiene permiso para acceder a los vehículos de este caso",
         )
 
     try:
@@ -1815,12 +2324,18 @@ def get_vehiculos_by_caso(
         try:
             # Consulta optimizada usando la vista vehiculos_por_caso
             vista_exists = (
-                db.execute(text("SELECT name FROM sqlite_master WHERE type='view' AND name='vehiculos_por_caso'")).scalar()
+                db.execute(
+                    text(
+                        "SELECT name FROM sqlite_master WHERE type='view' AND name='vehiculos_por_caso'"
+                    )
+                ).scalar()
                 is not None
             )
 
             if vista_exists:
-                logger.info(f"Usando vista optimizada para vehículos del caso {caso_id}")
+                logger.info(
+                    f"Usando vista optimizada para vehículos del caso {caso_id}"
+                )
                 # Consulta a través de la vista
                 result = db.execute(
                     text(
@@ -1839,7 +2354,11 @@ def get_vehiculos_by_caso(
                 vehiculos_with_stats = []
                 for row in result:
                     # Convertir la fila a diccionario para crear el objeto
-                    vehiculo_dict = {col: getattr(row, col) for col in row._mapping.keys() if hasattr(row, col)}
+                    vehiculo_dict = {
+                        col: getattr(row, col)
+                        for col in row._mapping.keys()
+                        if hasattr(row, col)
+                    }
                     # Extraer los campos booleanos correctamente
                     vehiculo = models.Vehiculo(
                         ID_Vehiculo=vehiculo_dict.get("ID_Vehiculo"),
@@ -1855,19 +2374,30 @@ def get_vehiculos_by_caso(
                     )
                     # Crear VehiculoWithStats con estadísticas
                     vehiculos_with_stats.append(
-                        schemas.VehiculoWithStats(**vehiculo.__dict__, num_lecturas_lpr=row.total_lecturas, num_lecturas_gps=0)
+                        schemas.VehiculoWithStats(
+                            **vehiculo.__dict__,
+                            num_lecturas_lpr=row.total_lecturas,
+                            num_lecturas_gps=0,
+                        )
                     )
 
-                logger.info(f"Obtenidos {len(vehiculos_with_stats)} vehículos del caso {caso_id} mediante vista optimizada")
+                logger.info(
+                    f"Obtenidos {len(vehiculos_with_stats)} vehículos del caso {caso_id} mediante vista optimizada"
+                )
                 return vehiculos_with_stats
         except Exception as e:
-            logger.warning(f"Error al usar vista optimizada, usando consulta estándar: {e}")
+            logger.warning(
+                f"Error al usar vista optimizada, usando consulta estándar: {e}"
+            )
 
         # Consulta estándar si la vista no existe o hay error
         # Subconsulta para obtener las matrículas únicas de las lecturas de este caso
         matriculas_en_caso_query = (
             db.query(models.Lectura.Matricula)
-            .join(models.ArchivoExcel, models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo)
+            .join(
+                models.ArchivoExcel,
+                models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo,
+            )
             .filter(models.ArchivoExcel.ID_Caso == caso_id)
             .distinct()
         )
@@ -1886,7 +2416,10 @@ def get_vehiculos_by_caso(
             # Contar lecturas LPR para este vehículo en este caso
             count_lpr = (
                 db.query(func.count(models.Lectura.ID_Lectura))
-                .join(models.ArchivoExcel, models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo)
+                .join(
+                    models.ArchivoExcel,
+                    models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo,
+                )
                 .filter(
                     models.ArchivoExcel.ID_Caso == caso_id,
                     models.Lectura.Matricula == vehiculo.Matricula,
@@ -1899,7 +2432,10 @@ def get_vehiculos_by_caso(
             # Contar lecturas GPS (si aplica)
             count_gps = (
                 db.query(func.count(models.Lectura.ID_Lectura))
-                .join(models.ArchivoExcel, models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo)
+                .join(
+                    models.ArchivoExcel,
+                    models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo,
+                )
                 .filter(
                     models.ArchivoExcel.ID_Caso == caso_id,
                     models.Lectura.Matricula == vehiculo.Matricula,
@@ -1911,21 +2447,38 @@ def get_vehiculos_by_caso(
 
             # Crear VehiculoWithStats
             vehiculos_with_stats.append(
-                schemas.VehiculoWithStats(**vehiculo.__dict__, num_lecturas_lpr=count_lpr, num_lecturas_gps=count_gps)
+                schemas.VehiculoWithStats(
+                    **vehiculo.__dict__,
+                    num_lecturas_lpr=count_lpr,
+                    num_lecturas_gps=count_gps,
+                )
             )
 
-        logger.info(f"Obtenidos {len(vehiculos_with_stats)} vehículos del caso {caso_id} mediante consulta estándar")
+        logger.info(
+            f"Obtenidos {len(vehiculos_with_stats)} vehículos del caso {caso_id} mediante consulta estándar"
+        )
         return vehiculos_with_stats
 
     except Exception as e:
-        logger.error(f"Error al obtener vehículos del caso {caso_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error al obtener vehículos: {e}")
+        logger.error(
+            f"Error al obtener vehículos del caso {caso_id}: {e}", exc_info=True
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al obtener vehículos: {e}",
+        )
 
 
-@app.get("/vehiculos/{vehiculo_id}/lecturas", response_model=List[schemas.Lectura], tags=["Vehículos"])
+@app.get(
+    "/vehiculos/{vehiculo_id}/lecturas",
+    response_model=List[schemas.Lectura],
+    tags=["Vehículos"],
+)
 def get_lecturas_por_vehiculo(
     vehiculo_id: int,
-    caso_id: Optional[int] = Query(None, description="ID del caso opcional para filtrar lecturas"),
+    caso_id: Optional[int] = Query(
+        None, description="ID del caso opcional para filtrar lecturas"
+    ),
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(
         get_current_active_user
@@ -1936,16 +2489,34 @@ def get_lecturas_por_vehiculo(
     Opcionalmente filtra por caso_id si se proporciona.
     Restringido por grupo para roles no superadmin.
     """
-    db_vehiculo = db.query(models.Vehiculo).filter(models.Vehiculo.ID_Vehiculo == vehiculo_id).first()
+    db_vehiculo = (
+        db.query(models.Vehiculo)
+        .filter(models.Vehiculo.ID_Vehiculo == vehiculo_id)
+        .first()
+    )
     if not db_vehiculo:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Vehículo con ID {vehiculo_id} no encontrado")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Vehículo con ID {vehiculo_id} no encontrado",
+        )
 
-    query = db.query(models.Lectura).filter(models.Lectura.Matricula == db_vehiculo.Matricula)
-    user_rol = current_user.Rol.value if hasattr(current_user.Rol, "value") else current_user.Rol
+    query = db.query(models.Lectura).filter(
+        models.Lectura.Matricula == db_vehiculo.Matricula
+    )
+    user_rol = (
+        current_user.Rol.value
+        if hasattr(current_user.Rol, "value")
+        else current_user.Rol
+    )
 
-    if user_rol != RolUsuarioEnum.superadmin.value:  # Si no es superadmin, aplicar filtro de grupo
+    if (
+        user_rol != RolUsuarioEnum.superadmin.value
+    ):  # Si no es superadmin, aplicar filtro de grupo
         if current_user.ID_Grupo is None:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usuario no tiene un grupo asignado.")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Usuario no tiene un grupo asignado.",
+            )
 
         if caso_id is not None:
             # Verificar que el caso_id pertenezca al grupo del usuario
@@ -1957,23 +2528,31 @@ def get_lecturas_por_vehiculo(
             )
             if not caso_pertenece_al_grupo:
                 raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN, detail="No tiene permiso para acceder a las lecturas de este caso."
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="No tiene permiso para acceder a las lecturas de este caso.",
                 )
             # Filtrar por el caso_id ya verificado
-            query = query.join(models.ArchivoExcel, models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo).filter(
-                models.ArchivoExcel.ID_Caso == caso_id
-            )
+            query = query.join(
+                models.ArchivoExcel,
+                models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo,
+            ).filter(models.ArchivoExcel.ID_Caso == caso_id)
         else:
             # No se dio caso_id, filtrar todas las lecturas del vehículo que estén en casos del grupo del usuario
             query = (
-                query.join(models.ArchivoExcel, models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo)
+                query.join(
+                    models.ArchivoExcel,
+                    models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo,
+                )
                 .join(models.Caso, models.ArchivoExcel.ID_Caso == models.Caso.ID_Caso)
                 .filter(models.Caso.ID_Grupo == current_user.ID_Grupo)
             )
-    elif caso_id is not None:  # Superadmin, pero se proveyó caso_id, así que filtramos por él
-        query = query.join(models.ArchivoExcel, models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo).filter(
-            models.ArchivoExcel.ID_Caso == caso_id
-        )
+    elif (
+        caso_id is not None
+    ):  # Superadmin, pero se proveyó caso_id, así que filtramos por él
+        query = query.join(
+            models.ArchivoExcel,
+            models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo,
+        ).filter(models.ArchivoExcel.ID_Caso == caso_id)
 
     lecturas = query.order_by(models.Lectura.Fecha_y_Hora.asc()).all()
 
@@ -1982,32 +2561,55 @@ def get_lecturas_por_vehiculo(
         + (f" en caso ID {caso_id}" if caso_id else "")
     )
     # Devolvemos las lecturas con el lector asociado cargado (si existe)
-    return [schemas.Lectura.model_validate(lect, from_attributes=True) for lect in lecturas]
+    return [
+        schemas.Lectura.model_validate(lect, from_attributes=True) for lect in lecturas
+    ]
 
 
-@app.delete("/vehiculos/{vehiculo_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Vehículos"])
+@app.delete(
+    "/vehiculos/{vehiculo_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    tags=["Vehículos"],
+)
 def delete_vehiculo(
-    vehiculo_id: int, db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_active_superadmin)
+    vehiculo_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_active_superadmin),
 ):  # MODIFICADO
     """Elimina un vehículo por su ID numérico. Solo Superadmin."""
-    db_vehiculo = db.query(models.Vehiculo).filter(models.Vehiculo.ID_Vehiculo == vehiculo_id).first()
+    db_vehiculo = (
+        db.query(models.Vehiculo)
+        .filter(models.Vehiculo.ID_Vehiculo == vehiculo_id)
+        .first()
+    )
     if not db_vehiculo:
-        logger.warning(f"[DELETE /vehiculos] Vehículo con ID {vehiculo_id} no encontrado.")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Vehículo con ID {vehiculo_id} no encontrado")
+        logger.warning(
+            f"[DELETE /vehiculos] Vehículo con ID {vehiculo_id} no encontrado."
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Vehículo con ID {vehiculo_id} no encontrado",
+        )
 
     matricula_log = db_vehiculo.Matricula  # Guardar matrícula para log antes de borrar
     try:
         # --- Indent this block ---
         db.delete(db_vehiculo)
         db.commit()
-        logger.info(f"[DELETE /vehiculos] Vehículo ID {vehiculo_id} (Matrícula: {matricula_log}) eliminado exitosamente.")
+        logger.info(
+            f"[DELETE /vehiculos] Vehículo ID {vehiculo_id} (Matrícula: {matricula_log}) eliminado exitosamente."
+        )
         return None  # Retornar None para 204 No Content
         # --- End indented block ---
     except Exception as e:
         db.rollback()
-        logger.error(f"[DELETE /vehiculos] Error al eliminar vehículo ID {vehiculo_id}: {e}", exc_info=True)
+        logger.error(
+            f"[DELETE /vehiculos] Error al eliminar vehículo ID {vehiculo_id}: {e}",
+            exc_info=True,
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error interno al eliminar el vehículo: {e}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno al eliminar el vehículo: {e}",
         )
 
 
@@ -2035,22 +2637,29 @@ def read_lecturas(
     provincias: Optional[List[str]] = Query(None),
     db: Session = Depends(get_db),
 ):
-    logger.info(f"GET /lecturas - Filtros: min_pasos={min_pasos} max_pasos={max_pasos} carreteras={carretera_ids}")
+    logger.info(
+        f"GET /lecturas - Filtros: min_pasos={min_pasos} max_pasos={max_pasos} carreteras={carretera_ids}"
+    )
 
     # Base query optimizada - usar JOIN explícito más eficiente
     base_query = db.query(models.Lectura)
 
     # JOIN condicional optimizado - solo hacer JOIN con Lector si es necesario
-    join_lector_needed = any([lector_ids, carretera_ids, sentido, organismos, provincias])
+    join_lector_needed = any(
+        [lector_ids, carretera_ids, sentido, organismos, provincias]
+    )
     if join_lector_needed:
-        base_query = base_query.join(models.Lector, models.Lectura.ID_Lector == models.Lector.ID_Lector)
+        base_query = base_query.join(
+            models.Lector, models.Lectura.ID_Lector == models.Lector.ID_Lector
+        )
 
     # --- Aplicar filtros comunes ---
     if caso_ids:
         # JOIN optimizado con ArchivosExcel usando el índice creado
-        base_query = base_query.join(models.ArchivoExcel, models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo).filter(
-            models.ArchivoExcel.ID_Caso.in_(caso_ids)
-        )
+        base_query = base_query.join(
+            models.ArchivoExcel,
+            models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo,
+        ).filter(models.ArchivoExcel.ID_Caso.in_(caso_ids))
     if lector_ids:
         base_query = base_query.filter(models.Lectura.ID_Lector.in_(lector_ids))
     if carretera_ids:
@@ -2062,7 +2671,9 @@ def read_lecturas(
     if solo_relevantes:
         base_query = base_query.join(models.LecturaRelevante)
     if organismos:
-        base_query = base_query.filter(models.Lector.Organismo_Regulador.in_(organismos))
+        base_query = base_query.filter(
+            models.Lector.Organismo_Regulador.in_(organismos)
+        )
     if provincias:
         base_query = base_query.filter(models.Lector.Provincia.in_(provincias))
 
@@ -2072,11 +2683,15 @@ def read_lecturas(
         try:
             # Combina fecha y hora si ambas están presentes, de lo contrario solo usa la fecha
             if hora_inicio:
-                start_datetime = datetime.strptime(f"{fecha_inicio} {hora_inicio}", "%Y-%m-%d %H:%M")
+                start_datetime = datetime.strptime(
+                    f"{fecha_inicio} {hora_inicio}", "%Y-%m-%d %H:%M"
+                )
             else:
                 start_datetime = datetime.strptime(fecha_inicio, "%Y-%m-%d")
         except ValueError:
-            logger.warning(f"Formato de fecha/hora de inicio inválido: {fecha_inicio} {hora_inicio}")
+            logger.warning(
+                f"Formato de fecha/hora de inicio inválido: {fecha_inicio} {hora_inicio}"
+            )
             pass  # Opcional: manejar el error, por ahora lo ignoramos
 
     end_datetime = None
@@ -2084,12 +2699,18 @@ def read_lecturas(
         try:
             # Combina fecha y hora, o usa el final del día si la hora no está
             if hora_fin:
-                end_datetime = datetime.strptime(f"{fecha_fin} {hora_fin}", "%Y-%m-%d %H:%M")
+                end_datetime = datetime.strptime(
+                    f"{fecha_fin} {hora_fin}", "%Y-%m-%d %H:%M"
+                )
             else:
                 # Si no hay hora_fin, es el final del día
-                end_datetime = datetime.strptime(fecha_fin, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
+                end_datetime = datetime.strptime(fecha_fin, "%Y-%m-%d").replace(
+                    hour=23, minute=59, second=59
+                )
         except ValueError:
-            logger.warning(f"Formato de fecha/hora de fin inválido: {fecha_fin} {hora_fin}")
+            logger.warning(
+                f"Formato de fecha/hora de fin inválido: {fecha_fin} {hora_fin}"
+            )
             pass
 
     # Aplicar filtro de fecha/hora
@@ -2103,7 +2724,13 @@ def read_lecturas(
         # Usar or_ para buscar en múltiples patrones de matrícula
         condiciones = []
         for m in matricula:
-            sql_pattern = m.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_").replace("?", "_").replace("*", "%")
+            sql_pattern = (
+                m.replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_")
+                .replace("?", "_")
+                .replace("*", "%")
+            )
             if "*" in m or "%" in m or "?" in m or "_" in m:
                 condiciones.append(models.Lectura.Matricula.ilike(sql_pattern))
             else:
@@ -2114,49 +2741,76 @@ def read_lecturas(
     # Filtro por número de pasos (lecturas por matrícula)
     if min_pasos is not None or max_pasos is not None:
         # Crear una subconsulta con los mismos filtros para contar pasos
-        pasos_subquery = db.query(models.Lectura.Matricula, func.count("*").label("num_pasos")).join(models.Lector)
+        pasos_subquery = db.query(
+            models.Lectura.Matricula, func.count("*").label("num_pasos")
+        ).join(models.Lector)
 
         # Aplicar los mismos filtros a la subconsulta
         if caso_ids:
-            pasos_subquery = pasos_subquery.join(models.ArchivoExcel).filter(models.ArchivoExcel.ID_Caso.in_(caso_ids))
+            pasos_subquery = pasos_subquery.join(models.ArchivoExcel).filter(
+                models.ArchivoExcel.ID_Caso.in_(caso_ids)
+            )
         if lector_ids:
-            pasos_subquery = pasos_subquery.filter(models.Lectura.ID_Lector.in_(lector_ids))
+            pasos_subquery = pasos_subquery.filter(
+                models.Lectura.ID_Lector.in_(lector_ids)
+            )
         if carretera_ids:
-            pasos_subquery = pasos_subquery.filter(models.Lector.Carretera.in_(carretera_ids))
+            pasos_subquery = pasos_subquery.filter(
+                models.Lector.Carretera.in_(carretera_ids)
+            )
         if sentido:
             pasos_subquery = pasos_subquery.filter(models.Lector.Sentido.in_(sentido))
         if tipo_fuente:
-            pasos_subquery = pasos_subquery.filter(models.Lectura.Tipo_Fuente == tipo_fuente)
+            pasos_subquery = pasos_subquery.filter(
+                models.Lectura.Tipo_Fuente == tipo_fuente
+            )
         if solo_relevantes:
             pasos_subquery = pasos_subquery.join(models.LecturaRelevante)
         if organismos:
-            pasos_subquery = pasos_subquery.filter(models.Lector.Organismo_Regulador.in_(organismos))
+            pasos_subquery = pasos_subquery.filter(
+                models.Lector.Organismo_Regulador.in_(organismos)
+            )
         if provincias:
-            pasos_subquery = pasos_subquery.filter(models.Lector.Provincia.in_(provincias))
+            pasos_subquery = pasos_subquery.filter(
+                models.Lector.Provincia.in_(provincias)
+            )
 
         # Aplicar los mismos filtros de fecha/hora
         try:
             if fecha_inicio:
                 fecha_inicio_dt = datetime.strptime(fecha_inicio, "%Y-%m-%d").date()
-                pasos_subquery = pasos_subquery.filter(models.Lectura.Fecha_y_Hora >= fecha_inicio_dt)
+                pasos_subquery = pasos_subquery.filter(
+                    models.Lectura.Fecha_y_Hora >= fecha_inicio_dt
+                )
             if fecha_fin:
-                fecha_fin_dt = datetime.strptime(fecha_fin, "%Y-%m-%d").date() + timedelta(days=1)
-                pasos_subquery = pasos_subquery.filter(models.Lectura.Fecha_y_Hora < fecha_fin_dt)
+                fecha_fin_dt = datetime.strptime(
+                    fecha_fin, "%Y-%m-%d"
+                ).date() + timedelta(days=1)
+                pasos_subquery = pasos_subquery.filter(
+                    models.Lectura.Fecha_y_Hora < fecha_fin_dt
+                )
             if hora_inicio:
                 hora_inicio_dt = datetime.strptime(hora_inicio, "%H:%M")
                 pasos_subquery = pasos_subquery.filter(
-                    extract("hour", models.Lectura.Fecha_y_Hora) * 100 + extract("minute", models.Lectura.Fecha_y_Hora)
+                    extract("hour", models.Lectura.Fecha_y_Hora) * 100
+                    + extract("minute", models.Lectura.Fecha_y_Hora)
                     >= hora_inicio_dt.hour * 100 + hora_inicio_dt.minute
                 )
             if hora_fin:
                 hora_fin_dt = datetime.strptime(hora_fin, "%H:%M")
                 pasos_subquery = pasos_subquery.filter(
-                    extract("hour", models.Lectura.Fecha_y_Hora) * 100 + extract("minute", models.Lectura.Fecha_y_Hora)
+                    extract("hour", models.Lectura.Fecha_y_Hora) * 100
+                    + extract("minute", models.Lectura.Fecha_y_Hora)
                     <= hora_fin_dt.hour * 100 + hora_fin_dt.minute
                 )
         except ValueError:
-            logger.warning("Formato de fecha/hora inválido recibido en subconsulta de pasos.")
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Formato de fecha/hora inválido.")
+            logger.warning(
+                "Formato de fecha/hora inválido recibido en subconsulta de pasos."
+            )
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Formato de fecha/hora inválido.",
+            )
 
         # Agrupar y filtrar por número de pasos
         pasos_subquery = pasos_subquery.group_by(models.Lectura.Matricula).having(
@@ -2167,11 +2821,17 @@ def read_lecturas(
         )
 
         # Filtrar la consulta principal para incluir solo las matrículas que cumplen con los criterios de pasos
-        base_query = base_query.filter(models.Lectura.Matricula.in_(pasos_subquery.with_entities(models.Lectura.Matricula)))
+        base_query = base_query.filter(
+            models.Lectura.Matricula.in_(
+                pasos_subquery.with_entities(models.Lectura.Matricula)
+            )
+        )
 
     # Asegurar JOIN con Lector para el eager loading (si no se hizo antes)
     if not join_lector_needed:
-        base_query = base_query.join(models.Lector, models.Lectura.ID_Lector == models.Lector.ID_Lector)
+        base_query = base_query.join(
+            models.Lector, models.Lectura.ID_Lector == models.Lector.ID_Lector
+        )
 
     # Ordenar y aplicar paginación - usar índice optimizado para ordenamiento
     query = base_query.order_by(models.Lectura.Fecha_y_Hora.desc())
@@ -2185,15 +2845,20 @@ def read_lecturas(
 
         # Log de rendimiento solo informativo
         if elapsed_time > 10:
-            logger.info(f"Consulta tardó {elapsed_time:.2f} segundos - Considere usar filtros más específicos")
+            logger.info(
+                f"Consulta tardó {elapsed_time:.2f} segundos - Considere usar filtros más específicos"
+            )
 
     except Exception as e:
         logger.error(f"Error en consulta de lecturas: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error interno en la consulta de lecturas"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno en la consulta de lecturas",
         )
 
-    logger.info(f"GET /lecturas - Encontradas {len(lecturas)} lecturas tras aplicar filtros.")
+    logger.info(
+        f"GET /lecturas - Encontradas {len(lecturas)} lecturas tras aplicar filtros."
+    )
     return lecturas
 
 
@@ -2201,28 +2866,38 @@ def read_lecturas(
 
 
 @app.post(
-    "/lecturas/{id_lectura}/marcar_relevante", response_model=schemas.LecturaRelevante, status_code=status.HTTP_201_CREATED
+    "/lecturas/{id_lectura}/marcar_relevante",
+    response_model=schemas.LecturaRelevante,
+    status_code=status.HTTP_201_CREATED,
 )
 def marcar_lectura_relevante(
     id_lectura: int,
     # Usar el schema actualizado que puede incluir caso_id
-    payload: Optional[schemas.LecturaRelevanteUpdate] = None,  # MODIFICADO: payload puede ser Optional
+    payload: Optional[
+        schemas.LecturaRelevanteUpdate
+    ] = None,  # MODIFICADO: payload puede ser Optional
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_active_user),  # NUEVO
 ):
     """Marca una lectura como relevante, opcionalmente con una nota."""
-    logger.info(f"Usuario {current_user.User} solicitando marcar lectura ID {id_lectura} como relevante.")  # NUEVO log
+    logger.info(
+        f"Usuario {current_user.User} solicitando marcar lectura ID {id_lectura} como relevante."
+    )  # NUEVO log
 
     # Obtener la lectura y su caso asociado para verificar permisos
     db_lectura = (
         db.query(models.Lectura)
-        .options(joinedload(models.Lectura.archivo).joinedload(models.ArchivoExcel.caso))
+        .options(
+            joinedload(models.Lectura.archivo).joinedload(models.ArchivoExcel.caso)
+        )
         .filter(models.Lectura.ID_Lectura == id_lectura)
         .first()
     )
 
     if not db_lectura:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lectura no encontrada.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Lectura no encontrada."
+        )
 
     # NUEVO BLOQUE DE AUTORIZACIÓN
     if not db_lectura.archivo or not db_lectura.archivo.caso:
@@ -2230,31 +2905,46 @@ def marcar_lectura_relevante(
             f"Error de datos: Lectura ID {id_lectura} (solicitada por {current_user.User}) no está correctamente asociada a un archivo y caso."
         )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error de datos: Lectura no asociada a un caso."
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error de datos: Lectura no asociada a un caso.",
         )
 
-    user_rol = current_user.Rol.value if hasattr(current_user.Rol, "value") else current_user.Rol
+    user_rol = (
+        current_user.Rol.value
+        if hasattr(current_user.Rol, "value")
+        else current_user.Rol
+    )
     is_superadmin = user_rol == models.RolUsuarioEnum.superadmin.value
     caso_de_lectura = db_lectura.archivo.caso
 
-    if not is_superadmin and (current_user.ID_Grupo is None or caso_de_lectura.ID_Grupo != current_user.ID_Grupo):
+    if not is_superadmin and (
+        current_user.ID_Grupo is None
+        or caso_de_lectura.ID_Grupo != current_user.ID_Grupo
+    ):
         logger.warning(
             f"Usuario {current_user.User} no autorizado para marcar relevante la lectura ID {id_lectura} (caso ID {caso_de_lectura.ID_Caso}, grupo caso {caso_de_lectura.ID_Grupo}, grupo user {current_user.ID_Grupo})."
         )
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="No tiene permiso para modificar lecturas de este caso."
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tiene permiso para modificar lecturas de este caso.",
         )
     # FIN NUEVO BLOQUE DE AUTORIZACIÓN
 
     # Verificar si ya está marcada como relevante
-    db_relevante_existente = db.query(models.LecturaRelevante).filter(models.LecturaRelevante.ID_Lectura == id_lectura).first()
+    db_relevante_existente = (
+        db.query(models.LecturaRelevante)
+        .filter(models.LecturaRelevante.ID_Lectura == id_lectura)
+        .first()
+    )
     if db_relevante_existente:
         logger.info(
             f"Lectura {id_lectura} ya estaba marcada como relevante por {current_user.User}. Actualizando nota si se proporciona."
         )  # MODIFICADO: log
         if payload and payload.Nota is not None:
             db_relevante_existente.Nota = payload.Nota
-            db_relevante_existente.Fecha_Modificacion = datetime.now(timezone.utc)  # NUEVO: Actualizar fecha modificación
+            db_relevante_existente.Fecha_Modificacion = datetime.now(
+                timezone.utc
+            )  # NUEVO: Actualizar fecha modificación
             db.commit()
             db.refresh(db_relevante_existente)
             return db_relevante_existente
@@ -2267,36 +2957,59 @@ def marcar_lectura_relevante(
         nueva_relevante_data["Nota"] = payload.Nota
     # Fecha_Creacion y Fecha_Modificacion se manejan por defecto en el modelo
 
-    nueva_relevante = models.LecturaRelevante(**nueva_relevante_data)  # MODIFICADO: Usar dict
+    nueva_relevante = models.LecturaRelevante(
+        **nueva_relevante_data
+    )  # MODIFICADO: Usar dict
     db.add(nueva_relevante)
     try:
         db.commit()
         db.refresh(nueva_relevante)
-        logger.info(f"Lectura {id_lectura} marcada como relevante por usuario {current_user.User}.")  # MODIFICADO: log
+        logger.info(
+            f"Lectura {id_lectura} marcada como relevante por usuario {current_user.User}."
+        )  # MODIFICADO: log
         return nueva_relevante
     except Exception as e:
         db.rollback()
         logger.error(
-            f"Error al marcar lectura {id_lectura} como relevante por {current_user.User}: {e}", exc_info=True
+            f"Error al marcar lectura {id_lectura} como relevante por {current_user.User}: {e}",
+            exc_info=True,
         )  # MODIFICADO: log
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error al marcar la lectura.")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error al marcar la lectura.",
+        )
 
 
-@app.delete("/lecturas/{id_lectura}/desmarcar_relevante", status_code=status.HTTP_204_NO_CONTENT)
+@app.delete(
+    "/lecturas/{id_lectura}/desmarcar_relevante", status_code=status.HTTP_204_NO_CONTENT
+)
 def desmarcar_lectura_relevante(
-    id_lectura: int, db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_active_user)
+    id_lectura: int,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_active_user),
 ):
     """Elimina la marca de relevancia de una lectura."""
-    logger.info(f"Usuario {current_user.User} solicitando desmarcar lectura ID {id_lectura} como relevante.")
+    logger.info(
+        f"Usuario {current_user.User} solicitando desmarcar lectura ID {id_lectura} como relevante."
+    )
 
-    db_relevante = db.query(models.LecturaRelevante).filter(models.LecturaRelevante.ID_Lectura == id_lectura).first()
+    db_relevante = (
+        db.query(models.LecturaRelevante)
+        .filter(models.LecturaRelevante.ID_Lectura == id_lectura)
+        .first()
+    )
     if not db_relevante:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="La lectura no estaba marcada como relevante.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="La lectura no estaba marcada como relevante.",
+        )
 
     # BLOQUE DE AUTORIZACIÓN
     db_lectura = (
         db.query(models.Lectura)
-        .options(joinedload(models.Lectura.archivo).joinedload(models.ArchivoExcel.caso))
+        .options(
+            joinedload(models.Lectura.archivo).joinedload(models.ArchivoExcel.caso)
+        )
         .filter(models.Lectura.ID_Lectura == db_relevante.ID_Lectura)
         .first()
     )
@@ -2305,55 +3018,87 @@ def desmarcar_lectura_relevante(
         logger.error(
             f"Error de datos: LecturaRelevante ID {db_relevante.ID_Relevante} (lectura ID {id_lectura}) existe, pero la lectura asociada no. Solicitado por {current_user.User}."
         )
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error de consistencia de datos.")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error de consistencia de datos.",
+        )
 
     if not db_lectura.archivo or not db_lectura.archivo.caso:
         logger.error(
             f"Error de datos: Lectura ID {id_lectura} (solicitada por {current_user.User}) no está correctamente asociada a un archivo y caso para desmarcar relevancia."
         )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error de datos: Lectura no asociada a un caso."
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error de datos: Lectura no asociada a un caso.",
         )
 
-    user_rol = current_user.Rol.value if hasattr(current_user.Rol, "value") else current_user.Rol
+    user_rol = (
+        current_user.Rol.value
+        if hasattr(current_user.Rol, "value")
+        else current_user.Rol
+    )
     is_superadmin = user_rol == models.RolUsuarioEnum.superadmin.value
     caso_de_lectura = db_lectura.archivo.caso
 
-    if not is_superadmin and (current_user.ID_Grupo is None or caso_de_lectura.ID_Grupo != current_user.ID_Grupo):
+    if not is_superadmin and (
+        current_user.ID_Grupo is None
+        or caso_de_lectura.ID_Grupo != current_user.ID_Grupo
+    ):
         logger.warning(
             f"Usuario {current_user.User} no autorizado para desmarcar relevante la lectura ID {id_lectura} (caso ID {caso_de_lectura.ID_Caso}, grupo caso {caso_de_lectura.ID_Grupo}, grupo user {current_user.ID_Grupo})."
         )
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="No tiene permiso para modificar lecturas de este caso."
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tiene permiso para modificar lecturas de este caso.",
         )
     # FIN BLOQUE DE AUTORIZACIÓN
 
     db.delete(db_relevante)
     try:
         db.commit()
-        logger.info(f"Marca de relevante eliminada para lectura {id_lectura} por usuario {current_user.User}.")
+        logger.info(
+            f"Marca de relevante eliminada para lectura {id_lectura} por usuario {current_user.User}."
+        )
         return None
     except Exception as e:
         db.rollback()
-        logger.error(f"Error al desmarcar lectura {id_lectura} por usuario {current_user.User}: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error al desmarcar la lectura.")
+        logger.error(
+            f"Error al desmarcar lectura {id_lectura} por usuario {current_user.User}: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error al desmarcar la lectura.",
+        )
 
 
 @app.get("/casos/{caso_id}/saved_searches", response_model=List[schemas.SavedSearch])
 def read_saved_searches(caso_id: int, db: Session = Depends(get_db)):
     logger.info(f"GET /casos/{caso_id}/saved_searches - Listando búsquedas guardadas.")
     searches = (
-        db.query(models.SavedSearch).filter(models.SavedSearch.caso_id == caso_id).order_by(models.SavedSearch.name).all()
+        db.query(models.SavedSearch)
+        .filter(models.SavedSearch.caso_id == caso_id)
+        .order_by(models.SavedSearch.name)
+        .all()
     )
     return searches
 
 
 @app.put("/saved_searches/{search_id}", response_model=schemas.SavedSearch)
-def update_saved_search(search_id: int, search_update_data: schemas.SavedSearchUpdate, db: Session = Depends(get_db)):
+def update_saved_search(
+    search_id: int,
+    search_update_data: schemas.SavedSearchUpdate,
+    db: Session = Depends(get_db),
+):
     logger.info(f"PUT /saved_searches/{search_id} - Actualizando búsqueda guardada.")
-    db_search = db.query(models.SavedSearch).filter(models.SavedSearch.id == search_id).first()
+    db_search = (
+        db.query(models.SavedSearch).filter(models.SavedSearch.id == search_id).first()
+    )
     if db_search is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Búsqueda guardada no encontrada.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Búsqueda guardada no encontrada.",
+        )
 
     try:
         update_data = search_update_data.model_dump(exclude_unset=True)
@@ -2366,17 +3111,29 @@ def update_saved_search(search_id: int, search_update_data: schemas.SavedSearchU
         return db_search
     except Exception as e:
         db.rollback()
-        logger.error(f"Error al actualizar búsqueda guardada ID {search_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error interno al actualizar búsqueda.")
+        logger.error(
+            f"Error al actualizar búsqueda guardada ID {search_id}: {e}", exc_info=True
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno al actualizar búsqueda.",
+        )
 
 
 @app.delete("/saved_searches/{search_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_saved_search(search_id: int, db: Session = Depends(get_db)):
     logger.info(f"DELETE /saved_searches/{search_id} - Eliminando búsqueda guardada.")
-    db_search = db.query(models.SavedSearch).filter(models.SavedSearch.id == search_id).first()
+    db_search = (
+        db.query(models.SavedSearch).filter(models.SavedSearch.id == search_id).first()
+    )
     if db_search is None:
-        logger.warning(f"Intento de eliminar búsqueda guardada ID {search_id} no encontrada.")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Búsqueda guardada no encontrada.")
+        logger.warning(
+            f"Intento de eliminar búsqueda guardada ID {search_id} no encontrada."
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Búsqueda guardada no encontrada.",
+        )
 
     try:
         db.delete(db_search)
@@ -2385,8 +3142,13 @@ def delete_saved_search(search_id: int, db: Session = Depends(get_db)):
         return None
     except Exception as e:
         db.rollback()
-        logger.error(f"Error al eliminar búsqueda guardada ID {search_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error interno al eliminar búsqueda.")
+        logger.error(
+            f"Error al eliminar búsqueda guardada ID {search_id}: {e}", exc_info=True
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno al eliminar búsqueda.",
+        )
 
 
 # === Endpoint para Detección de Vehículo Lanzadera ===
@@ -2402,12 +3164,17 @@ def get_lectores_por_caso(caso_id: int, db: Session = Depends(get_db)):
     """
     Obtiene todos los lectores que tienen lecturas LPR asociadas a un caso específico.
     """
-    logger.info(f"GET /casos/{caso_id}/lectores - Obteniendo lectores asociados al caso SOLO LPR.")
+    logger.info(
+        f"GET /casos/{caso_id}/lectores - Obteniendo lectores asociados al caso SOLO LPR."
+    )
     try:
         # Obtener IDs de lectores únicos que tienen lecturas LPR en este caso
         lectores_ids = (
             db.query(models.Lectura.ID_Lector)
-            .join(models.ArchivoExcel, models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo)
+            .join(
+                models.ArchivoExcel,
+                models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo,
+            )
             .filter(models.ArchivoExcel.ID_Caso == caso_id)
             .filter(models.Lectura.Tipo_Fuente == "LPR")
             .filter(models.Lectura.ID_Lector != None)
@@ -2418,14 +3185,22 @@ def get_lectores_por_caso(caso_id: int, db: Session = Depends(get_db)):
         if not lector_ids:
             return []
         # Obtener los detalles completos de los lectores, solo los que tengan datos clave
-        lectores = db.query(models.Lector).filter(models.Lector.ID_Lector.in_(lector_ids)).order_by(models.Lector.Nombre).all()
+        lectores = (
+            db.query(models.Lector)
+            .filter(models.Lector.ID_Lector.in_(lector_ids))
+            .order_by(models.Lector.Nombre)
+            .all()
+        )
         # Opcional: filtrar lectores sin carretera o provincia si se desea
         # lectores = [l for l in lectores if l.Carretera and l.Provincia]
         return lectores
     except Exception as e:
-        logger.error(f"Error al obtener lectores para caso {caso_id}: {e}", exc_info=True)
+        logger.error(
+            f"Error al obtener lectores para caso {caso_id}: {e}", exc_info=True
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error interno al obtener lectores: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno al obtener lectores: {str(e)}",
         )
 
 
@@ -2443,7 +3218,9 @@ def get_lecturas_por_caso(
     velocidad_min: Optional[float] = None,
     velocidad_max: Optional[float] = None,
     duracion_parada: Optional[int] = None,
-    dia_semana: Optional[int] = Query(None, description="Día de la semana (1=Lunes, 7=Domingo)", ge=1, le=7),
+    dia_semana: Optional[int] = Query(
+        None, description="Día de la semana (1=Lunes, 7=Domingo)", ge=1, le=7
+    ),
     db: Session = Depends(get_db),
 ):
     """
@@ -2454,7 +3231,10 @@ def get_lecturas_por_caso(
         # Construir la consulta base
         query = (
             db.query(models.Lectura)
-            .join(models.ArchivoExcel, models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo)
+            .join(
+                models.ArchivoExcel,
+                models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo,
+            )
             .filter(models.ArchivoExcel.ID_Caso == caso_id)
         )
 
@@ -2467,17 +3247,26 @@ def get_lecturas_por_caso(
             # SQLite: strftime('%w', date) devuelve 0-6 donde 0=Domingo
             # Convertimos nuestro 1-7 (Lun-Dom) al formato de SQLite (0-6, Dom-Sab)
             sqlite_dia = dia_semana % 7  # Convierte 7(Domingo) a 0
-            query = query.filter(func.strftime("%w", models.Lectura.Fecha_y_Hora) == str(sqlite_dia))
+            query = query.filter(
+                func.strftime("%w", models.Lectura.Fecha_y_Hora) == str(sqlite_dia)
+            )
 
         # --- NUEVO FILTRO: RANGO ABSOLUTO DE FECHA Y HORA ---
         if fecha_inicio and hora_inicio and fecha_fin and hora_fin:
             try:
-                dt_inicio = datetime.strptime(f"{fecha_inicio} {hora_inicio}", "%Y-%m-%d %H:%M")
+                dt_inicio = datetime.strptime(
+                    f"{fecha_inicio} {hora_inicio}", "%Y-%m-%d %H:%M"
+                )
                 dt_fin = datetime.strptime(f"{fecha_fin} {hora_fin}", "%Y-%m-%d %H:%M")
-                query = query.filter(models.Lectura.Fecha_y_Hora >= dt_inicio, models.Lectura.Fecha_y_Hora <= dt_fin)
+                query = query.filter(
+                    models.Lectura.Fecha_y_Hora >= dt_inicio,
+                    models.Lectura.Fecha_y_Hora <= dt_fin,
+                )
             except ValueError as e:
                 logger.error(f"Error al parsear fecha/hora: {e}")
-                raise HTTPException(status_code=400, detail=f"Formato de fecha/hora inválido: {e}")
+                raise HTTPException(
+                    status_code=400, detail=f"Formato de fecha/hora inválido: {e}"
+                )
         else:
             # Filtros antiguos si falta alguno de los campos
             if fecha_inicio:
@@ -2487,39 +3276,53 @@ def get_lecturas_por_caso(
                 except ValueError as e:
                     logger.error(f"Error al parsear fecha_inicio: {e}")
                     raise HTTPException(
-                        status_code=400, detail=f"Formato de fecha_inicio inválido: {fecha_inicio}. Use YYYY-MM-DD"
+                        status_code=400,
+                        detail=f"Formato de fecha_inicio inválido: {fecha_inicio}. Use YYYY-MM-DD",
                     )
 
             if fecha_fin:
                 try:
-                    fecha_fin_dt = datetime.strptime(fecha_fin, "%Y-%m-%d").date() + timedelta(days=1)
+                    fecha_fin_dt = datetime.strptime(
+                        fecha_fin, "%Y-%m-%d"
+                    ).date() + timedelta(days=1)
                     query = query.filter(models.Lectura.Fecha_y_Hora < fecha_fin_dt)
                 except ValueError as e:
                     logger.error(f"Error al parsear fecha_fin: {e}")
-                    raise HTTPException(status_code=400, detail=f"Formato de fecha_fin inválido: {fecha_fin}. Use YYYY-MM-DD")
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Formato de fecha_fin inválido: {fecha_fin}. Use YYYY-MM-DD",
+                    )
 
             # Aplicar filtros de hora independientemente de las fechas
             if hora_inicio:
                 try:
                     hora_dt = datetime.strptime(hora_inicio, "%H:%M")
                     query = query.filter(
-                        extract("hour", models.Lectura.Fecha_y_Hora) * 100 + extract("minute", models.Lectura.Fecha_y_Hora)
+                        extract("hour", models.Lectura.Fecha_y_Hora) * 100
+                        + extract("minute", models.Lectura.Fecha_y_Hora)
                         >= hora_dt.hour * 100 + hora_dt.minute
                     )
                 except ValueError as e:
                     logger.error(f"Error al parsear hora_inicio: {e}")
-                    raise HTTPException(status_code=400, detail=f"Formato de hora_inicio inválido: {hora_inicio}. Use HH:MM")
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Formato de hora_inicio inválido: {hora_inicio}. Use HH:MM",
+                    )
 
             if hora_fin:
                 try:
                     hora_dt = datetime.strptime(hora_fin, "%H:%M")
                     query = query.filter(
-                        extract("hour", models.Lectura.Fecha_y_Hora) * 100 + extract("minute", models.Lectura.Fecha_y_Hora)
+                        extract("hour", models.Lectura.Fecha_y_Hora) * 100
+                        + extract("minute", models.Lectura.Fecha_y_Hora)
                         <= hora_dt.hour * 100 + hora_dt.minute
                     )
                 except ValueError as e:
                     logger.error(f"Error al parsear hora_fin: {e}")
-                    raise HTTPException(status_code=400, detail=f"Formato de hora_fin inválido: {hora_fin}. Use HH:MM")
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Formato de hora_fin inválido: {hora_fin}. Use HH:MM",
+                    )
 
         if lector_id:
             query = query.filter(models.Lectura.ID_Lector == lector_id)
@@ -2529,7 +3332,9 @@ def get_lecturas_por_caso(
 
         if solo_relevantes:
             query = query.join(
-                models.LecturaRelevante, models.Lectura.ID_Lectura == models.LecturaRelevante.ID_Lectura, isouter=False
+                models.LecturaRelevante,
+                models.Lectura.ID_Lectura == models.LecturaRelevante.ID_Lectura,
+                isouter=False,
             )
 
         # Nuevos filtros de velocidad
@@ -2541,13 +3346,18 @@ def get_lecturas_por_caso(
         # Filtro de duración de parada
         if duracion_parada is not None:
             # Obtener todas las lecturas ordenadas por matrícula y fecha/hora
-            lecturas_all = query.order_by(models.Lectura.Matricula, models.Lectura.Fecha_y_Hora).all()
+            lecturas_all = query.order_by(
+                models.Lectura.Matricula, models.Lectura.Fecha_y_Hora
+            ).all()
 
             def haversine(lat1, lon1, lat2, lon2):
                 R = 6371000  # metros
                 dlat = radians(lat2 - lat1)
                 dlon = radians(lon2 - lon1)
-                a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2) ** 2
+                a = (
+                    sin(dlat / 2) ** 2
+                    + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2) ** 2
+                )
                 c = 2 * asin(sqrt(a))
                 return R * c
 
@@ -2576,16 +3386,26 @@ def get_lecturas_por_caso(
                     ):
                         log_msg += "\n  -> SKIPPED: Missing Date/Time or Coords"
                     else:
-                        diff_min_calc = (l2.Fecha_y_Hora - l1.Fecha_y_Hora).total_seconds() / 60
+                        diff_min_calc = (
+                            l2.Fecha_y_Hora - l1.Fecha_y_Hora
+                        ).total_seconds() / 60
                         log_msg += f"\n  Diff Min: {diff_min_calc:.2f}"
                         if diff_min_calc <= 0:
                             log_msg += "\n  -> SKIPPED: Time diff <= 0"
                         else:
-                            dist_calc = haversine(l1.Coordenada_Y, l1.Coordenada_X, l2.Coordenada_Y, l2.Coordenada_X)
+                            dist_calc = haversine(
+                                l1.Coordenada_Y,
+                                l1.Coordenada_X,
+                                l2.Coordenada_Y,
+                                l2.Coordenada_X,
+                            )
                             log_msg += f"\n  Distance (m): {dist_calc:.2f}"
                             if dist_calc > 300:
                                 log_msg += "\n  -> SKIPPED: Distance > 300m"
-                            elif duracion_parada is not None and diff_min_calc < duracion_parada:
+                            elif (
+                                duracion_parada is not None
+                                and diff_min_calc < duracion_parada
+                            ):
                                 log_msg += f"\n  -> SKIPPED: Duration ({diff_min_calc:.2f}min) < Filtered Duration ({duracion_parada}min)"
                             else:
                                 log_msg += "\n  -> PASSED ALL CHECKS"
@@ -2609,7 +3429,9 @@ def get_lecturas_por_caso(
                 # Eliminar filtro de velocidad
                 # if l1.Velocidad is None or l1.Velocidad > 12:
                 #     continue
-                dist = haversine(l1.Coordenada_Y, l1.Coordenada_X, l2.Coordenada_Y, l2.Coordenada_X)
+                dist = haversine(
+                    l1.Coordenada_Y, l1.Coordenada_X, l2.Coordenada_Y, l2.Coordenada_X
+                )
                 if dist > 300:
                     continue
                 # Si hay filtro de duracion_parada, solo considerar si cumple
@@ -2630,9 +3452,12 @@ def get_lecturas_por_caso(
                 lecturas_respuesta = [
                     l
                     for l in lecturas_respuesta
-                    if l.duracion_parada_min is not None and l.duracion_parada_min >= duracion_parada
+                    if l.duracion_parada_min is not None
+                    and l.duracion_parada_min >= duracion_parada
                 ]
-            logger.info(f"Encontradas {len(lecturas_respuesta)} lecturas para el caso {caso_id}")
+            logger.info(
+                f"Encontradas {len(lecturas_respuesta)} lecturas para el caso {caso_id}"
+            )
             return lecturas_respuesta
 
         # Si no hay filtro de duración de parada, ejecutar la consulta normal
@@ -2640,9 +3465,12 @@ def get_lecturas_por_caso(
         return lecturas if lecturas else []
 
     except Exception as e:
-        logger.error(f"Error al obtener lecturas del caso {caso_id}: {e}", exc_info=True)
+        logger.error(
+            f"Error al obtener lecturas del caso {caso_id}: {e}", exc_info=True
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error interno al obtener lecturas: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno al obtener lecturas: {str(e)}",
         )
 
 
@@ -2656,27 +3484,45 @@ def get_sugerencias_matriculas(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_active_user),
 ):
-    logger.info(f"User {current_user.User} requesting to upload file '{excel_file.filename}' for caso {caso_id}")
+    logger.info(
+        f"User {current_user.User} requesting to upload file '{excel_file.filename}' for caso {caso_id}"
+    )
     # 1. Verificar caso y permisos (Synchronous part)
     db_caso = db.query(models.Caso).filter(models.Caso.ID_Caso == caso_id).first()
     if db_caso is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Caso no encontrado")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Caso no encontrado"
+        )
 
-    user_rol = current_user.Rol.value if hasattr(current_user.Rol, "value") else current_user.Rol
+    user_rol = (
+        current_user.Rol.value
+        if hasattr(current_user.Rol, "value")
+        else current_user.Rol
+    )
     if user_rol == RolUsuarioEnum.admingrupo.value:
         if current_user.ID_Grupo is None:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admingrupo no tiene un grupo asignado.")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admingrupo no tiene un grupo asignado.",
+            )
         if db_caso.ID_Grupo != current_user.ID_Grupo:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="No tiene permiso para subir archivos a este caso."
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tiene permiso para subir archivos a este caso.",
             )
     elif user_rol != RolUsuarioEnum.superadmin.value:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permiso denegado para subir archivos.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permiso denegado para subir archivos.",
+        )
 
     # 2. Verificar si ya existe un archivo con el mismo nombre en el mismo caso
     archivo_existente = (
         db.query(models.ArchivoExcel)
-        .filter(models.ArchivoExcel.ID_Caso == caso_id, models.ArchivoExcel.Nombre_del_Archivo == excel_file.filename)
+        .filter(
+            models.ArchivoExcel.ID_Caso == caso_id,
+            models.ArchivoExcel.Nombre_del_Archivo == excel_file.filename,
+        )
         .first()
     )
 
@@ -2695,9 +3541,13 @@ def get_sugerencias_matriculas(
             shutil.copyfileobj(excel_file.file, buffer)
         logger.info(f"Archivo guardado exitosamente en: {file_location}")
     except Exception as e:
-        logger.error(f"Error CRÍTICO al guardar el archivo subido {filename} en {file_location}: {e}", exc_info=True)
+        logger.error(
+            f"Error CRÍTICO al guardar el archivo subido {filename} en {file_location}: {e}",
+            exc_info=True,
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"No se pudo guardar el archivo subido '{filename}'."
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"No se pudo guardar el archivo subido '{filename}'.",
         )
     finally:
         excel_file.file.close()
@@ -2706,20 +3556,31 @@ def get_sugerencias_matriculas(
     try:
         df = pd.read_excel(file_location)
     except Exception as e:
-        logger.error(f"Error al leer el archivo Excel desde {file_location}: {e}", exc_info=True)
+        logger.error(
+            f"Error al leer el archivo Excel desde {file_location}: {e}", exc_info=True
+        )
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error al leer el archivo Excel guardado ({filename})."
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error al leer el archivo Excel guardado ({filename}).",
         )
     try:
         map_cliente_a_interno = json.loads(column_mapping)
         map_interno_a_cliente = {v: k for k, v in map_cliente_a_interno.items()}
     except json.JSONDecodeError:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El mapeo de columnas no es un JSON válido.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El mapeo de columnas no es un JSON válido.",
+        )
     try:
-        columnas_a_renombrar = {k: v for k, v in map_interno_a_cliente.items() if k in df.columns}
+        columnas_a_renombrar = {
+            k: v for k, v in map_interno_a_cliente.items() if k in df.columns
+        }
         df.rename(columns=columnas_a_renombrar, inplace=True)
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error al aplicar mapeo de columnas: {e}.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error al aplicar mapeo de columnas: {e}.",
+        )
 
     # --- Validar Columnas Obligatorias ---
     if tipo_archivo == "LPR":
@@ -2739,7 +3600,9 @@ def get_sugerencias_matriculas(
             )
     if columnas_obligatorias_faltantes:
         mensaje_error = f"Faltan columnas obligatorias o mapeos incorrectos: {', '.join(columnas_obligatorias_faltantes)}"
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=mensaje_error)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=mensaje_error
+        )
 
     # --- Crear Registro ArchivoExcel ---
     db_archivo = models.ArchivoExcel(
@@ -2761,7 +3624,9 @@ def get_sugerencias_matriculas(
 
     for index, row in df.iterrows():
         try:
-            matricula = str(row["Matricula"]).strip() if pd.notna(row["Matricula"]) else None
+            matricula = (
+                str(row["Matricula"]).strip() if pd.notna(row["Matricula"]) else None
+            )
             if not matricula:
                 raise ValueError("Matrícula vacía")
             valor_fecha_excel = row["Fecha"]
@@ -2782,7 +3647,10 @@ def get_sugerencias_matriculas(
                     return time(hour=h, minute=m, second=s)
                 if isinstance(hora_val, str):
                     # Aceptar formatos "HH:MM", "HH:MM:SS", "HH:MM:SS.sss" o "HH:MM:SS,sss"
-                    match = re.match(r"^(\d{1,2}):(\d{2})(?::(\d{2})([.,](\d{1,6}))?)?$", hora_val.strip())
+                    match = re.match(
+                        r"^(\d{1,2}):(\d{2})(?::(\d{2})([.,](\d{1,6}))?)?$",
+                        hora_val.strip(),
+                    )
                     if match:
                         h = int(match.group(1))
                         m = int(match.group(2))
@@ -2800,9 +3668,13 @@ def get_sugerencias_matriculas(
                     fecha_obj = valor_fecha_excel.date()
                 elif isinstance(valor_fecha_excel, date):
                     fecha_obj = valor_fecha_excel
-                elif isinstance(valor_fecha_excel, float) and not pd.isna(valor_fecha_excel):
+                elif isinstance(valor_fecha_excel, float) and not pd.isna(
+                    valor_fecha_excel
+                ):
                     # Excel puede guardar fechas como número de días desde 1899-12-30
-                    fecha_obj = pd.to_datetime(valor_fecha_excel, unit="d", origin="1899-12-30").date()
+                    fecha_obj = pd.to_datetime(
+                        valor_fecha_excel, unit="d", origin="1899-12-30"
+                    ).date()
                 else:
                     fecha_obj = pd.to_datetime(str(valor_fecha_excel)).date()
                 fecha_hora_final = datetime.combine(fecha_obj, hora_obj)
@@ -2814,22 +3686,36 @@ def get_sugerencias_matriculas(
             coord_y_final = get_optional_float(row.get("Coordenada_Y"))
 
             if tipo_archivo == "LPR":
-                id_lector_str = str(row["ID_Lector"]).strip() if pd.notna(row["ID_Lector"]) else None
+                id_lector_str = (
+                    str(row["ID_Lector"]).strip()
+                    if pd.notna(row["ID_Lector"])
+                    else None
+                )
                 if not id_lector_str:
                     raise ValueError("Falta ID_Lector para LPR")
                 id_lector = id_lector_str  # Guardamos el ID original
 
                 # Buscar lector existente
-                db_lector = db.query(models.Lector).filter(models.Lector.ID_Lector == id_lector).first()
+                db_lector = (
+                    db.query(models.Lector)
+                    .filter(models.Lector.ID_Lector == id_lector)
+                    .first()
+                )
 
                 if not db_lector:
                     # Si no existe Y NO lo hemos añadido ya en esta sesión:
                     if id_lector not in nuevos_lectores_en_sesion:
                         lectores_no_encontrados.add(id_lector)
-                        logger.info(f"Lector '{id_lector}' no encontrado, añadiendo a sesión para crear.")
-                        db_lector_nuevo = models.Lector(ID_Lector=id_lector)  # Crear con el ID
+                        logger.info(
+                            f"Lector '{id_lector}' no encontrado, añadiendo a sesión para crear."
+                        )
+                        db_lector_nuevo = models.Lector(
+                            ID_Lector=id_lector
+                        )  # Crear con el ID
                         db.add(db_lector_nuevo)
-                        nuevos_lectores_en_sesion.add(id_lector)  # Registrar que lo hemos añadido
+                        nuevos_lectores_en_sesion.add(
+                            id_lector
+                        )  # Registrar que lo hemos añadido
                         # Intentar obtener coordenadas del excel si existen para el nuevo lector
                         coord_x_nuevo = get_optional_float(row.get("Coordenada_X"))
                         coord_y_nuevo = get_optional_float(row.get("Coordenada_Y"))
@@ -2868,7 +3754,10 @@ def get_sugerencias_matriculas(
             # Verificar si ya existe una lectura duplicada
             lectura_duplicada = (
                 db.query(models.Lectura)
-                .join(models.ArchivoExcel, models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo)
+                .join(
+                    models.ArchivoExcel,
+                    models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo,
+                )
                 .filter(
                     models.ArchivoExcel.ID_Caso == caso_id,
                     models.Lectura.Matricula == matricula,
@@ -2879,7 +3768,9 @@ def get_sugerencias_matriculas(
             )
 
             if lectura_duplicada:
-                lecturas_duplicadas.add(f"Fila {index+1}: Matrícula {matricula} - {fecha_hora_final}")
+                lecturas_duplicadas.add(
+                    f"Fila {index+1}: Matrícula {matricula} - {fecha_hora_final}"
+                )
                 continue  # Saltar esta lectura duplicada
 
             # Crear nueva lectura
@@ -2900,15 +3791,21 @@ def get_sugerencias_matriculas(
         archivo=db_archivo,
         total_registros=len(lecturas_a_insertar),
         errores=errores_lectura if errores_lectura else None,
-        lectores_no_encontrados=list(lectores_no_encontrados) if lectores_no_encontrados else None,
+        lectores_no_encontrados=(
+            list(lectores_no_encontrados) if lectores_no_encontrados else None
+        ),
         lecturas_duplicadas=list(lecturas_duplicadas) if lecturas_duplicadas else None,
-        nuevos_lectores_creados=list(nuevos_lectores_en_sesion) if nuevos_lectores_en_sesion else None,
+        nuevos_lectores_creados=(
+            list(nuevos_lectores_en_sesion) if nuevos_lectores_en_sesion else None
+        ),
     )
 
     # Loguear lo que se va a devolver
     logger.info(f"Importación completada. Devolviendo datos: {response_data}")
     if errores_lectura:
-        logger.warning(f"Importación {filename} completada con {len(errores_lectura)} errores: {errores_lectura}")
+        logger.warning(
+            f"Importación {filename} completada con {len(errores_lectura)} errores: {errores_lectura}"
+        )
     if lecturas_duplicadas:
         logger.warning(
             f"Importación {filename} completada con {len(lecturas_duplicadas)} lecturas duplicadas: {lecturas_duplicadas}"
@@ -2946,7 +3843,9 @@ def process_file_in_background(
             # Intentar leer como Excel primero
             try:
                 df = pd.read_excel(temp_file_path)
-                logger.info(f"[Task {task_id}] Archivo Excel leído. Filas: {df.shape[0]}, Columnas: {df.shape[1]}")
+                logger.info(
+                    f"[Task {task_id}] Archivo Excel leído. Filas: {df.shape[0]}, Columnas: {df.shape[1]}"
+                )
                 logger.info(f"[Task {task_id}] Columnas detectadas: {list(df.columns)}")
                 logger.info(f"[Task {task_id}] Primeras 3 filas de datos:")
                 for i in range(min(3, len(df))):
@@ -2954,15 +3853,21 @@ def process_file_in_background(
 
                 # Verificar si hay filas vacías o con datos nulos
                 filas_con_datos = df.dropna(how="all").shape[0]
-                logger.info(f"[Task {task_id}] Filas con al menos un dato: {filas_con_datos}")
+                logger.info(
+                    f"[Task {task_id}] Filas con al menos un dato: {filas_con_datos}"
+                )
 
                 # Verificar si hay columnas completamente vacías
                 columnas_vacias = df.columns[df.isnull().all()].tolist()
                 if columnas_vacias:
-                    logger.warning(f"[Task {task_id}] Columnas completamente vacías: {columnas_vacias}")
+                    logger.warning(
+                        f"[Task {task_id}] Columnas completamente vacías: {columnas_vacias}"
+                    )
 
             except Exception as e_xls:
-                logger.warning(f"[Task {task_id}] No es Excel, intentando como CSV: {e_xls}")
+                logger.warning(
+                    f"[Task {task_id}] No es Excel, intentando como CSV: {e_xls}"
+                )
                 import csv
 
                 with open(temp_file_path, "r", encoding="utf-8") as f:
@@ -2971,18 +3876,29 @@ def process_file_in_background(
                     sniffer = csv.Sniffer()
                     dialect = sniffer.sniff(sample)
                     delimiter = dialect.delimiter
-                    logger.info(f"[Task {task_id}] Delimitador CSV detectado: '{delimiter}'")
-                    df = pd.read_csv(temp_file_path, delimiter=delimiter, encoding="utf-8")
-                logger.info(f"[Task {task_id}] Archivo CSV leído. Filas: {df.shape[0]}, Columnas: {df.shape[1]}")
+                    logger.info(
+                        f"[Task {task_id}] Delimitador CSV detectado: '{delimiter}'"
+                    )
+                    df = pd.read_csv(
+                        temp_file_path, delimiter=delimiter, encoding="utf-8"
+                    )
+                logger.info(
+                    f"[Task {task_id}] Archivo CSV leído. Filas: {df.shape[0]}, Columnas: {df.shape[1]}"
+                )
                 logger.info(f"[Task {task_id}] Columnas detectadas: {list(df.columns)}")
             # Actualizar a siguiente etapa
             task_statuses[task_id]["stage"] = "parsing_mapping"
             task_statuses[task_id]["message"] = "Procesando mapeo de columnas..."
         except Exception as e:
-            logger.error(f"[Task {task_id}] Fallo al leer archivo {temp_file_path}: {e}", exc_info=True)
+            logger.error(
+                f"[Task {task_id}] Fallo al leer archivo {temp_file_path}: {e}",
+                exc_info=True,
+            )
             raise ValueError(f"Error al leer el archivo Excel o CSV: {e}")
 
-        logger.info(f"[Task {task_id}] Parseando mapeo de columnas: {column_mapping_str}")
+        logger.info(
+            f"[Task {task_id}] Parseando mapeo de columnas: {column_mapping_str}"
+        )
         try:
             map_cliente_a_interno = json.loads(column_mapping_str)
             map_interno_a_cliente = {v: k for k, v in map_cliente_a_interno.items()}
@@ -3001,10 +3917,16 @@ def process_file_in_background(
             logger.info(f"[Task {task_id}] Total de filas a procesar: {total_rows}")
 
             # Verificar si fecha y hora están combinadas
-            fecha_hora_combinada = map_cliente_a_interno.get("Fecha") == map_cliente_a_interno.get("Hora")
-            formato_fecha_hora = map_cliente_a_interno.get("formato_fecha_hora", "DD/MM/YYYY HH:mm:ss")
+            fecha_hora_combinada = map_cliente_a_interno.get(
+                "Fecha"
+            ) == map_cliente_a_interno.get("Hora")
+            formato_fecha_hora = map_cliente_a_interno.get(
+                "formato_fecha_hora", "DD/MM/YYYY HH:mm:ss"
+            )
             if fecha_hora_combinada:
-                logger.info(f"[Task {task_id}] Fecha y hora combinadas detectadas. Formato: {formato_fecha_hora}")
+                logger.info(
+                    f"[Task {task_id}] Fecha y hora combinadas detectadas. Formato: {formato_fecha_hora}"
+                )
                 pandas_format = (
                     formato_fecha_hora.replace("DD", "%d")
                     .replace("MM", "%m")
@@ -3014,7 +3936,9 @@ def process_file_in_background(
                     .replace("ss", "%S")
                 )
                 columna_fecha_hora = map_cliente_a_interno["Fecha"]
-                logger.info(f"[Task {task_id}] Columna fecha/hora: {columna_fecha_hora}")
+                logger.info(
+                    f"[Task {task_id}] Columna fecha/hora: {columna_fecha_hora}"
+                )
                 logger.info(f"[Task {task_id}] Formato pandas: {pandas_format}")
 
                 def clean_datetime(dt_str):
@@ -3029,7 +3953,9 @@ def process_file_in_background(
                                 dt = dt.replace(microsecond=0)
                             return dt
                         except:
-                            logger.warning(f"[Task {task_id}] No se pudo parsear la fecha/hora: {dt_str}")
+                            logger.warning(
+                                f"[Task {task_id}] No se pudo parsear la fecha/hora: {dt_str}"
+                            )
                             return None
 
                 # --- PROGRESO POR LOTES EN PREPARACIÓN DE DATOS ---
@@ -3043,33 +3969,45 @@ def process_file_in_background(
 
                     # Procesar fechas
                     fechas_procesadas = batch[columna_fecha_hora].apply(
-                        lambda x: clean_datetime(x).date() if clean_datetime(x) else None
+                        lambda x: (
+                            clean_datetime(x).date() if clean_datetime(x) else None
+                        )
                     )
                     df.loc[batch.index, "Fecha"] = fechas_procesadas
 
                     # Procesar horas
                     horas_procesadas = batch[columna_fecha_hora].apply(
-                        lambda x: clean_datetime(x).time() if clean_datetime(x) else None
+                        lambda x: (
+                            clean_datetime(x).time() if clean_datetime(x) else None
+                        )
                     )
                     df.loc[batch.index, "Hora"] = horas_procesadas
 
                     # Contar filas procesadas exitosamente
                     filas_validas = fechas_procesadas.notna().sum()
                     filas_procesadas += filas_validas
-                    logger.info(f"[Task {task_id}] Lote procesado: {filas_validas} filas válidas de {len(batch)}")
+                    logger.info(
+                        f"[Task {task_id}] Lote procesado: {filas_validas} filas válidas de {len(batch)}"
+                    )
 
                     # Actualizar progreso
-                    task_statuses[task_id]["progress"] = ((i + PREP_BATCH_SIZE) / len(df)) * 100 if len(df) else 100
+                    task_statuses[task_id]["progress"] = (
+                        ((i + PREP_BATCH_SIZE) / len(df)) * 100 if len(df) else 100
+                    )
                     task_statuses[task_id]["stage"] = "preparing_data"
                     task_statuses[task_id]["message"] = "Creando estructura de datos..."
 
-                logger.info(f"[Task {task_id}] Total filas procesadas exitosamente: {filas_procesadas} de {len(df)}")
+                logger.info(
+                    f"[Task {task_id}] Total filas procesadas exitosamente: {filas_procesadas} de {len(df)}"
+                )
                 df = df.drop(columns=[columna_fecha_hora])
                 del map_cliente_a_interno["formato_fecha_hora"]
                 map_interno_a_cliente = {v: k for k, v in map_cliente_a_interno.items()}
             # Si no hay fecha/hora combinadas, no hay bucle, pero igual actualizamos progreso a 100%
             else:
-                logger.info(f"[Task {task_id}] Fecha y hora separadas - no se requiere procesamiento especial")
+                logger.info(
+                    f"[Task {task_id}] Fecha y hora separadas - no se requiere procesamiento especial"
+                )
                 task_statuses[task_id]["progress"] = 100
                 task_statuses[task_id]["stage"] = "preparing_data"
                 task_statuses[task_id]["message"] = "Creando estructura de datos..."
@@ -3078,14 +4016,22 @@ def process_file_in_background(
             logger.error(f"[Task {task_id}] JSON inválido en mapeo: {e}", exc_info=True)
             raise ValueError(f"El mapeo de columnas no es un JSON válido: {e}")
         try:
-            columnas_a_renombrar = {k: v for k, v in map_interno_a_cliente.items() if k in df.columns}
-            logger.info(f"[Task {task_id}] Columnas a renombrar: {columnas_a_renombrar}")
+            columnas_a_renombrar = {
+                k: v for k, v in map_interno_a_cliente.items() if k in df.columns
+            }
+            logger.info(
+                f"[Task {task_id}] Columnas a renombrar: {columnas_a_renombrar}"
+            )
             df.rename(columns=columnas_a_renombrar, inplace=True)
-            logger.info(f"[Task {task_id}] Columnas después del renombrado: {list(df.columns)}")
+            logger.info(
+                f"[Task {task_id}] Columnas después del renombrado: {list(df.columns)}"
+            )
         except Exception as e:
             logger.error(f"[Task {task_id}] Error aplicando mapeo: {e}", exc_info=True)
             raise ValueError(f"Error al aplicar mapeo de columnas: {e}")
-        logger.info(f"[Task {task_id}] Validando columnas obligatorias para tipo: {tipo_archivo}")
+        logger.info(
+            f"[Task {task_id}] Validando columnas obligatorias para tipo: {tipo_archivo}"
+        )
         if tipo_archivo == "LPR":
             columnas_obligatorias = ["Matricula", "Fecha", "Hora", "ID_Lector"]
         elif tipo_archivo == "GPS":
@@ -3093,15 +4039,21 @@ def process_file_in_background(
         else:
             columnas_obligatorias = ["Matricula", "Fecha", "Hora"]
 
-        logger.info(f"[Task {task_id}] Columnas obligatorias requeridas: {columnas_obligatorias}")
-        logger.info(f"[Task {task_id}] Columnas disponibles en DataFrame: {list(df.columns)}")
+        logger.info(
+            f"[Task {task_id}] Columnas obligatorias requeridas: {columnas_obligatorias}"
+        )
+        logger.info(
+            f"[Task {task_id}] Columnas disponibles en DataFrame: {list(df.columns)}"
+        )
 
         columnas_faltantes_detalle = []
         for campo in columnas_obligatorias:
             if campo not in df.columns:
                 col_excel = map_cliente_a_interno.get(campo)
                 columnas_faltantes_detalle.append(
-                    f"{campo} (mapeada desde '{col_excel}')" if col_excel else f"{campo} (no mapeada)"
+                    f"{campo} (mapeada desde '{col_excel}')"
+                    if col_excel
+                    else f"{campo} (no mapeada)"
                 )
 
         if columnas_faltantes_detalle:
@@ -3110,7 +4062,9 @@ def process_file_in_background(
             raise ValueError(error_msg)
 
         logger.info(f"[Task {task_id}] Columnas obligatorias validadas.")
-        logger.info(f"[Task {task_id}] Creando registro ArchivoExcel para {original_filename}")
+        logger.info(
+            f"[Task {task_id}] Creando registro ArchivoExcel para {original_filename}"
+        )
         db_archivo = models.ArchivoExcel(
             ID_Caso=caso_id,
             Nombre_del_Archivo=original_filename,
@@ -3142,24 +4096,42 @@ def process_file_in_background(
         for i in range(0, len(df), BATCH_SIZE):
             batch_df = df[i : i + BATCH_SIZE]
             batch_lecturas_obj = []
-            logger.info(f"[Task {task_id}] Procesando lote de filas {i+1} a {min(i+BATCH_SIZE, len(df))}")
+            logger.info(
+                f"[Task {task_id}] Procesando lote de filas {i+1} a {min(i+BATCH_SIZE, len(df))}"
+            )
 
             for index, row in batch_df.iterrows():
                 excel_row_num = index + 2
-                logger.info(f"[Task {task_id}] Procesando fila Excel {excel_row_num}: {row.to_dict()}")
+                logger.info(
+                    f"[Task {task_id}] Procesando fila Excel {excel_row_num}: {row.to_dict()}"
+                )
 
                 try:
-                    matricula = str(row["Matricula"]).strip() if pd.notna(row["Matricula"]) else None
-                    logger.info(f"[Task {task_id}] Fila {excel_row_num} - Matrícula extraída: '{matricula}'")
+                    matricula = (
+                        str(row["Matricula"]).strip()
+                        if pd.notna(row["Matricula"])
+                        else None
+                    )
+                    logger.info(
+                        f"[Task {task_id}] Fila {excel_row_num} - Matrícula extraída: '{matricula}'"
+                    )
                     if not matricula:
-                        logger.warning(f"[Task {task_id}] Fila {excel_row_num} - Matrícula vacía, saltando fila")
+                        logger.warning(
+                            f"[Task {task_id}] Fila {excel_row_num} - Matrícula vacía, saltando fila"
+                        )
                         raise ValueError("Matrícula vacía")
 
                     def parse_excel_datetime_bg(date_val, time_val):
                         parsed_time = None
                         if isinstance(time_val, (datetime, time)):
-                            parsed_time = time_val.time() if isinstance(time_val, datetime) else time_val
-                        elif isinstance(time_val, (int, float)) and not pd.isna(time_val):
+                            parsed_time = (
+                                time_val.time()
+                                if isinstance(time_val, datetime)
+                                else time_val
+                            )
+                        elif isinstance(time_val, (int, float)) and not pd.isna(
+                            time_val
+                        ):
                             total_seconds = int(time_val * 86400)
                             hours = total_seconds // 3600
                             minutes = (total_seconds % 3600) // 60
@@ -3171,7 +4143,9 @@ def process_file_in_background(
                             except:
                                 for fmt_t in ("%H:%M:%S.%f", "%H:%M:%S", "%H:%M"):
                                     try:
-                                        parsed_time = datetime.strptime(time_val.strip(), fmt_t).time()
+                                        parsed_time = datetime.strptime(
+                                            time_val.strip(), fmt_t
+                                        ).time()
                                         break
                                     except:
                                         continue
@@ -3182,8 +4156,12 @@ def process_file_in_background(
                             parsed_date = date_val.date()
                         elif isinstance(date_val, date):
                             parsed_date = date_val
-                        elif isinstance(date_val, (int, float)) and not pd.isna(date_val):
-                            parsed_date = pd.to_datetime(date_val, unit="D", origin="1899-12-30").date()
+                        elif isinstance(date_val, (int, float)) and not pd.isna(
+                            date_val
+                        ):
+                            parsed_date = pd.to_datetime(
+                                date_val, unit="D", origin="1899-12-30"
+                            ).date()
                         elif isinstance(date_val, str):
                             try:
                                 parsed_date = parser.parse(date_val.strip()).date()
@@ -3193,8 +4171,12 @@ def process_file_in_background(
                             raise ValueError(f"Fecha no reconocida: '{date_val}'")
                         return datetime.combine(parsed_date, parsed_time)
 
-                    fecha_hora_final = parse_excel_datetime_bg(row["Fecha"], row["Hora"])
-                    logger.info(f"[Task {task_id}] Fila {excel_row_num} - Fecha/Hora procesada: {fecha_hora_final}")
+                    fecha_hora_final = parse_excel_datetime_bg(
+                        row["Fecha"], row["Hora"]
+                    )
+                    logger.info(
+                        f"[Task {task_id}] Fila {excel_row_num} - Fecha/Hora procesada: {fecha_hora_final}"
+                    )
 
                     id_lector_val = None
 
@@ -3210,30 +4192,51 @@ def process_file_in_background(
 
                     coord_x = get_optional_float(raw_coord_x)
                     coord_y = get_optional_float(raw_coord_y)
-                    logger.info(f"[Task {task_id}] Fila {excel_row_num} - Coordenadas procesadas: X={coord_x}, Y={coord_y}")
+                    logger.info(
+                        f"[Task {task_id}] Fila {excel_row_num} - Coordenadas procesadas: X={coord_x}, Y={coord_y}"
+                    )
 
                     if tipo_archivo == "LPR":
-                        id_lector_str = str(row["ID_Lector"]).strip() if pd.notna(row["ID_Lector"]) else None
+                        id_lector_str = (
+                            str(row["ID_Lector"]).strip()
+                            if pd.notna(row["ID_Lector"])
+                            else None
+                        )
                         if not id_lector_str:
                             raise ValueError("Falta ID_Lector para LPR")
                         id_lector_val = id_lector_str
-                        db_lector_existente = db.query(models.Lector).filter(models.Lector.ID_Lector == id_lector_val).first()
+                        db_lector_existente = (
+                            db.query(models.Lector)
+                            .filter(models.Lector.ID_Lector == id_lector_val)
+                            .first()
+                        )
                         if not db_lector_existente:
-                            if id_lector_val not in lectores_creados_bg and id_lector_val not in lectores_no_hallados:
+                            if (
+                                id_lector_val not in lectores_creados_bg
+                                and id_lector_val not in lectores_no_hallados
+                            ):
                                 # NUEVA VALIDACIÓN DE SEGURIDAD
-                                validacion = validar_lector_seguro(id_lector_val, original_filename)
+                                validacion = validar_lector_seguro(
+                                    id_lector_val, original_filename
+                                )
                                 if not validacion["es_seguro"]:
                                     error_msg = f"⚠️ LECTOR RECHAZADO: {validacion['razon']} - {validacion['sugerencia']}"
                                     logger.warning(f"[Task {task_id}] {error_msg}")
-                                    errores_filas.append(f"Fila Excel {excel_row_num}: {error_msg}")
+                                    errores_filas.append(
+                                        f"Fila Excel {excel_row_num}: {error_msg}"
+                                    )
                                     continue  # Saltar esta fila, no crear el lector problemático
 
                                 db_lector_nuevo = models.Lector(
-                                    ID_Lector=id_lector_val, Coordenada_X=coord_x, Coordenada_Y=coord_y
+                                    ID_Lector=id_lector_val,
+                                    Coordenada_X=coord_x,
+                                    Coordenada_Y=coord_y,
                                 )
                                 db.add(db_lector_nuevo)
                                 lectores_creados_bg.add(id_lector_val)
-                                logger.info(f"[Task {task_id}] ✅ Lector nuevo creado de forma segura: {id_lector_val}")
+                                logger.info(
+                                    f"[Task {task_id}] ✅ Lector nuevo creado de forma segura: {id_lector_val}"
+                                )
                         else:
                             if coord_x is None:
                                 coord_x = db_lector_existente.Coordenada_X
@@ -3252,7 +4255,9 @@ def process_file_in_background(
                         .first()
                     )
                     if duplicado_existente:
-                        logger.info(f"[Task {task_id}] Fila {excel_row_num} - Duplicado detectado, omitiendo")
+                        logger.info(
+                            f"[Task {task_id}] Fila {excel_row_num} - Duplicado detectado, omitiendo"
+                        )
                         duplicados_omitidos_bg.add(
                             f"Fila Excel {excel_row_num}: {matricula}, {fecha_hora_final}, Lector: {id_lector_val}"
                         )
@@ -3275,13 +4280,21 @@ def process_file_in_background(
                         f"[Task {task_id}] Fila {excel_row_num} - Lectura creada exitosamente: {matricula} - {fecha_hora_final}"
                     )
                 except ValueError as ve_row:
-                    logger.error(f"[Task {task_id}] Fila {excel_row_num} - Error de validación: {ve_row}")
+                    logger.error(
+                        f"[Task {task_id}] Fila {excel_row_num} - Error de validación: {ve_row}"
+                    )
                     errores_filas.append(f"Fila Excel {excel_row_num}: {ve_row}")
                 except Exception as e_row_inesperado:
-                    logger.error(f"[Task {task_id}] Fila {excel_row_num} - Error inesperado: {e_row_inesperado}")
-                    errores_filas.append(f"Fila Excel {excel_row_num}: Error inesperado - {e_row_inesperado}")
+                    logger.error(
+                        f"[Task {task_id}] Fila {excel_row_num} - Error inesperado: {e_row_inesperado}"
+                    )
+                    errores_filas.append(
+                        f"Fila Excel {excel_row_num}: Error inesperado - {e_row_inesperado}"
+                    )
 
-            logger.info(f"[Task {task_id}] Lote completado. Lecturas a insertar: {len(batch_lecturas_obj)}")
+            logger.info(
+                f"[Task {task_id}] Lote completado. Lecturas a insertar: {len(batch_lecturas_obj)}"
+            )
             if batch_lecturas_obj:
                 db.add_all(batch_lecturas_obj)
                 lecturas_insertadas_count += len(batch_lecturas_obj)
@@ -3291,7 +4304,9 @@ def process_file_in_background(
             db.commit()  # Commit por lote (lecturas y nuevos lectores del lote)
             logger.info(f"[Task {task_id}] Commit del lote realizado exitosamente")
 
-            task_statuses[task_id]["progress"] = (min(i + BATCH_SIZE, len(df)) / len(df)) * 100
+            task_statuses[task_id]["progress"] = (
+                min(i + BATCH_SIZE, len(df)) / len(df)
+            ) * 100
             # Mantener stage y message en cada lote
             task_statuses[task_id]["stage"] = "processing"
             task_statuses[task_id]["message"] = "Procesando registros..."
@@ -3310,14 +4325,22 @@ def process_file_in_background(
         db.commit()
 
         result_data = schemas.UploadResponse(
-            archivo=schemas.ArchivoExcel.model_validate(db_archivo, from_attributes=True),
+            archivo=schemas.ArchivoExcel.model_validate(
+                db_archivo, from_attributes=True
+            ),
             total_registros=lecturas_insertadas_count,
             errores=errores_filas if errores_filas else None,
             lectores_no_encontrados=(
-                list(lectores_no_hallados - lectores_creados_bg) if (lectores_no_hallados - lectores_creados_bg) else None
+                list(lectores_no_hallados - lectores_creados_bg)
+                if (lectores_no_hallados - lectores_creados_bg)
+                else None
             ),
-            lecturas_duplicadas=list(duplicados_omitidos_bg) if duplicados_omitidos_bg else None,
-            nuevos_lectores_creados=list(lectores_creados_bg) if lectores_creados_bg else None,
+            lecturas_duplicadas=(
+                list(duplicados_omitidos_bg) if duplicados_omitidos_bg else None
+            ),
+            nuevos_lectores_creados=(
+                list(lectores_creados_bg) if lectores_creados_bg else None
+            ),
         )
         task_statuses[task_id] = {
             **task_statuses.get(task_id, {}),
@@ -3333,16 +4356,30 @@ def process_file_in_background(
         final_file_path = caso_folder / original_filename
         try:
             shutil.copy(temp_file_path, final_file_path)
-            logger.info(f"[Task {task_id}] Archivo definitivo guardado en: {final_file_path}")
+            logger.info(
+                f"[Task {task_id}] Archivo definitivo guardado en: {final_file_path}"
+            )
         except Exception as e:
-            logger.error(f"[Task {task_id}] Error al mover archivo a destino final: {e}", exc_info=True)
-            raise ValueError(f"No se pudo guardar el archivo definitivo '{original_filename}' en la carpeta del caso.")
+            logger.error(
+                f"[Task {task_id}] Error al mover archivo a destino final: {e}",
+                exc_info=True,
+            )
+            raise ValueError(
+                f"No se pudo guardar el archivo definitivo '{original_filename}' en la carpeta del caso."
+            )
     except ValueError as ve_proc:
         logger.error(f"[Task {task_id}] Error de validación: {ve_proc}", exc_info=True)
-        task_statuses[task_id] = {**task_statuses.get(task_id, {}), "status": "failed", "message": str(ve_proc), "stage": None}
+        task_statuses[task_id] = {
+            **task_statuses.get(task_id, {}),
+            "status": "failed",
+            "message": str(ve_proc),
+            "stage": None,
+        }
         if "id_archivo_db" in locals() and id_archivo_db:
             try:
-                db.query(models.ArchivoExcel).filter(models.ArchivoExcel.ID_Archivo == id_archivo_db).delete()
+                db.query(models.ArchivoExcel).filter(
+                    models.ArchivoExcel.ID_Archivo == id_archivo_db
+                ).delete()
                 db.commit()
             except:
                 db.rollback()
@@ -3356,7 +4393,9 @@ def process_file_in_background(
         }
         if "id_archivo_db" in locals() and id_archivo_db:
             try:
-                db.query(models.ArchivoExcel).filter(models.ArchivoExcel.ID_Archivo == id_archivo_db).delete()
+                db.query(models.ArchivoExcel).filter(
+                    models.ArchivoExcel.ID_Archivo == id_archivo_db
+                ).delete()
                 db.commit()
             except:
                 db.rollback()
@@ -3364,11 +4403,17 @@ def process_file_in_background(
         if os.path.exists(temp_file_path):
             try:
                 os.remove(temp_file_path)
-                logger.info(f"[Task {task_id}] Archivo temporal {temp_file_path} eliminado.")
+                logger.info(
+                    f"[Task {task_id}] Archivo temporal {temp_file_path} eliminado."
+                )
             except Exception as e_rm_temp:
-                logger.error(f"[Task {task_id}] Fallo al eliminar {temp_file_path}: {e_rm_temp}")
+                logger.error(
+                    f"[Task {task_id}] Fallo al eliminar {temp_file_path}: {e_rm_temp}"
+                )
         db.close()
-    logger.info(f"[Task {task_id}] Procesamiento en segundo plano finalizado para {original_filename}.")
+    logger.info(
+        f"[Task {task_id}] Procesamiento en segundo plano finalizado para {original_filename}."
+    )
 
 
 # --- END Background File Processing Function ---
@@ -3378,7 +4423,11 @@ def process_file_in_background(
 
 
 # --- Endpoint para Estadísticas Globales ---
-@app.get("/api/estadisticas", response_model=schemas.EstadisticasGlobales, tags=["Estadísticas"])
+@app.get(
+    "/api/estadisticas",
+    response_model=schemas.EstadisticasGlobales,
+    tags=["Estadísticas"],
+)
 @cached("estadisticas_globales", ttl=3600)  # Cache por 1 hora
 def get_global_statistics(db: Session = Depends(get_db)):
     """
@@ -3420,7 +4469,8 @@ def get_global_statistics(db: Session = Depends(get_db)):
     except Exception as e:
         logger.error(f"Error al obtener estadísticas globales: {e}", exc_info=True)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error interno al obtener estadísticas: {e}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno al obtener estadísticas: {e}",
         )
 
 
@@ -3428,9 +4478,15 @@ def get_global_statistics(db: Session = Depends(get_db)):
 
 
 # --- Endpoint para Archivos Recientes (Dashboard) ---
-@app.get("/api/archivos/recientes", response_model=List[schemas.ArchivoExcel], tags=["Archivos"])
+@app.get(
+    "/api/archivos/recientes",
+    response_model=List[schemas.ArchivoExcel],
+    tags=["Archivos"],
+)
 def get_recent_files(
-    limit: int = 10, db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_active_user)
+    limit: int = 10,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_active_user),
 ):
     """
     Obtiene una lista de los archivos importados más recientes a nivel global.
@@ -3440,34 +4496,54 @@ def get_recent_files(
     )
 
     # Lógica para filtrar por grupo si el usuario no es superadmin
-    user_rol = current_user.Rol.value if hasattr(current_user.Rol, "value") else current_user.Rol
+    user_rol = (
+        current_user.Rol.value
+        if hasattr(current_user.Rol, "value")
+        else current_user.Rol
+    )
     is_superadmin = user_rol == models.RolUsuarioEnum.superadmin.value
 
     try:
         # Subconsulta para contar lecturas por ID_Archivo
         subquery = (
-            select(models.Lectura.ID_Archivo, func.count(models.Lectura.ID_Lectura).label("total_lecturas"))
+            select(
+                models.Lectura.ID_Archivo,
+                func.count(models.Lectura.ID_Lectura).label("total_lecturas"),
+            )
             .group_by(models.Lectura.ID_Archivo)
             .subquery()
         )
 
         # Consulta principal uniendo ArchivoExcel con la subconsulta de conteo
         query = (
-            db.query(models.ArchivoExcel, func.coalesce(subquery.c.total_lecturas, 0).label("num_registros"))
-            .outerjoin(subquery, models.ArchivoExcel.ID_Archivo == subquery.c.ID_Archivo)
+            db.query(
+                models.ArchivoExcel,
+                func.coalesce(subquery.c.total_lecturas, 0).label("num_registros"),
+            )
+            .outerjoin(
+                subquery, models.ArchivoExcel.ID_Archivo == subquery.c.ID_Archivo
+            )
             .options(joinedload(models.ArchivoExcel.caso))
         )
 
         if not is_superadmin:
             if current_user.ID_Grupo is None:
-                logger.warning(f"Usuario {current_user.User} sin grupo intentó acceder a archivos recientes globales.")
+                logger.warning(
+                    f"Usuario {current_user.User} sin grupo intentó acceder a archivos recientes globales."
+                )
                 return []  # Devolver lista vacía si no tiene grupo y no es superadmin
 
             # Filtrar por archivos asociados a casos del grupo del usuario
-            query = query.join(models.Caso).filter(models.Caso.ID_Grupo == current_user.ID_Grupo)
+            query = query.join(models.Caso).filter(
+                models.Caso.ID_Grupo == current_user.ID_Grupo
+            )
 
         # Ordenar por fecha de importación descendente y limitar
-        archivos_recientes = query.order_by(models.ArchivoExcel.Fecha_de_Importacion.desc()).limit(limit).all()
+        archivos_recientes = (
+            query.order_by(models.ArchivoExcel.Fecha_de_Importacion.desc())
+            .limit(limit)
+            .all()
+        )
 
         # Formatear la respuesta para que coincida con el schema
         respuesta = []
@@ -3483,13 +4559,16 @@ def get_recent_files(
             )
             respuesta.append(archivo_schema)
 
-        logger.info(f"Encontrados {len(respuesta)} archivos recientes para el usuario {current_user.User}.")
+        logger.info(
+            f"Encontrados {len(respuesta)} archivos recientes para el usuario {current_user.User}."
+        )
         return respuesta
 
     except Exception as e:
         logger.error(f"Error al obtener archivos recientes: {e}", exc_info=True)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error interno al obtener archivos recientes: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno al obtener archivos recientes: {str(e)}",
         )
 
 
@@ -3498,7 +4577,9 @@ def get_recent_files(
 
 @app.get("/casos/{caso_id}/matriculas_gps", response_model=List[str])
 def get_matriculas_gps_por_caso(
-    caso_id: int, db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_active_user)
+    caso_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_active_user),
 ):
     """
     Devuelve una lista de matrículas únicas (solo GPS) para el caso dado.
@@ -3506,13 +4587,23 @@ def get_matriculas_gps_por_caso(
     caso = db.query(models.Caso).filter(models.Caso.ID_Caso == caso_id).first()
     if not caso:
         raise HTTPException(status_code=404, detail="Caso no encontrado")
-    user_rol_value = current_user.Rol.value if hasattr(current_user.Rol, "value") else current_user.Rol
+    user_rol_value = (
+        current_user.Rol.value
+        if hasattr(current_user.Rol, "value")
+        else current_user.Rol
+    )
     is_superadmin = user_rol_value == "superadmin"
     if not is_superadmin and caso.ID_Grupo != current_user.ID_Grupo:
-        raise HTTPException(status_code=403, detail="No tiene permiso para acceder a las matrículas de este caso")
+        raise HTTPException(
+            status_code=403,
+            detail="No tiene permiso para acceder a las matrículas de este caso",
+        )
     matriculas = (
         db.query(models.Lectura.Matricula)
-        .join(models.ArchivoExcel, models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo)
+        .join(
+            models.ArchivoExcel,
+            models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo,
+        )
         .filter(models.ArchivoExcel.ID_Caso == caso_id)
         .filter(models.Lectura.Tipo_Fuente == "GPS")
         .distinct()
@@ -3521,7 +4612,9 @@ def get_matriculas_gps_por_caso(
     return [m[0] for m in matriculas if m[0]]
 
 
-@app.get("/casos/{caso_id}/matriculas_gps/{matricula}/fechas", response_model=Dict[str, str])
+@app.get(
+    "/casos/{caso_id}/matriculas_gps/{matricula}/fechas", response_model=Dict[str, str]
+)
 def get_fechas_matricula_gps(
     caso_id: int,
     matricula: str,
@@ -3534,10 +4627,17 @@ def get_fechas_matricula_gps(
     caso = db.query(models.Caso).filter(models.Caso.ID_Caso == caso_id).first()
     if not caso:
         raise HTTPException(status_code=404, detail="Caso no encontrado")
-    user_rol_value = current_user.Rol.value if hasattr(current_user.Rol, "value") else current_user.Rol
+    user_rol_value = (
+        current_user.Rol.value
+        if hasattr(current_user.Rol, "value")
+        else current_user.Rol
+    )
     is_superadmin = user_rol_value == "superadmin"
     if not is_superadmin and caso.ID_Grupo != current_user.ID_Grupo:
-        raise HTTPException(status_code=403, detail="No tiene permiso para acceder a los datos de este caso")
+        raise HTTPException(
+            status_code=403,
+            detail="No tiene permiso para acceder a los datos de este caso",
+        )
 
     # Obtener la fecha mínima y máxima para la matrícula
     fechas = (
@@ -3545,7 +4645,10 @@ def get_fechas_matricula_gps(
             func.min(models.Lectura.Fecha_y_Hora).label("fecha_inicio"),
             func.max(models.Lectura.Fecha_y_Hora).label("fecha_fin"),
         )
-        .join(models.ArchivoExcel, models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo)
+        .join(
+            models.ArchivoExcel,
+            models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo,
+        )
         .filter(models.ArchivoExcel.ID_Caso == caso_id)
         .filter(models.Lectura.Tipo_Fuente == "GPS")
         .filter(models.Lectura.Matricula == matricula)
@@ -3553,14 +4656,21 @@ def get_fechas_matricula_gps(
     )
 
     if not fechas or not fechas.fecha_inicio or not fechas.fecha_fin:
-        raise HTTPException(status_code=404, detail="No se encontraron datos GPS para esta matrícula")
+        raise HTTPException(
+            status_code=404, detail="No se encontraron datos GPS para esta matrícula"
+        )
 
-    return {"fecha_inicio": fechas.fecha_inicio.strftime("%Y-%m-%d"), "fecha_fin": fechas.fecha_fin.strftime("%Y-%m-%d")}
+    return {
+        "fecha_inicio": fechas.fecha_inicio.strftime("%Y-%m-%d"),
+        "fecha_fin": fechas.fecha_fin.strftime("%Y-%m-%d"),
+    }
 
 
 @app.get("/casos/{caso_id}/fechas", response_model=Dict[str, str])
 def get_fechas_caso(
-    caso_id: int, db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_active_user)
+    caso_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_active_user),
 ):
     """
     Devuelve el rango de fechas disponible para todas las lecturas de un caso.
@@ -3568,10 +4678,17 @@ def get_fechas_caso(
     caso = db.query(models.Caso).filter(models.Caso.ID_Caso == caso_id).first()
     if not caso:
         raise HTTPException(status_code=404, detail="Caso no encontrado")
-    user_rol_value = current_user.Rol.value if hasattr(current_user.Rol, "value") else current_user.Rol
+    user_rol_value = (
+        current_user.Rol.value
+        if hasattr(current_user.Rol, "value")
+        else current_user.Rol
+    )
     is_superadmin = user_rol_value == "superadmin"
     if not is_superadmin and caso.ID_Grupo != current_user.ID_Grupo:
-        raise HTTPException(status_code=403, detail="No tiene permiso para acceder a los datos de este caso")
+        raise HTTPException(
+            status_code=403,
+            detail="No tiene permiso para acceder a los datos de este caso",
+        )
 
     # Obtener la fecha mínima y máxima para todas las lecturas del caso
     fechas = (
@@ -3579,15 +4696,23 @@ def get_fechas_caso(
             func.min(models.Lectura.Fecha_y_Hora).label("fecha_inicio"),
             func.max(models.Lectura.Fecha_y_Hora).label("fecha_fin"),
         )
-        .join(models.ArchivoExcel, models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo)
+        .join(
+            models.ArchivoExcel,
+            models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo,
+        )
         .filter(models.ArchivoExcel.ID_Caso == caso_id)
         .first()
     )
 
     if not fechas or not fechas.fecha_inicio or not fechas.fecha_fin:
-        raise HTTPException(status_code=404, detail="No se encontraron lecturas para este caso")
+        raise HTTPException(
+            status_code=404, detail="No se encontraron lecturas para este caso"
+        )
 
-    return {"fecha_inicio": fechas.fecha_inicio.strftime("%Y-%m-%d"), "fecha_fin": fechas.fecha_fin.strftime("%Y-%m-%d")}
+    return {
+        "fecha_inicio": fechas.fecha_inicio.strftime("%Y-%m-%d"),
+        "fecha_fin": fechas.fecha_fin.strftime("%Y-%m-%d"),
+    }
 
 
 # --- ENDPOINTS ADMIN: USUARIOS Y GRUPOS ---
@@ -3595,13 +4720,20 @@ from sqlalchemy.orm import joinedload
 
 
 @app.get("/api/usuarios", response_model=List[schemas.Usuario])
-def get_usuarios(db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_active_superadmin)):
+def get_usuarios(
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_active_superadmin),
+):
     """Devuelve la lista de todos los usuarios (solo superadmin)."""
     usuarios = db.query(models.Usuario).options(joinedload(models.Usuario.grupo)).all()
     # Incluir el grupo en la respuesta si existe
     for u in usuarios:
         if u.ID_Grupo and not u.grupo:
-            u.grupo = db.query(models.Grupo).filter(models.Grupo.ID_Grupo == u.ID_Grupo).first()
+            u.grupo = (
+                db.query(models.Grupo)
+                .filter(models.Grupo.ID_Grupo == u.ID_Grupo)
+                .first()
+            )
     return usuarios
 
 
@@ -3609,12 +4741,18 @@ def get_usuarios(db: Session = Depends(get_db), current_user: models.Usuario = D
 def create_usuario(usuario: schemas.UsuarioCreate, db: Session = Depends(get_db)):
     """Crea un nuevo usuario. Si no hay superadmin, permite crear uno sin autenticación."""
     # Verificar si ya existe un usuario con ese User
-    db_usuario = db.query(models.Usuario).filter(models.Usuario.User == usuario.User).first()
+    db_usuario = (
+        db.query(models.Usuario).filter(models.Usuario.User == usuario.User).first()
+    )
     if db_usuario:
-        raise HTTPException(status_code=400, detail="Ya existe un usuario con ese número de carné")
+        raise HTTPException(
+            status_code=400, detail="Ya existe un usuario con ese número de carné"
+        )
 
     # Verificar si es la primera vez (no hay superadmin)
-    superadmin_count = db.query(models.Usuario).filter(models.Usuario.Rol == "superadmin").count()
+    superadmin_count = (
+        db.query(models.Usuario).filter(models.Usuario.Rol == "superadmin").count()
+    )
     is_first_time = superadmin_count == 0
 
     # Si no es primera vez, verificar que el usuario actual es superadmin
@@ -3622,28 +4760,45 @@ def create_usuario(usuario: schemas.UsuarioCreate, db: Session = Depends(get_db)
         try:
             current_user = get_current_active_superadmin(db)
         except HTTPException:
-            raise HTTPException(status_code=403, detail="Solo los superadmin pueden crear usuarios")
+            raise HTTPException(
+                status_code=403, detail="Solo los superadmin pueden crear usuarios"
+            )
 
     # Si es primera vez, solo permitir crear superadmin
     if is_first_time and usuario.Rol != "superadmin":
-        raise HTTPException(status_code=400, detail="En la primera configuración solo se puede crear un superadmin")
+        raise HTTPException(
+            status_code=400,
+            detail="En la primera configuración solo se puede crear un superadmin",
+        )
 
     # Si no es primera vez y el rol es superadmin, verificar que el usuario actual es superadmin
     if not is_first_time and usuario.Rol == "superadmin":
         try:
             current_user = get_current_active_superadmin(db)
         except HTTPException:
-            raise HTTPException(status_code=403, detail="Solo los superadmin pueden crear otros superadmin")
+            raise HTTPException(
+                status_code=403,
+                detail="Solo los superadmin pueden crear otros superadmin",
+            )
 
     # Verificar que el grupo existe si se especificó uno
     if usuario.ID_Grupo is not None:
-        grupo = db.query(models.Grupo).filter(models.Grupo.ID_Grupo == usuario.ID_Grupo).first()
+        grupo = (
+            db.query(models.Grupo)
+            .filter(models.Grupo.ID_Grupo == usuario.ID_Grupo)
+            .first()
+        )
         if not grupo:
-            raise HTTPException(status_code=400, detail="El grupo especificado no existe")
+            raise HTTPException(
+                status_code=400, detail="El grupo especificado no existe"
+            )
 
     # Crear el usuario
     db_usuario = models.Usuario(
-        User=usuario.User, Contraseña=get_password_hash(usuario.Contraseña), Rol=usuario.Rol, ID_Grupo=usuario.ID_Grupo
+        User=usuario.User,
+        Contraseña=get_password_hash(usuario.Contraseña),
+        Rol=usuario.Rol,
+        ID_Grupo=usuario.ID_Grupo,
     )
     db.add(db_usuario)
     db.commit()
@@ -3666,15 +4821,26 @@ def update_usuario(
 
     # No permitir cambiar el rol de superadmin si es el último
     if db_usuario.Rol == "superadmin" and usuario.Rol != "superadmin":
-        superadmin_count = db.query(models.Usuario).filter(models.Usuario.Rol == "superadmin").count()
+        superadmin_count = (
+            db.query(models.Usuario).filter(models.Usuario.Rol == "superadmin").count()
+        )
         if superadmin_count <= 1:
-            raise HTTPException(status_code=400, detail="No se puede cambiar el rol del último superadmin")
+            raise HTTPException(
+                status_code=400,
+                detail="No se puede cambiar el rol del último superadmin",
+            )
 
     # Verificar que el grupo existe si se especifica
     if usuario.ID_Grupo is not None:
-        grupo = db.query(models.Grupo).filter(models.Grupo.ID_Grupo == usuario.ID_Grupo).first()
+        grupo = (
+            db.query(models.Grupo)
+            .filter(models.Grupo.ID_Grupo == usuario.ID_Grupo)
+            .first()
+        )
         if not grupo:
-            raise HTTPException(status_code=400, detail="El grupo especificado no existe")
+            raise HTTPException(
+                status_code=400, detail="El grupo especificado no existe"
+            )
 
     # Actualizar los campos
     update_data = usuario.model_dump(exclude_unset=True)
@@ -3690,7 +4856,9 @@ def update_usuario(
 
 @app.delete("/api/usuarios/{user_id}", status_code=204)
 def delete_usuario(
-    user_id: str, db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_active_superadmin)
+    user_id: str,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_active_superadmin),
 ):
     """Elimina un usuario (solo superadmin)."""
     db_usuario = db.query(models.Usuario).filter(models.Usuario.User == user_id).first()
@@ -3699,9 +4867,13 @@ def delete_usuario(
 
     # No permitir eliminar el último superadmin
     if db_usuario.Rol == "superadmin":
-        superadmin_count = db.query(models.Usuario).filter(models.Usuario.Rol == "superadmin").count()
+        superadmin_count = (
+            db.query(models.Usuario).filter(models.Usuario.Rol == "superadmin").count()
+        )
         if superadmin_count <= 1:
-            raise HTTPException(status_code=400, detail="No se puede eliminar el último superadmin")
+            raise HTTPException(
+                status_code=400, detail="No se puede eliminar el último superadmin"
+            )
 
     db.delete(db_usuario)
     db.commit()
@@ -3709,13 +4881,18 @@ def delete_usuario(
 
 
 @app.get("/api/grupos", response_model=List[schemas.Grupo])
-def get_grupos(db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_active_superadmin)):
+def get_grupos(
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_active_superadmin),
+):
     """Devuelve la lista de todos los grupos (solo superadmin), incluyendo el número de casos asociados en el campo 'casos'."""
     grupos = db.query(models.Grupo).all()
     # Para cada grupo, contar los casos asociados
     grupos_con_casos = []
     for grupo in grupos:
-        num_casos = db.query(models.Caso).filter(models.Caso.ID_Grupo == grupo.ID_Grupo).count()
+        num_casos = (
+            db.query(models.Caso).filter(models.Caso.ID_Grupo == grupo.ID_Grupo).count()
+        )
         grupo_dict = grupo.__dict__.copy()
         grupo_dict["casos"] = num_casos
         grupos_con_casos.append(grupo_dict)
@@ -3734,7 +4911,11 @@ def create_grupo(
         raise HTTPException(status_code=400, detail="Ya existe un grupo con ese nombre")
 
     # Crear el grupo
-    db_grupo = models.Grupo(Nombre=grupo.Nombre, Descripcion=grupo.Descripcion, Fecha_Creacion=datetime.now())
+    db_grupo = models.Grupo(
+        Nombre=grupo.Nombre,
+        Descripcion=grupo.Descripcion,
+        Fecha_Creacion=datetime.now(),
+    )
     db.add(db_grupo)
     db.commit()
     db.refresh(db_grupo)
@@ -3757,7 +4938,9 @@ def update_grupo(
     # Verificar si ya existe otro grupo con ese nombre
     if grupo.Nombre and grupo.Nombre != db_grupo.Nombre:
         if db.query(models.Grupo).filter(models.Grupo.Nombre == grupo.Nombre).first():
-            raise HTTPException(status_code=400, detail="Ya existe un grupo con ese nombre")
+            raise HTTPException(
+                status_code=400, detail="Ya existe un grupo con ese nombre"
+            )
 
     # Actualizar los campos
     update_data = grupo.model_dump(exclude_unset=True)
@@ -3771,7 +4954,9 @@ def update_grupo(
 
 @app.delete("/api/grupos/{grupo_id}")
 def delete_grupo(
-    grupo_id: int, db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_active_superadmin)
+    grupo_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_active_superadmin),
 ):
     """Elimina un grupo existente (solo superadmin)."""
     # Verificar que el grupo existe
@@ -3782,12 +4967,20 @@ def delete_grupo(
     # Verificar si hay casos asociados al grupo
     casos_count = db.query(models.Caso).filter(models.Caso.ID_Grupo == grupo_id).count()
     if casos_count > 0:
-        raise HTTPException(status_code=400, detail="No se puede eliminar un grupo que tiene casos asociados")
+        raise HTTPException(
+            status_code=400,
+            detail="No se puede eliminar un grupo que tiene casos asociados",
+        )
 
     # Verificar si hay usuarios asociados al grupo
-    usuarios_count = db.query(models.Usuario).filter(models.Usuario.ID_Grupo == grupo_id).count()
+    usuarios_count = (
+        db.query(models.Usuario).filter(models.Usuario.ID_Grupo == grupo_id).count()
+    )
     if usuarios_count > 0:
-        raise HTTPException(status_code=400, detail="No se puede eliminar un grupo que tiene usuarios asociados")
+        raise HTTPException(
+            status_code=400,
+            detail="No se puede eliminar un grupo que tiene usuarios asociados",
+        )
 
     # Eliminar el grupo
     db.delete(db_grupo)
@@ -3800,7 +4993,9 @@ def get_database_status(db: Session = Depends(get_db)):
     """Obtiene el estado actual de la base de datos y verifica si se necesita crear un superadmin."""
     try:
         # Verificar si existe algún superadmin
-        superadmin_count = db.query(models.Usuario).filter(models.Usuario.Rol == "superadmin").count()
+        superadmin_count = (
+            db.query(models.Usuario).filter(models.Usuario.Rol == "superadmin").count()
+        )
         needs_superadmin_setup = superadmin_count == 0
 
         # Obtener información de las tablas
@@ -3821,7 +5016,9 @@ def get_database_status(db: Session = Depends(get_db)):
             "needs_superadmin_setup": needs_superadmin_setup,
         }
     except Exception as e:
-        logger.error(f"Error al obtener el estado de la base de datos: {e}", exc_info=True)
+        logger.error(
+            f"Error al obtener el estado de la base de datos: {e}", exc_info=True
+        )
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -3829,7 +5026,9 @@ def get_database_status(db: Session = Depends(get_db)):
 
 
 @app.get("/api/admin/database/connection-stats")
-def get_database_connection_stats(current_user: models.Usuario = Depends(get_current_active_superadmin)):
+def get_database_connection_stats(
+    current_user: models.Usuario = Depends(get_current_active_superadmin),
+):
     """Obtiene estadísticas de conexiones de la base de datos."""
     try:
         from database_config import get_connection_stats, check_database_health
@@ -3849,7 +5048,9 @@ def get_database_connection_stats(current_user: models.Usuario = Depends(get_cur
 
 
 @app.get("/api/admin/database/sql-auth/info")
-def get_sql_auth_info(current_user: models.Usuario = Depends(get_current_active_superadmin)):
+def get_sql_auth_info(
+    current_user: models.Usuario = Depends(get_current_active_superadmin),
+):
     """Obtiene información sobre la autenticación SQL."""
     try:
         from database.sql_auth import sql_auth_manager
@@ -3867,17 +5068,25 @@ def get_sql_auth_info(current_user: models.Usuario = Depends(get_current_active_
 
 
 @app.post("/api/admin/database/sql-auth/change-password")
-def change_sql_password(request: PasswordChangeRequest, current_user: models.Usuario = Depends(get_current_active_superadmin)):
+def change_sql_password(
+    request: PasswordChangeRequest,
+    current_user: models.Usuario = Depends(get_current_active_superadmin),
+):
     """Cambia la contraseña de acceso SQL."""
     try:
         from database.sql_auth import sql_auth_manager
 
         # Validar longitud de nueva contraseña
         if len(request.new_password) < 8:
-            raise HTTPException(status_code=400, detail="La nueva contraseña debe tener al menos 8 caracteres")
+            raise HTTPException(
+                status_code=400,
+                detail="La nueva contraseña debe tener al menos 8 caracteres",
+            )
 
         # Cambiar contraseña
-        success = sql_auth_manager.change_password(request.current_password, request.new_password)
+        success = sql_auth_manager.change_password(
+            request.current_password, request.new_password
+        )
 
         if not success:
             raise HTTPException(status_code=400, detail="Contraseña actual incorrecta")
@@ -3893,20 +5102,28 @@ def change_sql_password(request: PasswordChangeRequest, current_user: models.Usu
 
 
 @app.post("/api/admin/database/sql-auth/reset-password")
-def reset_sql_password(request: PasswordResetRequest, current_user: models.Usuario = Depends(get_current_active_superadmin)):
+def reset_sql_password(
+    request: PasswordResetRequest,
+    current_user: models.Usuario = Depends(get_current_active_superadmin),
+):
     """Resetea la contraseña SQL (solo superadmin)."""
     try:
         from database.sql_auth import sql_auth_manager
 
         # Validar longitud de nueva contraseña
         if len(request.new_password) < 8:
-            raise HTTPException(status_code=400, detail="La nueva contraseña debe tener al menos 8 caracteres")
+            raise HTTPException(
+                status_code=400,
+                detail="La nueva contraseña debe tener al menos 8 caracteres",
+            )
 
         # Resetear contraseña
         success = sql_auth_manager.reset_password(request.new_password)
 
         if not success:
-            raise HTTPException(status_code=500, detail="Error al resetear la contraseña SQL")
+            raise HTTPException(
+                status_code=500, detail="Error al resetear la contraseña SQL"
+            )
 
         logger.info(f"Contraseña SQL reseteada por superadmin: {current_user.User}")
         return {"message": "Contraseña SQL reseteada exitosamente"}
@@ -3919,14 +5136,20 @@ def reset_sql_password(request: PasswordResetRequest, current_user: models.Usuar
 
 
 @app.post("/api/admin/database/sql-auth/verify-password")
-def verify_sql_password(request: PasswordVerifyRequest, current_user: models.Usuario = Depends(get_current_active_superadmin)):
+def verify_sql_password(
+    request: PasswordVerifyRequest,
+    current_user: models.Usuario = Depends(get_current_active_superadmin),
+):
     """Verifica una contraseña SQL."""
     try:
         from database.sql_auth import sql_auth_manager
 
         is_valid = sql_auth_manager.verify_password(request.password)
 
-        return {"valid": is_valid, "message": "Contraseña válida" if is_valid else "Contraseña inválida"}
+        return {
+            "valid": is_valid,
+            "message": "Contraseña válida" if is_valid else "Contraseña inválida",
+        }
 
     except Exception as e:
         logger.error(f"Error verificando contraseña SQL: {e}")
@@ -3935,19 +5158,25 @@ def verify_sql_password(request: PasswordVerifyRequest, current_user: models.Usu
 
 # === ENDPOINTS DE GESTIÓN DE CACHE ===
 @app.get("/api/admin/cache/stats")
-def get_cache_statistics(current_user: models.Usuario = Depends(get_current_active_superadmin)):
+def get_cache_statistics(
+    current_user: models.Usuario = Depends(get_current_active_superadmin),
+):
     """Obtiene estadísticas del sistema de cache"""
     try:
         stats = cache_manager.get_stats()
         return {"cache_stats": stats, "timestamp": datetime.now().isoformat()}
     except Exception as e:
         logger.error(f"Error obteniendo estadísticas de cache: {e}")
-        raise HTTPException(status_code=500, detail=f"Error obteniendo estadísticas de cache: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Error obteniendo estadísticas de cache: {e}"
+        )
 
 
 @app.post("/api/admin/cache/clear")
 def clear_cache_pattern(
-    pattern: str = Body(..., description="Patrón de claves a eliminar (ej: 'atrio:caso:*')"),
+    pattern: str = Body(
+        ..., description="Patrón de claves a eliminar (ej: 'atrio:caso:*')"
+    ),
     current_user: models.Usuario = Depends(get_current_active_superadmin),
 ):
     """Limpia el cache según un patrón específico"""
@@ -3965,7 +5194,9 @@ def clear_cache_pattern(
 
 
 @app.post("/api/admin/cache/invalidate-caso/{caso_id}")
-def invalidate_caso_cache(caso_id: int, current_user: models.Usuario = Depends(get_current_active_superadmin)):
+def invalidate_caso_cache(
+    caso_id: int, current_user: models.Usuario = Depends(get_current_active_superadmin)
+):
     """Invalida todo el cache relacionado con un caso específico"""
     try:
         cache_manager.invalidate_caso(caso_id)
@@ -3980,12 +5211,17 @@ def invalidate_caso_cache(caso_id: int, current_user: models.Usuario = Depends(g
 
 
 @app.post("/api/admin/cache/clear-lanzadera")
-def clear_lanzadera_cache(current_user: models.Usuario = Depends(get_current_active_superadmin)):
+def clear_lanzadera_cache(
+    current_user: models.Usuario = Depends(get_current_active_superadmin),
+):
     """Limpia específicamente el caché del análisis de lanzaderas"""
     try:
         # Limpiar el patrón específico del caché de lanzaderas
         cache_manager.clear_pattern("lanzadera_analisis*")
-        return {"message": "Cache de análisis de lanzaderas limpiado", "timestamp": datetime.now().isoformat()}
+        return {
+            "message": "Cache de análisis de lanzaderas limpiado",
+            "timestamp": datetime.now().isoformat(),
+        }
     except Exception as e:
         logger.error(f"Error limpiando cache de lanzaderas: {e}")
         raise HTTPException(status_code=500, detail=f"Error limpiando cache: {e}")
@@ -4040,7 +5276,9 @@ def read_lecturas_por_filtros(
     if solo_relevantes:
         base_query = base_query.join(models.LecturaRelevante)
     if organismos:
-        base_query = base_query.filter(models.Lector.Organismo_Regulador.in_(organismos))
+        base_query = base_query.filter(
+            models.Lector.Organismo_Regulador.in_(organismos)
+        )
     if provincias:
         base_query = base_query.filter(models.Lector.Provincia.in_(provincias))
 
@@ -4050,11 +5288,15 @@ def read_lecturas_por_filtros(
         try:
             # Combina fecha y hora si ambas están presentes, de lo contrario solo usa la fecha
             if hora_inicio:
-                start_datetime = datetime.strptime(f"{fecha_inicio} {hora_inicio}", "%Y-%m-%d %H:%M")
+                start_datetime = datetime.strptime(
+                    f"{fecha_inicio} {hora_inicio}", "%Y-%m-%d %H:%M"
+                )
             else:
                 start_datetime = datetime.strptime(fecha_inicio, "%Y-%m-%d")
         except ValueError:
-            logger.warning(f"Formato de fecha/hora de inicio inválido: {fecha_inicio} {hora_inicio}")
+            logger.warning(
+                f"Formato de fecha/hora de inicio inválido: {fecha_inicio} {hora_inicio}"
+            )
             pass  # Opcional: manejar el error, por ahora lo ignoramos
 
     end_datetime = None
@@ -4062,12 +5304,18 @@ def read_lecturas_por_filtros(
         try:
             # Combina fecha y hora, o usa el final del día si la hora no está
             if hora_fin:
-                end_datetime = datetime.strptime(f"{fecha_fin} {hora_fin}", "%Y-%m-%d %H:%M")
+                end_datetime = datetime.strptime(
+                    f"{fecha_fin} {hora_fin}", "%Y-%m-%d %H:%M"
+                )
             else:
                 # Si no hay hora_fin, es el final del día
-                end_datetime = datetime.strptime(fecha_fin, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
+                end_datetime = datetime.strptime(fecha_fin, "%Y-%m-%d").replace(
+                    hour=23, minute=59, second=59
+                )
         except ValueError:
-            logger.warning(f"Formato de fecha/hora de fin inválido: {fecha_fin} {hora_fin}")
+            logger.warning(
+                f"Formato de fecha/hora de fin inválido: {fecha_fin} {hora_fin}"
+            )
             pass
 
     # Aplicar filtro de fecha/hora
@@ -4081,7 +5329,13 @@ def read_lecturas_por_filtros(
         # Usar or_ para buscar en múltiples patrones de matrícula
         condiciones = []
         for m in matricula:
-            sql_pattern = m.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_").replace("?", "_").replace("*", "%")
+            sql_pattern = (
+                m.replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_")
+                .replace("?", "_")
+                .replace("*", "%")
+            )
             if "*" in m or "%" in m or "?" in m or "_" in m:
                 condiciones.append(models.Lectura.Matricula.ilike(sql_pattern))
             else:
@@ -4090,7 +5344,13 @@ def read_lecturas_por_filtros(
             base_query = base_query.filter(or_(*condiciones))
     if matriculas:
         for m in matriculas:
-            sql_pattern = m.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_").replace("?", "_").replace("*", "%")
+            sql_pattern = (
+                m.replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_")
+                .replace("?", "_")
+                .replace("*", "%")
+            )
             if "*" in m or "%" in m or "?" in m or "_" in m:
                 condiciones.append(models.Lectura.Matricula.ilike(sql_pattern))
             else:
@@ -4101,11 +5361,14 @@ def read_lecturas_por_filtros(
     # Ordenar y aplicar paginación
     query = base_query.order_by(models.Lectura.Fecha_y_Hora.desc())
     query = query.options(
-        joinedload(models.Lectura.lector), joinedload(models.Lectura.archivo).joinedload(models.ArchivoExcel.caso)
+        joinedload(models.Lectura.lector),
+        joinedload(models.Lectura.archivo).joinedload(models.ArchivoExcel.caso),
     )
     lecturas = query.all()
 
-    logger.info(f"POST /lecturas/por_filtros - Encontradas {len(lecturas)} lecturas tras aplicar filtros.")
+    logger.info(
+        f"POST /lecturas/por_filtros - Encontradas {len(lecturas)} lecturas tras aplicar filtros."
+    )
     return lecturas
 
 
@@ -4124,8 +5387,12 @@ def buscar_vehiculos_multicaso(
     base_query = (
         db.query(models.Lectura)
         .join(models.ArchivoExcel)
-        .filter(models.ArchivoExcel.ID_Caso.in_(casos), models.Lectura.Tipo_Fuente == "LPR")  # Solo lecturas LPR
-        .options(joinedload(models.Lectura.archivo).joinedload(models.ArchivoExcel.caso))
+        .filter(
+            models.ArchivoExcel.ID_Caso.in_(casos), models.Lectura.Tipo_Fuente == "LPR"
+        )  # Solo lecturas LPR
+        .options(
+            joinedload(models.Lectura.archivo).joinedload(models.ArchivoExcel.caso)
+        )
     )
 
     # Aplicar filtros de matrícula
@@ -4134,7 +5401,11 @@ def buscar_vehiculos_multicaso(
     condiciones = []
     if matricula:
         sql_pattern = (
-            matricula.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_").replace("?", "_").replace("*", "%")
+            matricula.replace("\\", "\\\\")
+            .replace("%", "\\%")
+            .replace("_", "\\_")
+            .replace("?", "_")
+            .replace("*", "%")
         )
         if "*" in matricula or "%" in matricula or "?" in matricula or "_" in matricula:
             condiciones.append(models.Lectura.Matricula.ilike(sql_pattern))
@@ -4142,7 +5413,13 @@ def buscar_vehiculos_multicaso(
             condiciones.append(models.Lectura.Matricula.ilike(sql_pattern))
     if matriculas:
         for m in matriculas:
-            sql_pattern = m.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_").replace("?", "_").replace("*", "%")
+            sql_pattern = (
+                m.replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_")
+                .replace("?", "_")
+                .replace("*", "%")
+            )
             if "*" in m or "%" in m or "?" in m or "_" in m:
                 condiciones.append(models.Lectura.Matricula.ilike(sql_pattern))
             else:
@@ -4195,7 +5472,9 @@ from datetime import datetime, timedelta
 from fastapi import HTTPException, status
 
 
-@app.post("/casos/{caso_id}/detectar-lanzaderas", response_model=schemas.LanzaderaResponse)
+@app.post(
+    "/casos/{caso_id}/detectar-lanzaderas", response_model=schemas.LanzaderaResponse
+)
 @cached("lanzadera_analisis", ttl=7200)  # Cache por 2 horas (análisis costoso)
 def detectar_vehiculos_lanzadera(
     caso_id: int,
@@ -4207,7 +5486,11 @@ def detectar_vehiculos_lanzadera(
     )
     # 1. Obtener todas las lecturas del vehículo objetivo en el rango de fechas (si se especifican)
     query = db.query(models.Lectura).filter(
-        models.Lectura.ID_Archivo.in_(db.query(models.ArchivoExcel.ID_Archivo).filter(models.ArchivoExcel.ID_Caso == caso_id)),
+        models.Lectura.ID_Archivo.in_(
+            db.query(models.ArchivoExcel.ID_Archivo).filter(
+                models.ArchivoExcel.ID_Caso == caso_id
+            )
+        ),
         models.Lectura.Matricula == request.matricula,
     )
     if getattr(request, "fecha_inicio", None):
@@ -4237,23 +5520,33 @@ def detectar_vehiculos_lanzadera(
 
         if direccion == "delante":
             # Solo buscar vehículos que pasaron ANTES que el objetivo
-            ventana_inicio = lectura_objetivo.Fecha_y_Hora - timedelta(minutes=request.ventana_minutos)
+            ventana_inicio = lectura_objetivo.Fecha_y_Hora - timedelta(
+                minutes=request.ventana_minutos
+            )
             ventana_fin = lectura_objetivo.Fecha_y_Hora
         elif direccion == "detras":
             # Solo buscar vehículos que pasaron DESPUÉS que el objetivo
             ventana_inicio = lectura_objetivo.Fecha_y_Hora
-            ventana_fin = lectura_objetivo.Fecha_y_Hora + timedelta(minutes=request.ventana_minutos)
+            ventana_fin = lectura_objetivo.Fecha_y_Hora + timedelta(
+                minutes=request.ventana_minutos
+            )
         else:  # 'ambas'
             # Buscar vehículos tanto antes como después
-            ventana_inicio = lectura_objetivo.Fecha_y_Hora - timedelta(minutes=request.ventana_minutos)
-            ventana_fin = lectura_objetivo.Fecha_y_Hora + timedelta(minutes=request.ventana_minutos)
+            ventana_inicio = lectura_objetivo.Fecha_y_Hora - timedelta(
+                minutes=request.ventana_minutos
+            )
+            ventana_fin = lectura_objetivo.Fecha_y_Hora + timedelta(
+                minutes=request.ventana_minutos
+            )
 
         # Buscar lecturas en la misma ventana temporal y lector
         lecturas_acompanantes = (
             db.query(models.Lectura)
             .filter(
                 models.Lectura.ID_Archivo.in_(
-                    db.query(models.ArchivoExcel.ID_Archivo).filter(models.ArchivoExcel.ID_Caso == caso_id)
+                    db.query(models.ArchivoExcel.ID_Archivo).filter(
+                        models.ArchivoExcel.ID_Caso == caso_id
+                    )
                 ),
                 models.Lectura.ID_Lector == lectura_objetivo.ID_Lector,
                 models.Lectura.Fecha_y_Hora >= ventana_inicio,
@@ -4270,12 +5563,16 @@ def detectar_vehiculos_lanzadera(
 
             # Determinar la dirección temporal
             if lectura.Fecha_y_Hora < lectura_objetivo.Fecha_y_Hora:
-                direccion_temporal = "delante"  # El acompañante pasó ANTES que el objetivo
+                direccion_temporal = (
+                    "delante"  # El acompañante pasó ANTES que el objetivo
+                )
                 logger.info(
                     f"[Lanzadera] {lectura.Matricula} pasó ANTES que {lectura_objetivo.Matricula}: {lectura.Fecha_y_Hora} < {lectura_objetivo.Fecha_y_Hora} → 'delante'"
                 )
             elif lectura.Fecha_y_Hora > lectura_objetivo.Fecha_y_Hora:
-                direccion_temporal = "detras"  # El acompañante pasó DESPUÉS que el objetivo
+                direccion_temporal = (
+                    "detras"  # El acompañante pasó DESPUÉS que el objetivo
+                )
                 logger.info(
                     f"[Lanzadera] {lectura.Matricula} pasó DESPUÉS que {lectura_objetivo.Matricula}: {lectura.Fecha_y_Hora} > {lectura_objetivo.Fecha_y_Hora} → 'detras'"
                 )
@@ -4285,7 +5582,9 @@ def detectar_vehiculos_lanzadera(
                     f"[Lanzadera] {lectura.Matricula} pasó SIMULTÁNEAMENTE con {lectura_objetivo.Matricula}: {lectura.Fecha_y_Hora} = {lectura_objetivo.Fecha_y_Hora} → 'simultaneo'"
                 )
 
-            vehiculos_acompanantes[lectura.Matricula][fecha].append((hora, lectura.ID_Lector, direccion_temporal))
+            vehiculos_acompanantes[lectura.Matricula][fecha].append(
+                (hora, lectura.ID_Lector, direccion_temporal)
+            )
 
     # 3. Analizar los vehículos acompañantes según los criterios
     vehiculos_lanzadera = []
@@ -4318,7 +5617,9 @@ def detectar_vehiculos_lanzadera(
                     try:
                         horas.append(datetime.strptime(hora_str, "%H:%M"))
                     except Exception as e:
-                        logger.warning(f"Hora inválida '{hora_str}' para matrícula {matricula} en fecha {fecha}: {e}")
+                        logger.warning(
+                            f"Hora inválida '{hora_str}' para matrícula {matricula} en fecha {fecha}: {e}"
+                        )
                         continue
                 if any(
                     abs((h2 - h1).total_seconds() / 60) >= request.diferencia_minima
@@ -4338,7 +5639,11 @@ def detectar_vehiculos_lanzadera(
                         schemas.LanzaderaDetalle(
                             matricula=matricula,
                             fecha=fecha,
-                            hora=hora if len(hora) == 8 else (hora + ":00" if len(hora) == 5 else hora),
+                            hora=(
+                                hora
+                                if len(hora) == 8
+                                else (hora + ":00" if len(hora) == 5 else hora)
+                            ),
                             lector=lector,
                             tipo="Lanzadera",
                             direccion_temporal=direccion_temporal,
@@ -4347,20 +5652,37 @@ def detectar_vehiculos_lanzadera(
 
     # Ordenar detalles cronológicamente
     detalles.sort(key=lambda d: (d.fecha, d.hora, d.matricula))
-    return schemas.LanzaderaResponse(vehiculos_lanzadera=vehiculos_lanzadera, detalles=detalles)
+    return schemas.LanzaderaResponse(
+        vehiculos_lanzadera=vehiculos_lanzadera, detalles=detalles
+    )
 
 
-@app.post("/casos/{caso_id}/saved_searches", response_model=schemas.SavedSearch, status_code=status.HTTP_201_CREATED)
-def create_saved_search(caso_id: int, saved_search_data: schemas.SavedSearchCreate, db: Session = Depends(get_db)):
-    logger.info(f"POST /casos/{caso_id}/saved_searches con datos: {saved_search_data.name}")
+@app.post(
+    "/casos/{caso_id}/saved_searches",
+    response_model=schemas.SavedSearch,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_saved_search(
+    caso_id: int,
+    saved_search_data: schemas.SavedSearchCreate,
+    db: Session = Depends(get_db),
+):
+    logger.info(
+        f"POST /casos/{caso_id}/saved_searches con datos: {saved_search_data.name}"
+    )
     db_caso = db.query(models.Caso).filter(models.Caso.ID_Caso == caso_id).first()
     if not db_caso:
         logger.warning(f"[Create SavedSearch] Caso con ID {caso_id} no encontrado.")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Caso no encontrado")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Caso no encontrado"
+        )
 
     # Crear la instancia del modelo
     db_saved_search = models.SavedSearch(
-        caso_id=caso_id, name=saved_search_data.name, filters=saved_search_data.filters, results=saved_search_data.results
+        caso_id=caso_id,
+        name=saved_search_data.name,
+        filters=saved_search_data.filters,
+        results=saved_search_data.results,
     )
 
     try:
@@ -4372,7 +5694,10 @@ def create_saved_search(caso_id: int, saved_search_data: schemas.SavedSearchCrea
     except Exception as e:
         db.rollback()
         logger.error(f"Error al guardar SavedSearch en BD: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error interno al guardar la búsqueda.")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno al guardar la búsqueda.",
+        )
 
 
 @app.get("/api/casos/{caso_id}/size")
@@ -4380,8 +5705,14 @@ def get_caso_size(caso_id: int, db: Session = Depends(get_db)):
     import os
 
     try:
-        archivos = db.query(models.ArchivoExcel).filter(models.ArchivoExcel.ID_Caso == caso_id).all()
-        caso_folder = os.path.join(os.path.dirname(__file__), "uploads", f"Caso{caso_id}")
+        archivos = (
+            db.query(models.ArchivoExcel)
+            .filter(models.ArchivoExcel.ID_Caso == caso_id)
+            .all()
+        )
+        caso_folder = os.path.join(
+            os.path.dirname(__file__), "uploads", f"Caso{caso_id}"
+        )
         total_size = 0
         for archivo in archivos:
             if archivo.Nombre_del_Archivo:
@@ -4391,8 +5722,12 @@ def get_caso_size(caso_id: int, db: Session = Depends(get_db)):
         size_mb = round(total_size / (1024 * 1024), 2)
         return {"size_mb": size_mb}
     except Exception as e:
-        logger.error(f"Error al obtener el tamaño del caso {caso_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        logger.error(
+            f"Error al obtener el tamaño del caso {caso_id}: {e}", exc_info=True
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
 
 
 @app.get("/api/casos/{caso_id}/performance_warning")
@@ -4403,7 +5738,10 @@ def get_caso_performance_warning(caso_id: int, db: Session = Depends(get_db)):
     try:
         # Obtener estadísticas del caso
         total_lecturas = (
-            db.query(models.Lectura).join(models.ArchivoExcel).filter(models.ArchivoExcel.ID_Caso == caso_id).count()
+            db.query(models.Lectura)
+            .join(models.ArchivoExcel)
+            .filter(models.ArchivoExcel.ID_Caso == caso_id)
+            .count()
         )
 
         total_matriculas = (
@@ -4472,7 +5810,9 @@ def get_caso_performance_warning(caso_id: int, db: Session = Depends(get_db)):
         }
 
     except Exception as e:
-        logger.error(f"Error al obtener advertencia de rendimiento para caso {caso_id}: {e}")
+        logger.error(
+            f"Error al obtener advertencia de rendimiento para caso {caso_id}: {e}"
+        )
         return {
             "caso_id": caso_id,
             "warning_level": "ERROR",
@@ -4492,14 +5832,20 @@ async def get_task_status(task_id: str):
     status_info = task_statuses.get(task_id)
     if not status_info:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"No se encontró información para la tarea {task_id}"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No se encontró información para la tarea {task_id}",
         )
     return TaskStatus(**status_info)
 
 
 # Mejorar el logging de tareas
 def update_task_status(
-    task_id: str, status: str, message: str, progress: float = None, total: int = None, result: Dict = None
+    task_id: str,
+    status: str,
+    message: str,
+    progress: float = None,
+    total: int = None,
+    result: Dict = None,
 ):
     """
     Actualiza el estado de una tarea con logging mejorado.
@@ -4518,7 +5864,9 @@ def update_task_status(
         new_status["result"] = result
 
     task_statuses[task_id] = new_status
-    logger.info(f"[Task {task_id}] Status updated: {status} - {message} - Progress: {progress}%")
+    logger.info(
+        f"[Task {task_id}] Status updated: {status} - {message} - Progress: {progress}%"
+    )
 
 
 # --- NUEVO ENDPOINT DE DESCARGA ROBUSTO ---
@@ -4528,23 +5876,39 @@ from fastapi.responses import FileResponse
 
 @app.get("/api/archivos/{id_archivo}/download")
 async def descargar_archivo(
-    id_archivo: int, db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_active_user)
+    id_archivo: int,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_active_user),
 ):
     import os
 
     if current_user is None:
-        logger.warning(f"[DESCARGA NUEVA] Intento de descarga no autenticado para archivo ID: {id_archivo}")
-        raise HTTPException(status_code=401, detail="No autenticado para descargar archivos.")
-    logger.info(f"[DESCARGA NUEVA] Solicitud para archivo ID: {id_archivo} por usuario {current_user.User}")
-    archivo_db = db.query(models.ArchivoExcel).filter(models.ArchivoExcel.ID_Archivo == id_archivo).first()
+        logger.warning(
+            f"[DESCARGA NUEVA] Intento de descarga no autenticado para archivo ID: {id_archivo}"
+        )
+        raise HTTPException(
+            status_code=401, detail="No autenticado para descargar archivos."
+        )
+    logger.info(
+        f"[DESCARGA NUEVA] Solicitud para archivo ID: {id_archivo} por usuario {current_user.User}"
+    )
+    archivo_db = (
+        db.query(models.ArchivoExcel)
+        .filter(models.ArchivoExcel.ID_Archivo == id_archivo)
+        .first()
+    )
     if not archivo_db:
         logger.error(f"[DESCARGA NUEVA] Archivo ID {id_archivo} no encontrado en BD.")
-        raise HTTPException(status_code=404, detail="Archivo no encontrado en base de datos.")
+        raise HTTPException(
+            status_code=404, detail="Archivo no encontrado en base de datos."
+        )
     caso_id = archivo_db.ID_Caso
     nombre_archivo = archivo_db.Nombre_del_Archivo
     if not caso_id or not nombre_archivo:
         logger.error(f"[DESCARGA NUEVA] Archivo ID {id_archivo} sin caso o sin nombre.")
-        raise HTTPException(status_code=500, detail="Archivo sin caso o sin nombre en BD.")
+        raise HTTPException(
+            status_code=500, detail="Archivo sin caso o sin nombre en BD."
+        )
     carpeta_caso = UPLOADS_DIR / f"Caso{caso_id}"
     ruta_archivo = carpeta_caso / nombre_archivo
     logger.info(f"[DESCARGA NUEVA] Buscando en: {ruta_archivo}")
@@ -4555,15 +5919,21 @@ async def descargar_archivo(
         logger.error(f"[DESCARGA NUEVA] Error listando carpeta: {e}")
     if not os.path.isfile(ruta_archivo):
         logger.error(f"[DESCARGA NUEVA] Archivo físico NO encontrado: {ruta_archivo}")
-        raise HTTPException(status_code=404, detail="Archivo físico no encontrado en servidor.")
-    logger.info(f"[DESCARGA NUEVA] Archivo encontrado y listo para descargar: {ruta_archivo}")
+        raise HTTPException(
+            status_code=404, detail="Archivo físico no encontrado en servidor."
+        )
+    logger.info(
+        f"[DESCARGA NUEVA] Archivo encontrado y listo para descargar: {ruta_archivo}"
+    )
     # Detectar tipo MIME
     media_type = "application/octet-stream"
     if nombre_archivo.lower().endswith((".xlsx", ".xls")):
         media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     elif nombre_archivo.lower().endswith(".csv"):
         media_type = "text/csv"
-    return FileResponse(path=ruta_archivo, filename=nombre_archivo, media_type=media_type)
+    return FileResponse(
+        path=ruta_archivo, filename=nombre_archivo, media_type=media_type
+    )
 
 
 @app.get("/casos/{caso_id}/lecturas_relevantes", response_model=List[schemas.Lectura])
@@ -4574,17 +5944,30 @@ def get_lecturas_relevantes_por_caso(caso_id: int, db: Session = Depends(get_db)
     try:
         lecturas_relevantes = (
             db.query(models.Lectura)
-            .options(joinedload(models.Lectura.lector), joinedload(models.Lectura.relevancia))
-            .join(models.LecturaRelevante, models.Lectura.ID_Lectura == models.LecturaRelevante.ID_Lectura)
-            .join(models.ArchivoExcel, models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo)
+            .options(
+                joinedload(models.Lectura.lector), joinedload(models.Lectura.relevancia)
+            )
+            .join(
+                models.LecturaRelevante,
+                models.Lectura.ID_Lectura == models.LecturaRelevante.ID_Lectura,
+            )
+            .join(
+                models.ArchivoExcel,
+                models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo,
+            )
             .filter(models.ArchivoExcel.ID_Caso == caso_id)
             .order_by(models.Lectura.Fecha_y_Hora)
             .all()
         )
         return lecturas_relevantes
     except Exception as e:
-        logger.error(f"Error al obtener lecturas relevantes para caso {caso_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Error interno al obtener lecturas relevantes")
+        logger.error(
+            f"Error al obtener lecturas relevantes para caso {caso_id}: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500, detail="Error interno al obtener lecturas relevantes"
+        )
 
 
 # Nuevo router para configuración del sistema
@@ -4613,7 +5996,9 @@ def get_host_config_endpoint():
 
 
 @system_config_router.get("/system/network-info")
-def get_network_info(current_user: models.Usuario = Depends(get_current_active_superadmin)):
+def get_network_info(
+    current_user: models.Usuario = Depends(get_current_active_superadmin),
+):
     """Obtiene información de red del sistema para conexiones remotas"""
     import socket
     import platform
@@ -4655,7 +6040,9 @@ def get_network_info(current_user: models.Usuario = Depends(get_current_active_s
                             "client_port": conn.raddr.port,
                             "service": service,
                             "status": conn.status,
-                            "connected_since": datetime.now().strftime("%H:%M:%S"),  # Simplificado por ahora
+                            "connected_since": datetime.now().strftime(
+                                "%H:%M:%S"
+                            ),  # Simplificado por ahora
                         }
                     )
         except Exception as conn_error:
@@ -4665,9 +6052,15 @@ def get_network_info(current_user: models.Usuario = Depends(get_current_active_s
             "hostname": hostname,
             "local_ip": local_ip,
             "network_interfaces": (
-                [{"interface": "Principal", "ip": local_ip, "type": "IPv4"}] if local_ip and local_ip != "127.0.0.1" else []
+                [{"interface": "Principal", "ip": local_ip, "type": "IPv4"}]
+                if local_ip and local_ip != "127.0.0.1"
+                else []
             ),
-            "current_config": {"host": config["host"], "port": config["port"], "is_remote": config["is_remote"]},
+            "current_config": {
+                "host": config["host"],
+                "port": config["port"],
+                "is_remote": config["is_remote"],
+            },
             "access_urls": (
                 [f"http://{ip}:{config['port']}" for ip in available_ips]
                 if config["is_remote"]
@@ -4679,11 +6072,16 @@ def get_network_info(current_user: models.Usuario = Depends(get_current_active_s
         }
     except Exception as e:
         logger.error(f"Error obteniendo información de red: {e}")
-        raise HTTPException(status_code=500, detail=f"Error obteniendo información de red: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error obteniendo información de red: {str(e)}"
+        )
 
 
 @system_config_router.post("/system/host-config", response_model=SystemConfig)
-def update_host_config_endpoint(config: SystemConfig, current_user: models.Usuario = Depends(get_current_active_superadmin)):
+def update_host_config_endpoint(
+    config: SystemConfig,
+    current_user: models.Usuario = Depends(get_current_active_superadmin),
+):
     """Actualiza la configuración del host y reinicia el servidor"""
     from system_config import update_host_config as update_system_config
 
@@ -4693,7 +6091,10 @@ def update_host_config_endpoint(config: SystemConfig, current_user: models.Usuar
 
         subprocess.Popen([sys.executable, "restart_server.py"])
         return config
-    raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error al guardar la configuración")
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="Error al guardar la configuración",
+    )
 
 
 # Añadir el router a la aplicación
@@ -4701,7 +6102,10 @@ app.include_router(system_config_router, prefix="/api")
 
 
 @app.get("/vehiculos/statuses", response_model=Dict[str, str], tags=["Vehículos"])
-def get_all_vehicle_statuses(db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_active_user)):
+def get_all_vehicle_statuses(
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_active_user),
+):
     """
     Returns a dictionary mapping each vehicle's license plate to its status
     (Comprobado, Sospechoso, or Ninguno).
@@ -4718,10 +6122,16 @@ def get_all_vehicle_statuses(db: Session = Depends(get_db), current_user: models
     return statuses
 
 
-@app.get("/vehiculos/{vehiculo_id}/lecturas", response_model=List[schemas.Lectura], tags=["Vehículos"])
+@app.get(
+    "/vehiculos/{vehiculo_id}/lecturas",
+    response_model=List[schemas.Lectura],
+    tags=["Vehículos"],
+)
 def get_lecturas_por_vehiculo(
     vehiculo_id: int,
-    caso_id: Optional[int] = Query(None, description="ID del caso opcional para filtrar lecturas"),
+    caso_id: Optional[int] = Query(
+        None, description="ID del caso opcional para filtrar lecturas"
+    ),
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(
         get_current_active_user
@@ -4732,16 +6142,34 @@ def get_lecturas_por_vehiculo(
     Opcionalmente filtra por caso_id si se proporciona.
     Restringido por grupo para roles no superadmin.
     """
-    db_vehiculo = db.query(models.Vehiculo).filter(models.Vehiculo.ID_Vehiculo == vehiculo_id).first()
+    db_vehiculo = (
+        db.query(models.Vehiculo)
+        .filter(models.Vehiculo.ID_Vehiculo == vehiculo_id)
+        .first()
+    )
     if not db_vehiculo:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Vehículo con ID {vehiculo_id} no encontrado")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Vehículo con ID {vehiculo_id} no encontrado",
+        )
 
-    query = db.query(models.Lectura).filter(models.Lectura.Matricula == db_vehiculo.Matricula)
-    user_rol = current_user.Rol.value if hasattr(current_user.Rol, "value") else current_user.Rol
+    query = db.query(models.Lectura).filter(
+        models.Lectura.Matricula == db_vehiculo.Matricula
+    )
+    user_rol = (
+        current_user.Rol.value
+        if hasattr(current_user.Rol, "value")
+        else current_user.Rol
+    )
 
-    if user_rol != RolUsuarioEnum.superadmin.value:  # Si no es superadmin, aplicar filtro de grupo
+    if (
+        user_rol != RolUsuarioEnum.superadmin.value
+    ):  # Si no es superadmin, aplicar filtro de grupo
         if current_user.ID_Grupo is None:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usuario no tiene un grupo asignado.")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Usuario no tiene un grupo asignado.",
+            )
 
         if caso_id is not None:
             # Verificar que el caso_id pertenezca al grupo del usuario
@@ -4753,23 +6181,31 @@ def get_lecturas_por_vehiculo(
             )
             if not caso_pertenece_al_grupo:
                 raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN, detail="No tiene permiso para acceder a las lecturas de este caso."
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="No tiene permiso para acceder a las lecturas de este caso.",
                 )
             # Filtrar por el caso_id ya verificado
-            query = query.join(models.ArchivoExcel, models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo).filter(
-                models.ArchivoExcel.ID_Caso == caso_id
-            )
+            query = query.join(
+                models.ArchivoExcel,
+                models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo,
+            ).filter(models.ArchivoExcel.ID_Caso == caso_id)
         else:
             # No se dio caso_id, filtrar todas las lecturas del vehículo que estén en casos del grupo del usuario
             query = (
-                query.join(models.ArchivoExcel, models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo)
+                query.join(
+                    models.ArchivoExcel,
+                    models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo,
+                )
                 .join(models.Caso, models.ArchivoExcel.ID_Caso == models.Caso.ID_Caso)
                 .filter(models.Caso.ID_Grupo == current_user.ID_Grupo)
             )
-    elif caso_id is not None:  # Superadmin, pero se proveyó caso_id, así que filtramos por él
-        query = query.join(models.ArchivoExcel, models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo).filter(
-            models.ArchivoExcel.ID_Caso == caso_id
-        )
+    elif (
+        caso_id is not None
+    ):  # Superadmin, pero se proveyó caso_id, así que filtramos por él
+        query = query.join(
+            models.ArchivoExcel,
+            models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo,
+        ).filter(models.ArchivoExcel.ID_Caso == caso_id)
 
     lecturas = query.order_by(models.Lectura.Fecha_y_Hora.asc()).all()
 
@@ -4778,7 +6214,9 @@ def get_lecturas_por_vehiculo(
         + (f" en caso ID {caso_id}" if caso_id else "")
     )
     # Devolvemos las lecturas con el lector asociado cargado (si existe)
-    return [schemas.Lectura.model_validate(lect, from_attributes=True) for lect in lecturas]
+    return [
+        schemas.Lectura.model_validate(lect, from_attributes=True) for lect in lecturas
+    ]
 
 
 # --- VALIDACIÓN DE LECTORES SEGUROS ---
@@ -4833,7 +6271,11 @@ def validar_lector_seguro(lector_id: str, nombre_archivo: str = "") -> dict:
         }
 
     # Lector parece válido
-    return {"es_seguro": True, "razon": f"'{lector_id}' parece un ID de lector válido", "sugerencia": ""}
+    return {
+        "es_seguro": True,
+        "razon": f"'{lector_id}' parece un ID de lector válido",
+        "sugerencia": "",
+    }
 
 
 # --- MANEJO DE SEÑALES Y LIMPIEZA DE RECURSOS ---
@@ -4859,7 +6301,9 @@ def cleanup_resources():
     try:
         import glob
 
-        temp_files = glob.glob("temp_validation_*.xlsx") + glob.glob("temp_validation_*.csv")
+        temp_files = glob.glob("temp_validation_*.xlsx") + glob.glob(
+            "temp_validation_*.csv"
+        )
         for temp_file in temp_files:
             try:
                 os.remove(temp_file)

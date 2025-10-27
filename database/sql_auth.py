@@ -26,11 +26,17 @@ class SQLAuthManager:
                 {
                     "password_hash": self._hash_password(initial_password),
                     "salt": secrets.token_hex(32),
-                    "created_at": str(Path().stat().st_ctime) if Path().exists() else "0",
-                    "last_changed": str(Path().stat().st_ctime) if Path().exists() else "0",
+                    "created_at": (
+                        str(Path().stat().st_ctime) if Path().exists() else "0"
+                    ),
+                    "last_changed": (
+                        str(Path().stat().st_ctime) if Path().exists() else "0"
+                    ),
                 }
             )
-            logger.info(f"Configuración SQL inicial creada. Contraseña temporal: {initial_password}")
+            logger.info(
+                f"Configuración SQL inicial creada. Contraseña temporal: {initial_password}"
+            )
 
     def _hash_password(self, password: str) -> str:
         """Hashea una contraseña usando SHA-256"""
@@ -76,7 +82,9 @@ class SQLAuthManager:
             config = self._load_config()
             config["password_hash"] = self._hash_password(new_password)
             config["salt"] = secrets.token_hex(32)
-            config["last_changed"] = str(Path().stat().st_ctime) if Path().exists() else "0"
+            config["last_changed"] = (
+                str(Path().stat().st_ctime) if Path().exists() else "0"
+            )
 
             self._save_config(config)
             logger.info("Contraseña SQL cambiada exitosamente")
@@ -91,7 +99,9 @@ class SQLAuthManager:
             config = self._load_config()
             config["password_hash"] = self._hash_password(new_password)
             config["salt"] = secrets.token_hex(32)
-            config["last_changed"] = str(Path().stat().st_ctime) if Path().exists() else "0"
+            config["last_changed"] = (
+                str(Path().stat().st_ctime) if Path().exists() else "0"
+            )
 
             self._save_config(config)
             logger.info("Contraseña SQL reseteada exitosamente")

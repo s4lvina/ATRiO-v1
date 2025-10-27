@@ -8,9 +8,7 @@ from jose import JWTError, jwt
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Configuración de JWT
-SECRET_KEY = (
-    "afe2eb405c2faf62bd83626be39901784649360f2020225a902312677aa0ac5e"  # ¡CAMBIAR EN PRODUCCIÓN Y GUARDAR DE FORMA SEGURA!
-)
+SECRET_KEY = "afe2eb405c2faf62bd83626be39901784649360f2020225a902312677aa0ac5e"  # ¡CAMBIAR EN PRODUCCIÓN Y GUARDAR DE FORMA SEGURA!
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60  # Por ejemplo, 60 minutos
 REFRESH_TOKEN_EXPIRE_DAYS = 7  # Token de renovación válido por 7 días
@@ -32,7 +30,9 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.now(timezone.utc) + timedelta(
+            minutes=ACCESS_TOKEN_EXPIRE_MINUTES
+        )
     to_encode.update({"exp": expire})
     # Asegurarse de que 'sub' (subject) sea una cadena
     if "sub" in to_encode and not isinstance(to_encode["sub"], str):
@@ -70,7 +70,9 @@ def get_token_expiry_time(token: str) -> Optional[datetime]:
     return None
 
 
-def is_token_expiring_soon(token: str, warning_minutes: int = WARNING_MINUTES_BEFORE_EXPIRY) -> bool:
+def is_token_expiring_soon(
+    token: str, warning_minutes: int = WARNING_MINUTES_BEFORE_EXPIRY
+) -> bool:
     """Verifica si un token expira pronto"""
     expiry_time = get_token_expiry_time(token)
     if not expiry_time:

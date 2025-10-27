@@ -160,7 +160,12 @@ class TestCacheDecorator:
 
     def test_cache_utility_functions(self):
         """Test de las funciones de utilidad de cache"""
-        from cache_manager import cache_lecturas_caso, cache_estadisticas_caso, cache_mapa_caso, cache_analisis_lanzadera
+        from cache_manager import (
+            cache_lecturas_caso,
+            cache_estadisticas_caso,
+            cache_mapa_caso,
+            cache_analisis_lanzadera,
+        )
 
         # Test de generación de claves para diferentes tipos de cache
         lecturas_key = cache_lecturas_caso(1, {"fecha_inicio": "2024-01-01"})

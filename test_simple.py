@@ -20,9 +20,15 @@ def test_simple():
     try:
         # 1. Crear un mapa
         print("1️⃣ Creando un mapa...")
-        test_mapa = {"nombre": "Mapa simple", "descripcion": "Descripción simple", "estado": {"test": "data"}}
+        test_mapa = {
+            "nombre": "Mapa simple",
+            "descripcion": "Descripción simple",
+            "estado": {"test": "data"},
+        }
 
-        response = requests.post(f"{BASE_URL}/casos/{CASO_ID}/mapas_guardados", json=test_mapa)
+        response = requests.post(
+            f"{BASE_URL}/casos/{CASO_ID}/mapas_guardados", json=test_mapa
+        )
         print(f"   Status: {response.status_code}")
 
         if response.status_code == 200:
@@ -33,7 +39,8 @@ def test_simple():
             # 2. Duplicar el mapa
             print("\n2️⃣ Duplicando el mapa...")
             response = requests.post(
-                f"{BASE_URL}/casos/{CASO_ID}/mapas_guardados/{mapa_id}/duplicate", json={"nombre": "Copia del mapa simple"}
+                f"{BASE_URL}/casos/{CASO_ID}/mapas_guardados/{mapa_id}/duplicate",
+                json={"nombre": "Copia del mapa simple"},
             )
             print(f"   Status: {response.status_code}")
 
@@ -63,7 +70,10 @@ def test_gps_dms_import():
         "Matricula": ["ABC123", "DEF456"],
         "Fecha": ["2024-01-01", "2024-01-02"],
         "Hora": ["10:00:00", "11:00:00"],
-        "Coordenada_X": ["80°00'00\"W", "79.5 W"],  # Ejemplo DMS y decimal con dirección
+        "Coordenada_X": [
+            "80°00'00\"W",
+            "79.5 W",
+        ],  # Ejemplo DMS y decimal con dirección
         "Coordenada_Y": ["40°00'00\"N", "40.5 N"],
         "Velocidad": [50, 60],
     }
@@ -87,17 +97,27 @@ def test_gps_dms_import():
     column_mapping_json = json.dumps(column_mapping)
 
     # 3. Subir el archivo
-    files = {"file": ("gps_dms_test.xlsx", output.read(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
+    files = {
+        "file": (
+            "gps_dms_test.xlsx",
+            output.read(),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+    }
     form_data = {
         "caso_id": str(CASO_ID),
         "source_name": "TestDMSGPS",
         "column_mappings": column_mapping_json,
-        "selected_columns": json.dumps(list(column_mapping.keys())),  # Todas las mapeadas son seleccionadas
+        "selected_columns": json.dumps(
+            list(column_mapping.keys())
+        ),  # Todas las mapeadas son seleccionadas
     }
 
     # Usar la ruta de external_data.py para la importación en segundo plano
     print("   Subiendo archivo GPS con DMS...")
-    response = requests.post(f"{BASE_URL}/api/external-data/import", files=files, data=form_data)
+    response = requests.post(
+        f"{BASE_URL}/api/external-data/import", files=files, data=form_data
+    )
     print(f"   Status de subida: {response.status_code}")
     print(f"   Respuesta de subida: {response.json()}")
 
@@ -109,14 +129,20 @@ def test_gps_dms_import():
         # 4. Monitorear el estado de la tarea (simplificado para la prueba)
         # En un escenario real, se haría un polling de un endpoint /tasks/{task_id}/status
         # Para esta prueba simple, asumiremos que se procesa relativamente rápido o que el test runner manejará la espera.
-        print("   Asumiendo procesamiento en segundo plano (no hay polling en esta prueba)...")
+        print(
+            "   Asumiendo procesamiento en segundo plano (no hay polling en esta prueba)..."
+        )
 
         # 5. Verificar que las coordenadas se hayan guardado correctamente (Esto requeriría una consulta real a la DB)
         # Aquí simularemos la verificación asumiendo que el procesamiento fue exitoso.
         # En una prueba real, necesitarías una forma de leer de la base de datos
         # Para propósitos de este test, si la subida fue 202, asumimos que el backend lo manejará.
-        print("   Verificación manual necesaria de las coordenadas en la base de datos.")
-        print("✅ Prueba de importación GPS con DMS enviada correctamente (la verificación de DB es manual en este script).")
+        print(
+            "   Verificación manual necesaria de las coordenadas en la base de datos."
+        )
+        print(
+            "✅ Prueba de importación GPS con DMS enviada correctamente (la verificación de DB es manual en este script)."
+        )
         return True
     else:
         print(f"❌ Fallo al iniciar la importación GPS con DMS: {response.text}")
@@ -131,6 +157,8 @@ if __name__ == "__main__":
     #     print("Prueba simple fallida.")
 
     if test_gps_dms_import():
-        print("Prueba de importación GPS con DMS completada con éxito (verificación manual requerida).")
+        print(
+            "Prueba de importación GPS con DMS completada con éxito (verificación manual requerida)."
+        )
     else:
         print("Prueba de importación GPS con DMS fallida.")

@@ -41,7 +41,12 @@ def run_server():
         port=config["port"],
         reload=True,  # Habilitar reload automático
         reload_dirs=["./"],  # Directorios a vigilar
-        reload_excludes=["*.pyc", "__pycache__", "*.log", "uploads/*"],  # Excluir archivos
+        reload_excludes=[
+            "*.pyc",
+            "__pycache__",
+            "*.log",
+            "uploads/*",
+        ],  # Excluir archivos
         log_level="info",
         access_log=True,
         use_colors=True,

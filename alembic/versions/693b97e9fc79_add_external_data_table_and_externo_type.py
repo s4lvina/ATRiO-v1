@@ -37,15 +37,25 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_external_data_caso_id"), "external_data", ["caso_id"], unique=False)
+    op.create_index(
+        op.f("ix_external_data_caso_id"), "external_data", ["caso_id"], unique=False
+    )
     op.create_index(op.f("ix_external_data_id"), "external_data", ["id"], unique=False)
-    op.create_index(op.f("ix_external_data_matricula"), "external_data", ["matricula"], unique=False)
-    op.drop_index("ix_external_data_sources_caso_id", table_name="external_data_sources")
+    op.create_index(
+        op.f("ix_external_data_matricula"), "external_data", ["matricula"], unique=False
+    )
+    op.drop_index(
+        "ix_external_data_sources_caso_id", table_name="external_data_sources"
+    )
     op.drop_index("ix_external_data_sources_id", table_name="external_data_sources")
     op.drop_table("external_data_sources")
-    op.drop_index("ix_external_vehicle_data_fuente_id", table_name="external_vehicle_data")
+    op.drop_index(
+        "ix_external_vehicle_data_fuente_id", table_name="external_vehicle_data"
+    )
     op.drop_index("ix_external_vehicle_data_id", table_name="external_vehicle_data")
-    op.drop_index("ix_external_vehicle_data_matricula", table_name="external_vehicle_data")
+    op.drop_index(
+        "ix_external_vehicle_data_matricula", table_name="external_vehicle_data"
+    )
     op.drop_table("external_vehicle_data")
     op.drop_index("ix_user_activity_logs_id", table_name="user_activity_logs")
     op.drop_table("user_activity_logs")
@@ -54,7 +64,11 @@ def upgrade() -> None:
     op.drop_table("ExternalDataEntries")
     op.drop_index("ix_ExternalDataSets_ID_DataSet", table_name="ExternalDataSets")
     op.drop_table("ExternalDataSets")
-    op.drop_index("idx_archivos_caso_america", table_name="ArchivosExcel", sqlite_where=sa.text("ID_Caso = 7"))
+    op.drop_index(
+        "idx_archivos_caso_america",
+        table_name="ArchivosExcel",
+        sqlite_where=sa.text("ID_Caso = 7"),
+    )
     op.drop_index("idx_archivos_caso_id", table_name="ArchivosExcel")
     op.drop_index("ix_archivosexcel_fecha_importacion", table_name="ArchivosExcel")
     op.drop_index("ix_archivosexcel_id_caso", table_name="ArchivosExcel")
@@ -74,8 +88,12 @@ def upgrade() -> None:
     op.drop_index("ix_lectura_matricula_fecha", table_name="lectura")
     op.drop_index("ix_lectura_tipo_fecha", table_name="lectura")
     op.drop_index("ix_lectura_tipo_fuente", table_name="lectura")
-    op.create_index(op.f("ix_lectura_Fecha_y_Hora"), "lectura", ["Fecha_y_Hora"], unique=False)
-    op.create_index(op.f("ix_lectura_Matricula"), "lectura", ["Matricula"], unique=False)
+    op.create_index(
+        op.f("ix_lectura_Fecha_y_Hora"), "lectura", ["Fecha_y_Hora"], unique=False
+    )
+    op.create_index(
+        op.f("ix_lectura_Matricula"), "lectura", ["Matricula"], unique=False
+    )
     # ### end Alembic commands ###
 
 
@@ -85,24 +103,84 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_lectura_Matricula"), table_name="lectura")
     op.drop_index(op.f("ix_lectura_Fecha_y_Hora"), table_name="lectura")
     op.create_index("ix_lectura_tipo_fuente", "lectura", ["Tipo_Fuente"], unique=False)
-    op.create_index("ix_lectura_tipo_fecha", "lectura", ["Tipo_Fuente", "Fecha_y_Hora"], unique=False)
-    op.create_index("ix_lectura_matricula_fecha", "lectura", ["Matricula", "Fecha_y_Hora"], unique=False)
+    op.create_index(
+        "ix_lectura_tipo_fecha",
+        "lectura",
+        ["Tipo_Fuente", "Fecha_y_Hora"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_lectura_matricula_fecha",
+        "lectura",
+        ["Matricula", "Fecha_y_Hora"],
+        unique=False,
+    )
     op.create_index("idx_lectura_tipo_fuente", "lectura", ["Tipo_Fuente"], unique=False)
-    op.create_index("idx_lectura_matricula_optimized", "lectura", ["Matricula"], unique=False)
-    op.create_index("idx_lectura_matricula_fecha_optimized", "lectura", ["Matricula", "Fecha_y_Hora"], unique=False)
-    op.create_index("idx_lectura_fecha_lector_optimized", "lectura", ["Fecha_y_Hora", "ID_Lector"], unique=False)
-    op.create_index("idx_lectura_fecha_desc_optimized", "lectura", ["Fecha_y_Hora"], unique=False)
-    op.create_index("idx_lectura_archivo_matricula", "lectura", ["ID_Archivo", "Matricula"], unique=False)
-    op.create_index("idx_lectura_archivo_fecha", "lectura", ["ID_Archivo", "Fecha_y_Hora"], unique=False)
+    op.create_index(
+        "idx_lectura_matricula_optimized", "lectura", ["Matricula"], unique=False
+    )
+    op.create_index(
+        "idx_lectura_matricula_fecha_optimized",
+        "lectura",
+        ["Matricula", "Fecha_y_Hora"],
+        unique=False,
+    )
+    op.create_index(
+        "idx_lectura_fecha_lector_optimized",
+        "lectura",
+        ["Fecha_y_Hora", "ID_Lector"],
+        unique=False,
+    )
+    op.create_index(
+        "idx_lectura_fecha_desc_optimized", "lectura", ["Fecha_y_Hora"], unique=False
+    )
+    op.create_index(
+        "idx_lectura_archivo_matricula",
+        "lectura",
+        ["ID_Archivo", "Matricula"],
+        unique=False,
+    )
+    op.create_index(
+        "idx_lectura_archivo_fecha",
+        "lectura",
+        ["ID_Archivo", "Fecha_y_Hora"],
+        unique=False,
+    )
     op.create_index("ix_lector_provincia", "lector", ["Provincia"], unique=False)
     op.create_index("ix_lector_localidad", "lector", ["Localidad"], unique=False)
-    op.create_index("ix_lector_coordenadas", "lector", ["Coordenada_X", "Coordenada_Y"], unique=False)
-    op.create_index("idx_lector_provincia_organismo", "lector", ["Provincia", "Organismo_Regulador"], unique=False)
-    op.create_index("idx_lector_carretera_sentido", "lector", ["Carretera", "Sentido"], unique=False)
-    op.create_index("ix_lecturasrelevantes_id_lectura", "LecturasRelevantes", ["ID_Lectura"], unique=False)
-    op.create_index("ix_archivosexcel_id_caso", "ArchivosExcel", ["ID_Caso"], unique=False)
-    op.create_index("ix_archivosexcel_fecha_importacion", "ArchivosExcel", ["Fecha_de_Importacion"], unique=False)
-    op.create_index("idx_archivos_caso_id", "ArchivosExcel", ["ID_Caso", "ID_Archivo"], unique=False)
+    op.create_index(
+        "ix_lector_coordenadas",
+        "lector",
+        ["Coordenada_X", "Coordenada_Y"],
+        unique=False,
+    )
+    op.create_index(
+        "idx_lector_provincia_organismo",
+        "lector",
+        ["Provincia", "Organismo_Regulador"],
+        unique=False,
+    )
+    op.create_index(
+        "idx_lector_carretera_sentido", "lector", ["Carretera", "Sentido"], unique=False
+    )
+    op.create_index(
+        "ix_lecturasrelevantes_id_lectura",
+        "LecturasRelevantes",
+        ["ID_Lectura"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_archivosexcel_id_caso", "ArchivosExcel", ["ID_Caso"], unique=False
+    )
+    op.create_index(
+        "ix_archivosexcel_fecha_importacion",
+        "ArchivosExcel",
+        ["Fecha_de_Importacion"],
+        unique=False,
+    )
+    op.create_index(
+        "idx_archivos_caso_id", "ArchivosExcel", ["ID_Caso", "ID_Archivo"], unique=False
+    )
     op.create_index(
         "idx_archivos_caso_america",
         "ArchivosExcel",
@@ -121,18 +199,35 @@ def downgrade() -> None:
         sa.ForeignKeyConstraint(["ID_Caso"], ["Casos.ID_Caso"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("ID_DataSet"),
     )
-    op.create_index("ix_ExternalDataSets_ID_DataSet", "ExternalDataSets", ["ID_DataSet"], unique=False)
+    op.create_index(
+        "ix_ExternalDataSets_ID_DataSet",
+        "ExternalDataSets",
+        ["ID_DataSet"],
+        unique=False,
+    )
     op.create_table(
         "ExternalDataEntries",
         sa.Column("ID_Entrada", sa.INTEGER(), nullable=False),
         sa.Column("ID_DataSet", sa.INTEGER(), nullable=False),
         sa.Column("Matricula", sa.TEXT(), nullable=False),
         sa.Column("Datos_Adicionales", sqlite.JSON(), nullable=False),
-        sa.ForeignKeyConstraint(["ID_DataSet"], ["ExternalDataSets.ID_DataSet"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(
+            ["ID_DataSet"], ["ExternalDataSets.ID_DataSet"], ondelete="CASCADE"
+        ),
         sa.PrimaryKeyConstraint("ID_Entrada"),
     )
-    op.create_index("ix_ExternalDataEntries_Matricula", "ExternalDataEntries", ["Matricula"], unique=False)
-    op.create_index("ix_ExternalDataEntries_ID_Entrada", "ExternalDataEntries", ["ID_Entrada"], unique=False)
+    op.create_index(
+        "ix_ExternalDataEntries_Matricula",
+        "ExternalDataEntries",
+        ["Matricula"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_ExternalDataEntries_ID_Entrada",
+        "ExternalDataEntries",
+        ["ID_Entrada"],
+        unique=False,
+    )
     op.create_table(
         "user_activity_logs",
         sa.Column("id", sa.INTEGER(), nullable=False),
@@ -147,7 +242,9 @@ def downgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_user_activity_logs_id", "user_activity_logs", ["id"], unique=False)
+    op.create_index(
+        "ix_user_activity_logs_id", "user_activity_logs", ["id"], unique=False
+    )
     op.create_table(
         "external_vehicle_data",
         sa.Column("id", sa.INTEGER(), nullable=False),
@@ -161,9 +258,21 @@ def downgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_external_vehicle_data_matricula", "external_vehicle_data", ["matricula"], unique=False)
-    op.create_index("ix_external_vehicle_data_id", "external_vehicle_data", ["id"], unique=False)
-    op.create_index("ix_external_vehicle_data_fuente_id", "external_vehicle_data", ["fuente_id"], unique=False)
+    op.create_index(
+        "ix_external_vehicle_data_matricula",
+        "external_vehicle_data",
+        ["matricula"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_external_vehicle_data_id", "external_vehicle_data", ["id"], unique=False
+    )
+    op.create_index(
+        "ix_external_vehicle_data_fuente_id",
+        "external_vehicle_data",
+        ["fuente_id"],
+        unique=False,
+    )
     op.create_table(
         "external_data_sources",
         sa.Column("id", sa.INTEGER(), nullable=False),
@@ -179,8 +288,15 @@ def downgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_external_data_sources_id", "external_data_sources", ["id"], unique=False)
-    op.create_index("ix_external_data_sources_caso_id", "external_data_sources", ["caso_id"], unique=False)
+    op.create_index(
+        "ix_external_data_sources_id", "external_data_sources", ["id"], unique=False
+    )
+    op.create_index(
+        "ix_external_data_sources_caso_id",
+        "external_data_sources",
+        ["caso_id"],
+        unique=False,
+    )
     op.drop_index(op.f("ix_external_data_matricula"), table_name="external_data")
     op.drop_index(op.f("ix_external_data_id"), table_name="external_data")
     op.drop_index(op.f("ix_external_data_caso_id"), table_name="external_data")

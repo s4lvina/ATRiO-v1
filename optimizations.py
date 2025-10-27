@@ -17,30 +17,42 @@ def create_optimized_indices():
     # Índices para la tabla Lectura (la más consultada)
     logger.info("Creando índices para tabla Lectura...")
     # Índice compuesto para búsquedas por matrícula y fecha
-    _create_index_if_not_exists("ix_lectura_matricula_fecha", "lectura", ["Matricula", "Fecha_y_Hora"])
+    _create_index_if_not_exists(
+        "ix_lectura_matricula_fecha", "lectura", ["Matricula", "Fecha_y_Hora"]
+    )
     # Índice para búsquedas por ID de lector (muy usado)
     _create_index_if_not_exists("ix_lectura_id_lector", "lectura", ["ID_Lector"])
     # Índice para consultas que filtran por tipo de fuente
     _create_index_if_not_exists("ix_lectura_tipo_fuente", "lectura", ["Tipo_Fuente"])
     # Nuevo índice compuesto para consultas que filtran por tipo de fuente y fecha
-    _create_index_if_not_exists("ix_lectura_tipo_fecha", "lectura", ["Tipo_Fuente", "Fecha_y_Hora"])
+    _create_index_if_not_exists(
+        "ix_lectura_tipo_fecha", "lectura", ["Tipo_Fuente", "Fecha_y_Hora"]
+    )
 
     # Índices para la tabla ArchivoExcel
     logger.info("Creando índices para tabla ArchivoExcel...")
     # Índice para búsquedas por caso (muy usado)
-    _create_index_if_not_exists("ix_archivosexcel_id_caso", "ArchivosExcel", ["ID_Caso"])
+    _create_index_if_not_exists(
+        "ix_archivosexcel_id_caso", "ArchivosExcel", ["ID_Caso"]
+    )
     # Índice para ordenamiento por fecha de importación (usado en listados)
-    _create_index_if_not_exists("ix_archivosexcel_fecha_importacion", "ArchivosExcel", ["Fecha_de_Importacion"])
+    _create_index_if_not_exists(
+        "ix_archivosexcel_fecha_importacion", "ArchivosExcel", ["Fecha_de_Importacion"]
+    )
 
     # Índices para la tabla LecturasRelevantes
     logger.info("Creando índices para tabla LecturasRelevantes...")
-    _create_index_if_not_exists("ix_lecturasrelevantes_id_lectura", "LecturasRelevantes", ["ID_Lectura"])
+    _create_index_if_not_exists(
+        "ix_lecturasrelevantes_id_lectura", "LecturasRelevantes", ["ID_Lectura"]
+    )
 
     # Índices para la tabla Lector
     logger.info("Creando índices para tabla Lector...")
     _create_index_if_not_exists("ix_lector_provincia", "lector", ["Provincia"])
     _create_index_if_not_exists("ix_lector_localidad", "lector", ["Localidad"])
-    _create_index_if_not_exists("ix_lector_coordenadas", "lector", ["Coordenada_X", "Coordenada_Y"])
+    _create_index_if_not_exists(
+        "ix_lector_coordenadas", "lector", ["Coordenada_X", "Coordenada_Y"]
+    )
 
     logger.info("Índices optimizados creados correctamente.")
 
@@ -144,7 +156,11 @@ def _create_view_if_not_exists(db: Session, view_name, query):
 
     try:
         # Intentar verificar si la vista existe
-        result = db.execute(text(f"SELECT name FROM sqlite_master WHERE type='view' AND name='{view_name}'"))
+        result = db.execute(
+            text(
+                f"SELECT name FROM sqlite_master WHERE type='view' AND name='{view_name}'"
+            )
+        )
         view_exists = result.scalar() is not None
     except Exception as e:
         logger.warning(f"Error al verificar si la vista {view_name} existe: {e}")

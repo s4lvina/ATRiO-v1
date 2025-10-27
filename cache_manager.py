@@ -47,7 +47,9 @@ class CacheManager:
             logger.info(f"Cache Redis conectado en {host}:{port}")
             self.connected = True
         except Exception as e:
-            logger.warning(f"No se pudo conectar a Redis: {e}. Usando cache en memoria.")
+            logger.warning(
+                f"No se pudo conectar a Redis: {e}. Usando cache en memoria."
+            )
             self.redis_client = None
             self.connected = False
             self._fallback_cache = {}
@@ -152,7 +154,9 @@ class CacheManager:
         """
         if not self.connected:
             # Fallback simple para cache en memoria
-            keys_to_delete = [k for k in self._fallback_cache.keys() if pattern.replace("*", "") in k]
+            keys_to_delete = [
+                k for k in self._fallback_cache.keys() if pattern.replace("*", "") in k
+            ]
             for key in keys_to_delete:
                 del self._fallback_cache[key]
             return len(keys_to_delete)
@@ -207,7 +211,9 @@ class CacheManager:
             deleted = self.clear_pattern(pattern)
             total_deleted += deleted
 
-        logger.info(f"Cache invalidado para caso {caso_id}: {total_deleted} claves eliminadas")
+        logger.info(
+            f"Cache invalidado para caso {caso_id}: {total_deleted} claves eliminadas"
+        )
 
     def get_stats(self) -> Dict[str, Any]:
         """
@@ -217,7 +223,11 @@ class CacheManager:
             Diccionario con estadísticas del cache
         """
         if not self.connected:
-            return {"connected": False, "cache_type": "memory", "keys_count": len(self._fallback_cache)}
+            return {
+                "connected": False,
+                "cache_type": "memory",
+                "keys_count": len(self._fallback_cache),
+            }
 
         try:
             info = self.redis_client.info()

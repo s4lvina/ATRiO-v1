@@ -10,7 +10,9 @@ from models import EstadoCasoEnum
 # --- Schemas Base ---
 class GrupoBase(BaseModel):
     Nombre: str = Field(..., example="Grupo de Investigación 1")
-    Descripcion: Optional[str] = Field(None, example="Grupo especializado en investigaciones de tráfico")
+    Descripcion: Optional[str] = Field(
+        None, example="Grupo especializado en investigaciones de tráfico"
+    )
 
 
 class CasoBase(BaseModel):
@@ -19,8 +21,12 @@ class CasoBase(BaseModel):
     NIV: Optional[str] = Field(
         None, example="ABC123XYZ789DEF", max_length=50
     )  # Añadir max_length si se usa String(50) en el modelo
-    Descripcion: Optional[str] = Field(None, example="Investigación sobre el robo ocurrido el...")
-    Estado: Optional[str] = Field(default=EstadoCasoEnum.NUEVO.value, example=EstadoCasoEnum.NUEVO.value)
+    Descripcion: Optional[str] = Field(
+        None, example="Investigación sobre el robo ocurrido el..."
+    )
+    Estado: Optional[str] = Field(
+        default=EstadoCasoEnum.NUEVO.value, example=EstadoCasoEnum.NUEVO.value
+    )
     ID_Grupo: int = Field(..., example=1)
 
 
@@ -31,7 +37,9 @@ class ArchivoExcelBase(BaseModel):
 
 class LecturaBase(BaseModel):
     Matricula: str = Field(..., example="1234ABC")
-    Fecha_y_Hora: SkipValidation[datetime.datetime] = Field(..., example="2023-10-27T10:30:00")
+    Fecha_y_Hora: SkipValidation[datetime.datetime] = Field(
+        ..., example="2023-10-27T10:30:00"
+    )
     Carril: Optional[str] = Field(None, example="1")
     Velocidad: Optional[float] = Field(None, example=85.5)
     ID_Lector: Optional[str] = Field(None, example="CAM001")
@@ -94,8 +102,12 @@ class Vehiculo(VehiculoBase):
 class VehiculoWithStats(Vehiculo):
     """Esquema de vehículo con estadísticas adicionales para optimizar consultas"""
 
-    num_lecturas_lpr: int = Field(0, description="Número de lecturas LPR asociadas a este vehículo")
-    num_lecturas_gps: int = Field(0, description="Número de lecturas GPS asociadas a este vehículo")
+    num_lecturas_lpr: int = Field(
+        0, description="Número de lecturas LPR asociadas a este vehículo"
+    )
+    num_lecturas_gps: int = Field(
+        0, description="Número de lecturas GPS asociadas a este vehículo"
+    )
 
     class Config:
         from_attributes = True
@@ -114,12 +126,18 @@ class LectorBase(BaseModel):
     Localidad: Optional[str] = Field(None, example="Madrid", max_length=100)
     Sentido: Optional[str] = Field(None, example="Norte", max_length=50)
     Orientacion: Optional[str] = Field(None, example="Salida", max_length=100)
-    Organismo_Regulador: Optional[str] = Field(None, example="Ayuntamiento de Madrid", max_length=100)
+    Organismo_Regulador: Optional[str] = Field(
+        None, example="Ayuntamiento de Madrid", max_length=100
+    )
     Contacto: Optional[str] = Field(None, example="policia@madrid.es", max_length=255)
     Coordenada_X: Optional[float] = Field(None, example=-3.703790)
     Coordenada_Y: Optional[float] = Field(None, example=40.416775)
-    Texto_Libre: Optional[str] = Field(None, example="Notas adicionales sobre la cámara")
-    Imagen_Path: Optional[str] = Field(None, example="/static/images/cam001.jpg", max_length=255)
+    Texto_Libre: Optional[str] = Field(
+        None, example="Notas adicionales sobre la cámara"
+    )
+    Imagen_Path: Optional[str] = Field(
+        None, example="/static/images/cam001.jpg", max_length=255
+    )
 
 
 # Create: Hereda de Base, permite añadir los campos opcionales al crear manualmente
@@ -141,7 +159,9 @@ class LectorUpdate(BaseModel):
     Coordenada_Y: Optional[float] = None  # Manejado por UbicacionInput en el endpoint
     Texto_Libre: Optional[str] = None
     Imagen_Path: Optional[str] = Field(None, max_length=255)
-    UbicacionInput: Optional[str] = Field(None, description="Input de texto para coordenadas o enlace Google Maps")
+    UbicacionInput: Optional[str] = Field(
+        None, description="Input de texto para coordenadas o enlace Google Maps"
+    )
 
 
 # Lectura (GET): Devuelve todos los campos de la BD
@@ -226,8 +246,12 @@ class ArchivoExcel(ArchivoExcelBase):
     ID_Archivo: int
     ID_Caso: int
     Fecha_de_Importacion: datetime.date
-    Total_Registros: int = Field(0, description="Número total de lecturas en este archivo")
-    caso: Optional[CasoReferencia] = None  # MODIFICADO: Usa CasoReferencia en lugar de Caso
+    Total_Registros: int = Field(
+        0, description="Número total de lecturas en este archivo"
+    )
+    caso: Optional[CasoReferencia] = (
+        None  # MODIFICADO: Usa CasoReferencia en lugar de Caso
+    )
     # lecturas: List['Lectura'] = []
 
     class Config:
@@ -237,7 +261,9 @@ class ArchivoExcel(ArchivoExcelBase):
 class Lectura(LecturaBase):
     ID_Lectura: int
     ID_Archivo: int
-    archivo: Optional[ArchivoExcel] = None  # <-- Añadido para exponer el archivo y su caso
+    archivo: Optional[ArchivoExcel] = (
+        None  # <-- Añadido para exponer el archivo y su caso
+    )
     # Incluir información de relevancia opcionalmente
     relevancia: Optional["LecturaRelevante"] = None  # Usar string forward reference
     # Añadir el lector asociado para obtener Sentido/Orientacion
@@ -258,7 +284,9 @@ class Vehiculo(VehiculoBase):
 
 # --- Schemas para Lecturas Relevantes ---
 class LecturaRelevanteBase(BaseModel):
-    Nota: Optional[str] = Field(None, example="Posible vehículo de escape visto en C/ Falsa 123")
+    Nota: Optional[str] = Field(
+        None, example="Posible vehículo de escape visto en C/ Falsa 123"
+    )
 
 
 class LecturaRelevanteCreate(LecturaRelevanteBase):
@@ -283,8 +311,12 @@ class LecturaRelevante(LecturaRelevanteBase):
 
 # --- NUEVO: Schema para respuesta paginada de lecturas ---
 class LecturasResponse(BaseModel):
-    total_count: int = Field(..., description="Número total de lecturas que coinciden con los filtros")
-    lecturas: List[Lectura] = Field(..., description="Lista de lecturas para la página actual")
+    total_count: int = Field(
+        ..., description="Número total de lecturas que coinciden con los filtros"
+    )
+    lecturas: List[Lectura] = Field(
+        ..., description="Lista de lecturas para la página actual"
+    )
 
 
 # --- NUEVO: Schema para respuesta de subida de archivo ---
@@ -327,9 +359,12 @@ class SelectOption(BaseModel):
 # --- NUEVO: Schema para la Respuesta de Filtros Disponibles por Caso ---
 class FiltrosDisponiblesResponse(BaseModel):
     # Usar la clase SelectOption definida arriba
-    lectores: List[SelectOption] = Field(default_factory=list, description="Lectores con lecturas en este caso")
+    lectores: List[SelectOption] = Field(
+        default_factory=list, description="Lectores con lecturas en este caso"
+    )
     carreteras: List[SelectOption] = Field(
-        default_factory=list, description="Carreteras asociadas a los lectores con lecturas en este caso"
+        default_factory=list,
+        description="Carreteras asociadas a los lectores con lecturas en este caso",
     )
 
 
@@ -413,26 +448,51 @@ class SavedSearch(SavedSearchBase):
 
 # --- Schemas para Detección de Vehículo Lanzadera ---
 class LanzaderaRequest(BaseModel):
-    matricula: str = Field(..., description="Matrícula del vehículo objetivo a analizar")
-    fecha_inicio: Optional[str] = Field(None, description="Fecha de inicio del análisis (YYYY-MM-DD)")
-    fecha_fin: Optional[str] = Field(None, description="Fecha de fin del análisis (YYYY-MM-DD)")
-    ventana_minutos: int = Field(10, description="Ventana temporal en minutos para considerar vehículos acompañantes")
-    diferencia_minima: int = Field(5, description="Diferencia mínima en minutos entre lecturas para considerar repetición")
-    direccion_acompanamiento: str = Field("ambas", description="Dirección del acompañamiento: 'delante', 'detras', 'ambas'")
+    matricula: str = Field(
+        ..., description="Matrícula del vehículo objetivo a analizar"
+    )
+    fecha_inicio: Optional[str] = Field(
+        None, description="Fecha de inicio del análisis (YYYY-MM-DD)"
+    )
+    fecha_fin: Optional[str] = Field(
+        None, description="Fecha de fin del análisis (YYYY-MM-DD)"
+    )
+    ventana_minutos: int = Field(
+        10,
+        description="Ventana temporal en minutos para considerar vehículos acompañantes",
+    )
+    diferencia_minima: int = Field(
+        5,
+        description="Diferencia mínima en minutos entre lecturas para considerar repetición",
+    )
+    direccion_acompanamiento: str = Field(
+        "ambas",
+        description="Dirección del acompañamiento: 'delante', 'detras', 'ambas'",
+    )
 
 
 class LanzaderaDetalle(BaseModel):
-    matricula: str = Field(..., description="Matrícula del vehículo lanzadera u objetivo")
+    matricula: str = Field(
+        ..., description="Matrícula del vehículo lanzadera u objetivo"
+    )
     fecha: str = Field(..., description="Fecha de la lectura (YYYY-MM-DD)")
     hora: str = Field(..., description="Hora de la lectura (HH:MM)")
-    lector: str = Field(..., description="ID del lector donde se detectó la coincidencia")
+    lector: str = Field(
+        ..., description="ID del lector donde se detectó la coincidencia"
+    )
     tipo: str = Field(..., description="Tipo de lectura: 'Objetivo' o 'Lanzadera'")
-    direccion_temporal: Optional[str] = Field(None, description="Dirección temporal: 'delante', 'detras', 'simultaneo'")
+    direccion_temporal: Optional[str] = Field(
+        None, description="Dirección temporal: 'delante', 'detras', 'simultaneo'"
+    )
 
 
 class LanzaderaResponse(BaseModel):
-    vehiculos_lanzadera: List[str] = Field(..., description="Lista de matrículas detectadas como lanzaderas")
-    detalles: List[LanzaderaDetalle] = Field(..., description="Detalles de todas las coincidencias encontradas")
+    vehiculos_lanzadera: List[str] = Field(
+        ..., description="Lista de matrículas detectadas como lanzaderas"
+    )
+    detalles: List[LanzaderaDetalle] = Field(
+        ..., description="Detalles de todas las coincidencias encontradas"
+    )
 
 
 # --- Schemas ANTIGUOS (Relacionados con ResultadoLanzadera...) ---
@@ -620,4 +680,6 @@ class RefreshTokenRequest(BaseModel):
 # --- Schemas para Actualización (PUT) ---
 class GrupoUpdate(BaseModel):
     Nombre: Optional[str] = Field(None, example="Grupo de Investigación 1")
-    Descripcion: Optional[str] = Field(None, example="Grupo especializado en investigaciones de tráfico")
+    Descripcion: Optional[str] = Field(
+        None, example="Grupo especializado en investigaciones de tráfico"
+    )

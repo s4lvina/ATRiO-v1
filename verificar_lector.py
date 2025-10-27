@@ -41,7 +41,9 @@ def verificar_lector(lector_id):
         print("=" * 50)
 
         # 1. Verificar si existe el lector
-        cursor.execute(f"SELECT * FROM {lector_table} WHERE ID_Lector = ?", (lector_id,))
+        cursor.execute(
+            f"SELECT * FROM {lector_table} WHERE ID_Lector = ?", (lector_id,)
+        )
         lector = cursor.fetchone()
 
         if lector:
@@ -57,12 +59,17 @@ def verificar_lector(lector_id):
 
             # 2. Verificar lecturas asociadas si existe la tabla
             if lectura_table:
-                cursor.execute(f"SELECT COUNT(*) FROM {lectura_table} WHERE ID_Lector = ?", (lector_id,))
+                cursor.execute(
+                    f"SELECT COUNT(*) FROM {lectura_table} WHERE ID_Lector = ?",
+                    (lector_id,),
+                )
                 count = cursor.fetchone()[0]
                 print(f"\n📊 LECTURAS ASOCIADAS: {count}")
 
                 if count > 0:
-                    print("❌ Este lector NO se puede eliminar porque tiene lecturas asociadas.")
+                    print(
+                        "❌ Este lector NO se puede eliminar porque tiene lecturas asociadas."
+                    )
                     print("\nPrimeras 5 lecturas asociadas:")
                     cursor.execute(
                         f"""
@@ -102,7 +109,9 @@ def verificar_lector(lector_id):
                 else:
                     print("✅ Este lector SÍ se puede eliminar (no tiene lecturas).")
             else:
-                print("⚠️  No se pudo verificar lecturas (tabla de lecturas no encontrada)")
+                print(
+                    "⚠️  No se pudo verificar lecturas (tabla de lecturas no encontrada)"
+                )
 
         else:
             print("❌ LECTOR NO ENCONTRADO en la base de datos")

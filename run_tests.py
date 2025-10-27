@@ -17,7 +17,9 @@ def run_command(command, description):
     print(f"{'='*60}")
 
     try:
-        result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
+        result = subprocess.run(
+            command, shell=True, check=True, capture_output=True, text=True
+        )
         print("✅ Éxito")
         if result.stdout:
             print(result.stdout)
@@ -44,11 +46,20 @@ def main():
 
     # Lista de comandos a ejecutar
     commands = [
-        ("flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics", "Linting - Errores críticos"),
-        ("flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics", "Linting - Estilo de código"),
+        (
+            "flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics",
+            "Linting - Errores críticos",
+        ),
+        (
+            "flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics",
+            "Linting - Estilo de código",
+        ),
         ("black --check --diff .", "Formateo de código con Black"),
         ("mypy . --ignore-missing-imports", "Verificación de tipos con MyPy"),
-        ("pytest tests/ -v --cov=. --cov-report=term-missing", "Tests unitarios con cobertura"),
+        (
+            "pytest tests/ -v --cov=. --cov-report=term-missing",
+            "Tests unitarios con cobertura",
+        ),
         ("pytest tests/ -v -m 'not slow'", "Tests rápidos"),
     ]
 

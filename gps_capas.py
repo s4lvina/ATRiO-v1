@@ -23,8 +23,14 @@ def create_gps_capa(caso_id: int, capa: GpsCapaCreate, db: Session = Depends(get
 
 
 @router.put("/casos/{caso_id}/gps-capas/{capa_id}", response_model=GpsCapaOut)
-def update_gps_capa(caso_id: int, capa_id: int, capa: GpsCapaUpdate, db: Session = Depends(get_db)):
-    db_capa = db.query(GpsCapa).filter(GpsCapa.id == capa_id, GpsCapa.caso_id == caso_id).first()
+def update_gps_capa(
+    caso_id: int, capa_id: int, capa: GpsCapaUpdate, db: Session = Depends(get_db)
+):
+    db_capa = (
+        db.query(GpsCapa)
+        .filter(GpsCapa.id == capa_id, GpsCapa.caso_id == caso_id)
+        .first()
+    )
     if not db_capa:
         raise HTTPException(status_code=404, detail="Capa no encontrada")
     for key, value in capa.model_dump().items():
@@ -36,7 +42,11 @@ def update_gps_capa(caso_id: int, capa_id: int, capa: GpsCapaUpdate, db: Session
 
 @router.delete("/casos/{caso_id}/gps-capas/{capa_id}", status_code=204)
 def delete_gps_capa(caso_id: int, capa_id: int, db: Session = Depends(get_db)):
-    db_capa = db.query(GpsCapa).filter(GpsCapa.id == capa_id, GpsCapa.caso_id == caso_id).first()
+    db_capa = (
+        db.query(GpsCapa)
+        .filter(GpsCapa.id == capa_id, GpsCapa.caso_id == caso_id)
+        .first()
+    )
     if not db_capa:
         raise HTTPException(status_code=404, detail="Capa no encontrada")
     db.delete(db_capa)
