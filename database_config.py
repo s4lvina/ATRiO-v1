@@ -18,6 +18,7 @@ Base = declarative_base()
 # --- Configuración fija de caché a 1GB para optimización ---
 CACHE_SIZE = -1048576  # 1GB en KB (negativo para indicar KB)
 
+
 def _log_cache_config():
     try:
         total_memory = psutil.virtual_memory().total
@@ -26,6 +27,7 @@ def _log_cache_config():
     except Exception as e:
         logging.warning(f"Error al detectar memoria del sistema: {e}")
 
+
 _log_cache_config()
 
 # Configuración segura del motor con límites de conexión
@@ -33,17 +35,18 @@ engine = create_engine(
     DATABASE_URL,
     connect_args={
         "check_same_thread": False,  # Necesario para SQLite con FastAPI/async
-        "timeout": 30  # Reducido a 30 segundos para mayor seguridad
+        "timeout": 30,  # Reducido a 30 segundos para mayor seguridad
     },
     # Configuración de pool segura con límites
-    pool_size=10,           # Máximo 10 conexiones simultáneas
-    max_overflow=5,         # Máximo 5 conexiones adicionales
-    pool_timeout=30,        # Timeout de 30 segundos para obtener conexión
-    pool_recycle=1800,      # Reciclar conexiones cada 30 minutos
-    pool_pre_ping=True,     # Verificar conexiones antes de usar
+    pool_size=10,  # Máximo 10 conexiones simultáneas
+    max_overflow=5,  # Máximo 5 conexiones adicionales
+    pool_timeout=30,  # Timeout de 30 segundos para obtener conexión
+    pool_recycle=1800,  # Reciclar conexiones cada 30 minutos
+    pool_pre_ping=True,  # Verificar conexiones antes de usar
     # Deshabilitar echo en producción
-    echo=False
+    echo=False,
 )
+
 
 # Configuración de pragmas para SQLite para mejorar rendimiento y seguridad
 @event.listens_for(engine, "connect")
@@ -66,17 +69,19 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor.execute("PRAGMA case_sensitive_like=ON")  # LIKE sensible a mayúsculas
     cursor.close()
 
+
 # Crea una fábrica de sesiones con optimizaciones
 SessionLocal = sessionmaker(
-    autocommit=False, 
-    autoflush=False, 
+    autocommit=False,
+    autoflush=False,
     bind=engine,
     # Configuraciones de seguridad
-    expire_on_commit=False  # Mejora rendimiento en aplicaciones con muchas sesiones
+    expire_on_commit=False,  # Mejora rendimiento en aplicaciones con muchas sesiones
 )
 
 # Contador de conexiones activas para monitoreo
 active_connections = 0
+
 
 # Función para obtener una sesión de base de datos (dependencia de FastAPI)
 def get_db():
@@ -91,6 +96,7 @@ def get_db():
         logger.debug(f"Conexión DB cerrada. Total activas: {active_connections}")
         db.close()
 
+
 # Función síncrona para obtener una sesión de base de datos (para background tasks)
 def get_db_sync():
     global active_connections
@@ -104,6 +110,7 @@ def get_db_sync():
         logger.debug(f"Conexión DB sync cerrada. Total activas: {active_connections}")
         db.close()
 
+
 # Función para obtener estadísticas de conexiones
 def get_connection_stats():
     """Obtiene estadísticas de las conexiones de base de datos"""
@@ -115,7 +122,7 @@ def get_connection_stats():
             "checked_in": pool.checkedin(),
             "checked_out": pool.checkedout(),
             "overflow": pool.overflow(),
-            "total_connections": pool.size() + pool.overflow()
+            "total_connections": pool.size() + pool.overflow(),
         }
     except Exception as e:
         logger.error(f"Error obteniendo estadísticas de conexión: {e}")
@@ -126,20 +133,23 @@ def get_connection_stats():
             "checked_out": "unknown",
             "overflow": "unknown",
             "total_connections": "unknown",
-            "error": str(e)
+            "error": str(e),
         }
+
 
 # Función para verificar la salud de la base de datos
 def check_database_health():
     """Verifica la salud de la base de datos"""
     try:
         from sqlalchemy import text
+
         with engine.connect() as conn:
             result = conn.execute(text("SELECT 1")).fetchone()
             return {"status": "healthy", "message": "Database connection successful"}
     except Exception as e:
         logger.error(f"Database health check failed: {e}")
         return {"status": "unhealthy", "message": str(e)}
+
 
 # Función para inicializar la base de datos con seguridad
 def init_database_security():
@@ -150,10 +160,11 @@ def init_database_security():
         if not os.path.exists(db_dir):
             os.makedirs(db_dir, mode=0o700)  # Permisos restrictivos
             logger.info(f"Directorio de base de datos creado: {db_dir}")
-        
+
         # Verificar autenticación SQL
         try:
             from database.sql_auth import sql_auth_manager
+
             auth_info = sql_auth_manager.get_info()
             if auth_info.get("has_password"):
                 logger.info("Sistema de autenticación SQL configurado")
@@ -163,11 +174,12 @@ def init_database_security():
             logger.warning(f"No se pudo importar sql_auth_manager: {e}")
         except Exception as e:
             logger.error(f"Error verificando autenticación SQL: {e}")
-        
+
         return True
     except Exception as e:
         logger.error(f"Error inicializando seguridad de base de datos: {e}")
         return False
 
+
 # Inicializar seguridad al importar el módulo
-init_database_security() 
+init_database_security()

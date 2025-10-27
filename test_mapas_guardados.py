@@ -11,11 +11,12 @@ from datetime import datetime
 BASE_URL = "http://localhost:8000"
 CASO_ID = 20  # ID del caso que estás usando
 
+
 def test_mapas_guardados():
     """Prueba las operaciones CRUD de mapas guardados."""
-    
+
     print("🧪 Iniciando pruebas de mapas guardados...")
-    
+
     # Datos de prueba para crear un mapa guardado
     test_mapa = {
         "nombre": "Mapa de prueba",
@@ -33,9 +34,9 @@ def test_mapas_guardados():
                             "Fecha_y_Hora": "2025-01-15T10:00:00",
                             "Coordenada_X": -3.703790,
                             "Coordenada_Y": 40.416775,
-                            "Velocidad": 50.0
+                            "Velocidad": 50.0,
                         }
-                    ]
+                    ],
                 }
             ],
             "capasBitacora": [],
@@ -47,7 +48,7 @@ def test_mapas_guardados():
                 "showHeatmap": True,
                 "showPoints": False,
                 "optimizePoints": False,
-                "enableClustering": False
+                "enableClustering": False,
             },
             "filters": {
                 "fechaInicio": "2025-01-15",
@@ -58,7 +59,7 @@ def test_mapas_guardados():
                 "velocidadMax": None,
                 "duracionParada": None,
                 "dia_semana": None,
-                "zonaSeleccionada": None
+                "zonaSeleccionada": None,
             },
             "vehiculoObjetivo": "ABC123",
             "mostrarLocalizaciones": True,
@@ -66,10 +67,10 @@ def test_mapas_guardados():
             "numerarPuntosActivos": False,
             "heatmapMultiplier": 1.65,
             "mapCenter": [40.416775, -3.703790],
-            "mapZoom": 13
-        }
+            "mapZoom": 13,
+        },
     }
-    
+
     try:
         # 1. Probar obtener lista de mapas guardados (debería estar vacía inicialmente)
         print("\n1️⃣ Probando GET /casos/{caso_id}/mapas_guardados")
@@ -83,13 +84,10 @@ def test_mapas_guardados():
         else:
             print(f"   Error: {response.text}")
             return False
-            
+
         # 2. Probar crear un nuevo mapa guardado
         print("\n2️⃣ Probando POST /casos/{caso_id}/mapas_guardados")
-        response = requests.post(
-            f"{BASE_URL}/casos/{CASO_ID}/mapas_guardados",
-            json=test_mapa
-        )
+        response = requests.post(f"{BASE_URL}/casos/{CASO_ID}/mapas_guardados", json=test_mapa)
         print(f"   Status: {response.status_code}")
         if response.status_code == 200:
             mapa_creado = response.json()
@@ -98,11 +96,11 @@ def test_mapas_guardados():
             print(f"   - Nombre: {mapa_creado['nombre']}")
             print(f"   - Descripción: {mapa_creado['descripcion']}")
             print(f"   - Fecha creación: {mapa_creado['fechaCreacion']}")
-            mapa_id = mapa_creado['id']
+            mapa_id = mapa_creado["id"]
         else:
             print(f"   Error: {response.text}")
             return False
-            
+
         # 3. Probar obtener un mapa específico
         print(f"\n3️⃣ Probando GET /casos/{CASO_ID}/mapas_guardados/{mapa_id}")
         response = requests.get(f"{BASE_URL}/casos/{CASO_ID}/mapas_guardados/{mapa_id}")
@@ -116,17 +114,11 @@ def test_mapas_guardados():
         else:
             print(f"   Error: {response.text}")
             return False
-            
+
         # 4. Probar actualizar el mapa
         print(f"\n4️⃣ Probando PUT /casos/{CASO_ID}/mapas_guardados/{mapa_id}")
-        update_data = {
-            "nombre": "Mapa de prueba actualizado",
-            "descripcion": "Descripción actualizada"
-        }
-        response = requests.put(
-            f"{BASE_URL}/casos/{CASO_ID}/mapas_guardados/{mapa_id}",
-            json=update_data
-        )
+        update_data = {"nombre": "Mapa de prueba actualizado", "descripcion": "Descripción actualizada"}
+        response = requests.put(f"{BASE_URL}/casos/{CASO_ID}/mapas_guardados/{mapa_id}", json=update_data)
         print(f"   Status: {response.status_code}")
         if response.status_code == 200:
             mapa_actualizado = response.json()
@@ -136,12 +128,11 @@ def test_mapas_guardados():
         else:
             print(f"   Error: {response.text}")
             return False
-            
+
         # 5. Probar duplicar el mapa
         print(f"\n5️⃣ Probando POST /casos/{CASO_ID}/mapas_guardados/{mapa_id}/duplicate")
         response = requests.post(
-            f"{BASE_URL}/casos/{CASO_ID}/mapas_guardados/{mapa_id}/duplicate",
-            json={"nombre": "Copia del mapa de prueba"}
+            f"{BASE_URL}/casos/{CASO_ID}/mapas_guardados/{mapa_id}/duplicate", json={"nombre": "Copia del mapa de prueba"}
         )
         print(f"   Status: {response.status_code}")
         if response.status_code == 200:
@@ -149,11 +140,11 @@ def test_mapas_guardados():
             print(f"   Mapa duplicado:")
             print(f"   - ID: {mapa_duplicado['id']}")
             print(f"   - Nombre: {mapa_duplicado['nombre']}")
-            mapa_duplicado_id = mapa_duplicado['id']
+            mapa_duplicado_id = mapa_duplicado["id"]
         else:
             print(f"   Error: {response.text}")
             return False
-            
+
         # 6. Probar eliminar el mapa duplicado
         print(f"\n6️⃣ Probando DELETE /casos/{CASO_ID}/mapas_guardados/{mapa_duplicado_id}")
         response = requests.delete(f"{BASE_URL}/casos/{CASO_ID}/mapas_guardados/{mapa_duplicado_id}")
@@ -163,7 +154,7 @@ def test_mapas_guardados():
         else:
             print(f"   Error: {response.text}")
             return False
-            
+
         # 7. Verificar que el mapa original sigue existiendo
         print(f"\n7️⃣ Verificando que el mapa original sigue existiendo")
         response = requests.get(f"{BASE_URL}/casos/{CASO_ID}/mapas_guardados")
@@ -176,10 +167,10 @@ def test_mapas_guardados():
         else:
             print(f"   Error: {response.text}")
             return False
-            
+
         print("\n✅ Todas las pruebas pasaron exitosamente!")
         return True
-        
+
     except requests.exceptions.ConnectionError:
         print("❌ Error: No se pudo conectar al servidor. Asegúrate de que esté ejecutándose.")
         return False
@@ -187,9 +178,10 @@ def test_mapas_guardados():
         print(f"❌ Error inesperado: {str(e)}")
         return False
 
+
 if __name__ == "__main__":
     success = test_mapas_guardados()
     if success:
         print("\n🎉 El backend de mapas guardados funciona correctamente!")
     else:
-        print("\n💥 Hay problemas con el backend de mapas guardados.") 
+        print("\n💥 Hay problemas con el backend de mapas guardados.")

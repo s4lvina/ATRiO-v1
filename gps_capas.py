@@ -7,9 +7,11 @@ from database_config import get_db
 
 router = APIRouter()
 
+
 @router.get("/casos/{caso_id}/gps-capas", response_model=List[GpsCapaOut])
 def get_gps_capas(caso_id: int, db: Session = Depends(get_db)):
     return db.query(GpsCapa).filter(GpsCapa.caso_id == caso_id).all()
+
 
 @router.post("/casos/{caso_id}/gps-capas", response_model=GpsCapaOut, status_code=201)
 def create_gps_capa(caso_id: int, capa: GpsCapaCreate, db: Session = Depends(get_db)):
@@ -18,6 +20,7 @@ def create_gps_capa(caso_id: int, capa: GpsCapaCreate, db: Session = Depends(get
     db.commit()
     db.refresh(db_capa)
     return db_capa
+
 
 @router.put("/casos/{caso_id}/gps-capas/{capa_id}", response_model=GpsCapaOut)
 def update_gps_capa(caso_id: int, capa_id: int, capa: GpsCapaUpdate, db: Session = Depends(get_db)):
@@ -30,6 +33,7 @@ def update_gps_capa(caso_id: int, capa_id: int, capa: GpsCapaUpdate, db: Session
     db.refresh(db_capa)
     return db_capa
 
+
 @router.delete("/casos/{caso_id}/gps-capas/{capa_id}", status_code=204)
 def delete_gps_capa(caso_id: int, capa_id: int, db: Session = Depends(get_db)):
     db_capa = db.query(GpsCapa).filter(GpsCapa.id == capa_id, GpsCapa.caso_id == caso_id).first()
@@ -37,4 +41,4 @@ def delete_gps_capa(caso_id: int, capa_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Capa no encontrada")
     db.delete(db_capa)
     db.commit()
-    return 
+    return

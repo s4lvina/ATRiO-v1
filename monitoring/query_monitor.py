@@ -8,18 +8,16 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 
 # Configurar logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("atrio.monitoring")
+
 
 class QueryMonitor:
     def __init__(self, db_path: str = "./database/secure/atrio.db"):
         self.db_path = db_path
         self.results_dir = Path("./monitoring/results")
         self.results_dir.mkdir(parents=True, exist_ok=True)
-        
+
     def _get_connection(self) -> sqlite3.Connection:
         """Obtiene una conexión a la base de datos con las optimizaciones aplicadas"""
         conn = sqlite3.connect(self.db_path)
@@ -36,10 +34,10 @@ class QueryMonitor:
         """Ejecuta una consulta varias veces y mide su rendimiento"""
         conn = self._get_connection()
         cursor = conn.cursor()
-        
+
         times = []
         rows = 0
-        
+
         try:
             for _ in range(iterations):
                 start_time = time.time()
@@ -49,44 +47,38 @@ class QueryMonitor:
                     cursor.execute(query)
                 results = cursor.fetchall()
                 end_time = time.time()
-                
+
                 execution_time = end_time - start_time
                 times.append(execution_time)
                 rows = len(results)
-                
+
                 # Pequeña pausa para no saturar
                 time.sleep(0.1)
-        
+
         finally:
             conn.close()
-        
+
         return {
             "min_time": min(times),
             "max_time": max(times),
             "avg_time": sum(times) / len(times),
             "rows": rows,
-            "iterations": iterations
+            "iterations": iterations,
         }
 
     def monitor_common_queries(self) -> Dict[str, Dict]:
         """Monitorea las consultas más comunes en ATRIO v1"""
         common_queries = {
-            "búsqueda_por_matrícula": (
-                "SELECT * FROM lectura WHERE Matricula LIKE ? LIMIT 1000",
-                ("7%",)
-            ),
+            "búsqueda_por_matrícula": ("SELECT * FROM lectura WHERE Matricula LIKE ? LIMIT 1000", ("7%",)),
             "lecturas_último_día": (
                 """
                 SELECT * FROM lectura 
                 WHERE Fecha_y_Hora >= datetime('now', '-1 day')
                 LIMIT 1000
                 """,
-                None
+                None,
             ),
-            "conteo_por_lector": (
-                "SELECT ID_Lector, COUNT(*) FROM lectura GROUP BY ID_Lector",
-                None
-            ),
+            "conteo_por_lector": ("SELECT ID_Lector, COUNT(*) FROM lectura GROUP BY ID_Lector", None),
             "búsqueda_compleja": (
                 """
                 SELECT l.*, lr.Nota as Nota_Relevante, lr.Fecha_Marcada,
@@ -100,7 +92,7 @@ class QueryMonitor:
                 ORDER BY l.Fecha_y_Hora DESC
                 LIMIT 1000
                 """,
-                None
+                None,
             ),
             "análisis_gps": (
                 """
@@ -109,10 +101,10 @@ class QueryMonitor:
                 AND Fecha_y_Hora >= datetime('now', '-1 day')
                 LIMIT 1000
                 """,
-                None
-            )
+                None,
+            ),
         }
-        
+
         results = {}
         for name, (query, params) in common_queries.items():
             logger.info(f"Monitoreando consulta: {name}")
@@ -121,39 +113,41 @@ class QueryMonitor:
                 logger.info(f"Resultados para {name}: {results[name]}")
             except Exception as e:
                 logger.error(f"Error al monitorear {name}: {e}")
-        
+
         return results
 
     def generate_report(self, results: Dict[str, Dict]) -> str:
         """Genera un informe HTML con los resultados del monitoreo"""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         report_path = self.results_dir / f"performance_report_{timestamp}.html"
-        
+
         # Crear DataFrame para visualización
         df_data = []
         for query_name, metrics in results.items():
-            df_data.append({
-                'Consulta': query_name,
-                'Tiempo Mín (s)': round(metrics['min_time'], 3),
-                'Tiempo Máx (s)': round(metrics['max_time'], 3),
-                'Tiempo Promedio (s)': round(metrics['avg_time'], 3),
-                'Filas': metrics['rows']
-            })
-        
+            df_data.append(
+                {
+                    "Consulta": query_name,
+                    "Tiempo Mín (s)": round(metrics["min_time"], 3),
+                    "Tiempo Máx (s)": round(metrics["max_time"], 3),
+                    "Tiempo Promedio (s)": round(metrics["avg_time"], 3),
+                    "Filas": metrics["rows"],
+                }
+            )
+
         df = pd.DataFrame(df_data)
-        
+
         # Crear gráfico de barras
         plt.figure(figsize=(12, 6))
-        plt.bar(df['Consulta'], df['Tiempo Promedio (s)'])
-        plt.xticks(rotation=45, ha='right')
-        plt.title('Tiempo Promedio de Ejecución por Consulta')
+        plt.bar(df["Consulta"], df["Tiempo Promedio (s)"])
+        plt.xticks(rotation=45, ha="right")
+        plt.title("Tiempo Promedio de Ejecución por Consulta")
         plt.tight_layout()
-        
+
         # Guardar gráfico
         plot_path = self.results_dir / f"performance_plot_{timestamp}.png"
         plt.savefig(plot_path)
         plt.close()
-        
+
         # Generar HTML
         html_content = f"""
         <html>
@@ -198,35 +192,37 @@ class QueryMonitor:
         </body>
         </html>
         """
-        
-        with open(report_path, 'w', encoding='utf-8') as f:
+
+        with open(report_path, "w", encoding="utf-8") as f:
             f.write(html_content)
-        
+
         return str(report_path)
+
 
 def main():
     """Función principal para ejecutar el monitoreo"""
     monitor = QueryMonitor()
     logger.info("Iniciando monitoreo de consultas comunes...")
-    
+
     try:
         # Ejecutar monitoreo
         results = monitor.monitor_common_queries()
-        
+
         # Generar informe
         report_path = monitor.generate_report(results)
         logger.info(f"Informe generado en: {report_path}")
-        
+
         # Imprimir resumen en consola
         print("\n=== RESUMEN DE RENDIMIENTO ===")
         for query_name, metrics in results.items():
             print(f"\n{query_name}:")
             print(f"  Tiempo promedio: {metrics['avg_time']:.3f}s")
             print(f"  Filas retornadas: {metrics['rows']}")
-        
+
     except Exception as e:
         logger.error(f"Error durante el monitoreo: {e}")
         raise
 
+
 if __name__ == "__main__":
-    main() 
+    main()
