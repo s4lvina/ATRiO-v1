@@ -148,8 +148,7 @@ async def restore_database(backup_file: UploadFile = File(...)):
         temp_file_hash = hasher.hexdigest()
         logger.info(f"MD5 hash del archivo temporal ({temp_path}): {temp_file_hash}")
 
-        logger.info(f"Archivo recibido para restaurar: {backup_file.filename}, "
-                    f"tamaño: {os.path.getsize(temp_path)} bytes")
+        logger.info(f"Archivo recibido para restaurar: {backup_file.filename}, tamaño: {os.path.getsize(temp_path)} bytes")
         try:
             test_engine = create_engine(f"sqlite:///{temp_path}")
             conn = test_engine.connect()
@@ -191,16 +190,13 @@ async def restore_database(backup_file: UploadFile = File(...)):
                     if table_name in Base.metadata.tables:
                         count = db_check.execute(text(f"SELECT COUNT(*) FROM {table_name}")).scalar_one_or_none()
                         final_counts_upload[table_name] = count
-                        logger.info(f"Conteo post-restauración (upload) para "
-                                    f"tabla '{table_name}': {count}")
+                        logger.info(f"Conteo post-restauración (upload) para tabla '{table_name}': {count}")
                     else:
-                        logger.warning(f"Tabla '{table_name}' no encontrada en "
-                                     f"metadatos para conteo post-restauración (upload).")
+                        logger.warning(f"Tabla '{table_name}' no encontrada en metadatos para conteo post-restauración (upload).")
         except Exception as e_check:
             logger.error(f"Error al verificar conteos post-restauración (upload): {e_check}", exc_info=True)
 
-        response_msg = f"Base de datos restaurada exitosamente. " \
-                      f"Conteos (ver logs): {json.dumps(final_counts_upload)}"
+        response_msg = f"Base de datos restaurada exitosamente. Conteos (ver logs): {json.dumps(final_counts_upload)}"
         return {"message": response_msg, "final_counts_debug": final_counts_upload}
     except Exception as e:
         logger.error(f"Error inesperado al restaurar la base de datos: {e}", exc_info=True)
@@ -353,50 +349,39 @@ async def restore_database_from_filename(request_data: RestoreRequest):
         # Forzar al motor principal de SQLAlchemy a cerrar las conexiones existentes
         try:
             from database_config import engine as main_app_engine
-            logger.info(f"Intentando disponer del motor principal de SQLAlchemy "
-                       f"(filename: {backup_filename})...")
+            logger.info(f"Intentando disponer del motor principal de SQLAlchemy (filename: {backup_filename})...")
             main_app_engine.dispose()
             logger.info(f"Motor principal de SQLAlchemy dispuesto (filename: {backup_filename}).")
 
-            logger.info(f"Intentando operación de lectura post-dispose para refrescar el pool "
-                       f"(filename: {backup_filename})...")
+            logger.info(f"Intentando operación de lectura post-dispose para refrescar el pool (filename: {backup_filename})...")
             with main_app_engine.connect() as connection:
                 result = connection.execute(text("SELECT sqlite_version();")).scalar()
-                logger.info(f"Operación de lectura post-dispose exitosa (filename: {backup_filename}). "
-                          f"Versión de SQLite: {result}")
+                logger.info(f"Operación de lectura post-dispose exitosa (filename: {backup_filename}). Versión de SQLite: {result}")
 
         except Exception as e_dispose_refresh:
-            logger.error(f"Error durante el dispose/refresh del motor principal "
-                         f"(filename: {backup_filename}): {e_dispose_refresh}", exc_info=True)
+            logger.error(f"Error durante el dispose/refresh del motor principal (filename: {backup_filename}): {e_dispose_refresh}", exc_info=True)
 
         # Verificar el estado de la base de datos inmediatamente después de la restauración
         final_counts_filename = {}
         try:
-            logger.info(f"Verificando conteos post-restauración (filename: {backup_filename}) "
-                       f"inmediatamente...")
+            logger.info(f"Verificando conteos post-restauración (filename: {backup_filename}) inmediatamente...")
             with SessionLocal() as db_check:
                 tables_to_check = ["usuarios", "Grupos", "Casos"]
                 for table_name in tables_to_check:
                     if table_name in Base.metadata.tables:
-                        count = db_check.execute(text(f"SELECT COUNT(*) FROM {table_name}")) \
-                                               .scalar_one_or_none()
+                        count = db_check.execute(text(f"SELECT COUNT(*) FROM {table_name}")).scalar_one_or_none()
                         final_counts_filename[table_name] = count
-                        logger.info(f"Conteo post-restauración (filename: {backup_filename}) "
-                                  f"para tabla '{table_name}': {count}")
+                        logger.info(f"Conteo post-restauración (filename: {backup_filename}) para tabla '{table_name}': {count}")
                     else:
-                        logger.warning(f"Tabla '{table_name}' no encontrada en metadatos "
-                                     f"para conteo post-restauración (filename: {backup_filename}).")
+                        logger.warning(f"Tabla '{table_name}' no encontrada en metadatos para conteo post-restauración (filename: {backup_filename}).")
         except Exception as e_check:
-            logger.error(f"Error al verificar conteos post-restauración "
-                        f"(filename: {backup_filename}): {e_check}", exc_info=True)
+            logger.error(f"Error al verificar conteos post-restauración (filename: {backup_filename}): {e_check}", exc_info=True)
 
-        response_msg = f"Base de datos restaurada exitosamente desde '{backup_filename}'. " \
-                      f"Conteos (ver logs): {json.dumps(final_counts_filename)}"
+        response_msg = f"Base de datos restaurada exitosamente desde '{backup_filename}'. Conteos (ver logs): {json.dumps(final_counts_filename)}"
         return {"message": response_msg, "final_counts_debug": final_counts_filename}
-    except HTTPException:  # Re-raise HTTPExceptions para que FastAPI las maneje
+    except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error inesperado al restaurar la base de datos desde "
-                    f"'{backup_filename}': {e}", exc_info=True)
+        logger.error(f"Error inesperado al restaurar la base de datos desde '{backup_filename}': {e}", exc_info=True)
         error_msg = f"Error inesperado al restaurar desde '{backup_filename}': {str(e)}"
         raise HTTPException(status_code=500, detail=error_msg) 
