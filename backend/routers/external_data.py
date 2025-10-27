@@ -265,7 +265,25 @@ async def cross_with_lpr(
         if not external_matriculas:
             return []
 
-        # PASO 2: Buscar lecturas LPR que coincidan con esas matrículas
+        # PASO 2: Buscar lecturas LPR que coincidan con esas matrículas usando JOIN
+        from sqlalchemy import select, distinct
+        
+        # Crear subconsulta con las matrículas externas para hacer JOIN
+        external_matriculas_list = list(external_matriculas)
+        
+        if not external_matriculas_list:
+            return []
+        
+        # Usar subconsulta para evitar limitaciones de .in_()
+        external_matriculas_subquery = select(
+            models.ExternalData.matricula
+        ).filter(
+            and_(
+                models.ExternalData.caso_id == filters.caso_id,
+                models.ExternalData.matricula.in_(external_matriculas_list)
+            )
+        ).distinct().subquery()
+        
         lpr_query = (
             db.query(
                 models.Lectura.ID_Lectura,
@@ -278,14 +296,15 @@ async def cross_with_lpr(
                 models.ArchivoExcel,
                 models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo,
             )
+            .join(
+                external_matriculas_subquery,
+                models.Lectura.Matricula == external_matriculas_subquery.c.matricula
+            )
             .outerjoin(
                 models.Lector, models.Lectura.ID_Lector == models.Lector.ID_Lector
             )
             .filter(
-                and_(
-                    models.ArchivoExcel.ID_Caso == filters.caso_id,
-                    models.Lectura.Matricula.in_(external_matriculas),
-                )
+                models.ArchivoExcel.ID_Caso == filters.caso_id
             )
             .order_by(models.Lectura.Fecha_y_Hora.asc())
         )
@@ -314,7 +333,6 @@ async def cross_with_lpr(
 
         # PASO 3: Encontrar SOLO matrículas que aparecen en ambos sistemas
         cross_results = []
-        MAX_RESULTS = 5000  # Límite para la versión síncrona también
 
         # Obtener matrículas únicas que aparecen en ambos sistemas (INTERSECCIÓN)
         lpr_matriculas = set([lpr.Matricula for lpr in lpr_results])
@@ -323,13 +341,6 @@ async def cross_with_lpr(
         logger.info(
             f"Encontradas {len(coincident_matriculas)} matrículas coincidentes (síncrono)"
         )
-
-        # Limitar a MAX_RESULTS matrículas si es necesario
-        if len(coincident_matriculas) > MAX_RESULTS:
-            logger.warning(
-                f"Limitando a {MAX_RESULTS} matrículas de {len(coincident_matriculas)} encontradas (síncrono)"
-            )
-            coincident_matriculas = set(list(coincident_matriculas)[:MAX_RESULTS])
 
         # Crear exactamente UNA coincidencia por matrícula
         for matricula in coincident_matriculas:
@@ -875,7 +886,7 @@ def process_cross_data_in_background(task_id: str, filters_dict: dict, user_id: 
             f"[Cross Task {task_id}] Encontradas {len(external_matriculas)} matrículas únicas en datos externos"
         )
 
-        # PASO 2: Buscar lecturas LPR que coincidan con esas matrículas
+        # PASO 2: Buscar lecturas LPR que coincidan con esas matrículas usando JOIN
         task_statuses[task_id].update(
             {
                 "message": f"Buscando lecturas LPR para {len(external_matriculas)} matrículas...",
@@ -884,7 +895,40 @@ def process_cross_data_in_background(task_id: str, filters_dict: dict, user_id: 
             }
         )
 
-        # Query para obtener lecturas LPR que coincidan (ordenadas por fecha)
+        from sqlalchemy import select, distinct
+        
+        # Crear subconsulta con las matrículas externas para hacer JOIN
+        external_matriculas_list = list(external_matriculas)
+        
+        if not external_matriculas_list:
+            task_statuses[task_id].update(
+                {
+                    "status": "completed",
+                    "message": "No hay datos externos que coincidan con los filtros",
+                    "progress": 100,
+                    "result": {
+                        "message": "No se encontraron datos externos que coincidan con los filtros",
+                        "total_matches": 0,
+                        "results": [],
+                        "filters_applied": filters_dict,
+                    },
+                    "stage": None,
+                }
+            )
+            mark_task_completed(task_id)
+            return
+        
+        # Usar subconsulta para evitar limitaciones de .in_()
+        external_matriculas_subquery = select(
+            models.ExternalData.matricula
+        ).filter(
+            and_(
+                models.ExternalData.caso_id == filters.caso_id,
+                models.ExternalData.matricula.in_(external_matriculas_list)
+            )
+        ).distinct().subquery()
+        
+        # Query para obtener lecturas LPR que coincidan (ordenadas por fecha) usando JOIN
         lpr_query = (
             db.query(
                 models.Lectura.ID_Lectura,
@@ -897,14 +941,15 @@ def process_cross_data_in_background(task_id: str, filters_dict: dict, user_id: 
                 models.ArchivoExcel,
                 models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo,
             )
+            .join(
+                external_matriculas_subquery,
+                models.Lectura.Matricula == external_matriculas_subquery.c.matricula
+            )
             .outerjoin(
                 models.Lector, models.Lectura.ID_Lector == models.Lector.ID_Lector
             )
             .filter(
-                and_(
-                    models.ArchivoExcel.ID_Caso == filters.caso_id,
-                    models.Lectura.Matricula.in_(external_matriculas),
-                )
+                models.ArchivoExcel.ID_Caso == filters.caso_id
             )
             .order_by(models.Lectura.Fecha_y_Hora.asc())
         )
@@ -964,7 +1009,6 @@ def process_cross_data_in_background(task_id: str, filters_dict: dict, user_id: 
         )
 
         cross_results = []
-        MAX_RESULTS = 5000  # Límite de resultados para evitar sobrecarga
 
         # Obtener matrículas únicas que aparecen en ambos sistemas (INTERSECCIÓN)
         lpr_matriculas = set([lpr.Matricula for lpr in lpr_results])
@@ -973,13 +1017,6 @@ def process_cross_data_in_background(task_id: str, filters_dict: dict, user_id: 
         logger.info(
             f"[Cross Task {task_id}] Encontradas {len(coincident_matriculas)} matrículas coincidentes"
         )
-
-        # Limitar a MAX_RESULTS matrículas si es necesario
-        if len(coincident_matriculas) > MAX_RESULTS:
-            logger.warning(
-                f"[Cross Task {task_id}] Limitando a {MAX_RESULTS} matrículas de {len(coincident_matriculas)} encontradas"
-            )
-            coincident_matriculas = set(list(coincident_matriculas)[:MAX_RESULTS])
 
         task_statuses[task_id].update(
             {
@@ -1078,10 +1115,6 @@ def process_cross_data_in_background(task_id: str, filters_dict: dict, user_id: 
 
         # Preparar mensaje final
         final_message = f"Cruce de datos completado: {total_matches} matrículas coincidentes encontradas"
-        if total_matches >= MAX_RESULTS:
-            final_message += (
-                f" (limitado a {MAX_RESULTS} resultados para optimizar rendimiento)"
-            )
 
         # Preparar resultado final
         result_data = {
@@ -1089,19 +1122,13 @@ def process_cross_data_in_background(task_id: str, filters_dict: dict, user_id: 
             "total_matches": total_matches,
             "results": cross_results,
             "filters_applied": filters_dict,
-            "limited": total_matches >= MAX_RESULTS,
         }
 
         # Actualizar estado: completado
         task_statuses[task_id].update(
             {
                 "status": "completed",
-                "message": f"Cruce completado: {total_matches} matrículas coincidentes encontradas"
-                + (
-                    f" (limitado a {MAX_RESULTS})"
-                    if total_matches >= MAX_RESULTS
-                    else ""
-                ),
+                "message": f"Cruce completado: {total_matches} matrículas coincidentes encontradas",
                 "progress": 100,
                 "result": result_data,
                 "stage": None,
