@@ -320,8 +320,8 @@ async def restore_database_from_filename(request_data: RestoreRequest):
 
     if not os.path.exists(source_backup_path):
         logger.error(f"Archivo de backup no encontrado en el servidor: {source_backup_path}")
-        raise HTTPException(status_code=404, detail=f"Archivo de backup "
-                        f"'{backup_filename}' no encontrado en el servidor.")
+        error_msg = f"Archivo de backup '{backup_filename}' no encontrado en el servidor."
+        raise HTTPException(status_code=404, detail=error_msg)
 
     try:
         # Verificar que el archivo de backup es una BD SQLite válida
@@ -333,9 +333,9 @@ async def restore_database_from_filename(request_data: RestoreRequest):
             logger.info(f"Archivo de backup '{backup_filename}' es una BD SQLite válida.")
         except Exception as e_test:
             logger.error(f"Archivo de backup '{backup_filename}' no es una BD SQLite válida: {e_test}")
-            raise HTTPException(status_code=400, detail=f"El archivo de backup "
-                                   f"seleccionado ('{backup_filename}') no es una base de datos "
-                                   f"SQLite válida.")
+            error_msg = f"El archivo de backup seleccionado ('{backup_filename}') " \
+                       f"no es una base de datos SQLite válida."
+            raise HTTPException(status_code=400, detail=error_msg)
 
         # Crear un backup del estado actual ANTES de restaurar
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -398,5 +398,5 @@ async def restore_database_from_filename(request_data: RestoreRequest):
     except Exception as e:
         logger.error(f"Error inesperado al restaurar la base de datos desde "
                     f"'{backup_filename}': {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error inesperado al restaurar desde "
-                                               f"'{backup_filename}': {str(e)}") 
+        error_msg = f"Error inesperado al restaurar desde '{backup_filename}': {str(e)}"
+        raise HTTPException(status_code=500, detail=error_msg) 
