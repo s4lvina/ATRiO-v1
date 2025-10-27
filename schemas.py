@@ -249,9 +249,9 @@ class ArchivoExcel(ArchivoExcelBase):
     Total_Registros: int = Field(
         0, description="Número total de lecturas en este archivo"
     )
-    caso: Optional[CasoReferencia] = (
-        None  # MODIFICADO: Usa CasoReferencia en lugar de Caso
-    )
+    caso: Optional[
+        CasoReferencia
+    ] = None  # MODIFICADO: Usa CasoReferencia en lugar de Caso
     # lecturas: List['Lectura'] = []
 
     class Config:
@@ -261,9 +261,9 @@ class ArchivoExcel(ArchivoExcelBase):
 class Lectura(LecturaBase):
     ID_Lectura: int
     ID_Archivo: int
-    archivo: Optional[ArchivoExcel] = (
-        None  # <-- Añadido para exponer el archivo y su caso
-    )
+    archivo: Optional[
+        ArchivoExcel
+    ] = None  # <-- Añadido para exponer el archivo y su caso
     # Incluir información de relevancia opcionalmente
     relevancia: Optional["LecturaRelevante"] = None  # Usar string forward reference
     # Añadir el lector asociado para obtener Sentido/Orientacion

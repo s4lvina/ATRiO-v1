@@ -127,9 +127,9 @@ class UploadTaskStatus(BaseModel):
     message: Optional[str] = None
     progress: Optional[float] = None  # e.g., percentage or records processed
     total: Optional[int] = None  # total records to process
-    result: Optional[schemas.UploadResponse] = (
-        None  # To hold the final response on completion
-    )
+    result: Optional[
+        schemas.UploadResponse
+    ] = None  # To hold the final response on completion
 
 
 class TaskStatus(BaseModel):
