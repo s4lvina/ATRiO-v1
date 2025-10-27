@@ -8,7 +8,7 @@ from fastapi.encoders import jsonable_encoder
 from sqlalchemy.orm import Session, joinedload, contains_eager, relationship
 from sqlalchemy.sql import func, extract, select, label, text
 import models, schemas
-from database_config import SessionLocal, engine, get_db, DATABASE_URL
+from database_config import SessionLocal, engine, get_db, DATABASE_URL, Base
 import pandas as pd
 from io import BytesIO
 from typing import List, Dict, Any, Optional, Tuple
@@ -3477,33 +3477,8 @@ def clear_lanzadera_cache(
         raise HTTPException(status_code=500, detail=f"Error limpiando cache: {e}")
 
 
-
 # --- ENDPOINTS DUPLICADOS ELIMINADOS ---
 # Se eliminaron los endpoints duplicados de usuarios y grupos que no tenían control de roles adecuado
-# Se mantienen solo las versiones robustas y seguras con control de roles apropiado
-
-        # Crear el grupo
-        db_grupo = models.Grupo(
-            Nombre=grupo.Nombre,
-            Descripcion=grupo.Descripcion,
-            Fecha_Creacion=datetime.now()
-        )
-        db.add(db_grupo)
-        db.commit()
-        db.refresh(db_grupo)
-        return db_grupo
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception("Error al crear grupo")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error al crear el grupo"
-        )
-
-# --- ENDPOINTS DUPLICADOS DE GRUPOS ELIMINADOS ---
-# Se eliminaron los endpoints duplicados de grupos que no tenían control de roles adecuado
 # Se mantienen solo las versiones robustas y seguras con control de roles apropiado
 
 @app.post("/lecturas/por_filtros", response_model=List[schemas.Lectura])
