@@ -41,4 +41,14 @@
   background: #E1BEE7;
   color: #8E24AA;
   border: 1px solid #8E24AA;
+}
+
+.caso-nombre-clickable {
+  cursor: pointer;
+  color: var(--mantine-color-blue-6);
+  transition: text-decoration 0.2s ease;
+}
+
+.caso-nombre-clickable:hover {
+  text-decoration: underline;
 } 

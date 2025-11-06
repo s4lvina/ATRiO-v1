@@ -26,7 +26,6 @@ import {
   Chip,
   Flex
 } from '@mantine/core';
-import { DateInput } from '@mantine/dates';
 import { 
   IconSearch, 
   IconDownload, 
@@ -35,10 +34,8 @@ import {
   IconEye, 
   IconTrash,
   IconInfoCircle,
-  IconAdjustments,
   IconTable,
   IconMapPin,
-  IconCalendar,
   IconFileUpload,
   IconAlertCircle
 } from '@tabler/icons-react';
@@ -87,8 +84,8 @@ export const CruceFuentesExternasPanel: React.FC<CruceFuentesExternasPanelProps>
   // Estados para filtros
   const [matriculaFilter, setMatriculaFilter] = useState('');
   const [selectedSource, setSelectedSource] = useState<string>('');
-  const [fechaDesde, setFechaDesde] = useState<Date | null>(null);
-  const [fechaHasta, setFechaHasta] = useState<Date | null>(null);
+  const [fechaDesde, setFechaDesde] = useState<string>('');
+  const [fechaHasta, setFechaHasta] = useState<string>('');
   const [customFilters, setCustomFilters] = useState<CustomFilter[]>([]);
   
   // Estados para tareas en segundo plano
@@ -123,8 +120,8 @@ export const CruceFuentesExternasPanel: React.FC<CruceFuentesExternasPanelProps>
       // Limpiar filtros al cambiar de caso
       setSelectedSource('');
       setMatriculaFilter('');
-      setFechaDesde(null);
-      setFechaHasta(null);
+      setFechaDesde('');
+      setFechaHasta('');
       setCustomFilters([]);
       setCrossResults([]);
       
@@ -171,8 +168,8 @@ export const CruceFuentesExternasPanel: React.FC<CruceFuentesExternasPanelProps>
         caso_id: casoId,
         matricula: matriculaFilter || undefined,
         source_name: selectedSource || undefined,
-        fecha_desde: fechaDesde?.toISOString(),
-        fecha_hasta: fechaHasta?.toISOString(),
+        fecha_desde: fechaDesde ? new Date(fechaDesde).toISOString() : undefined,
+        fecha_hasta: fechaHasta ? new Date(fechaHasta).toISOString() : undefined,
         custom_filters: Object.keys(customFiltersDict).length > 0 ? customFiltersDict : undefined
       };
       
@@ -321,8 +318,8 @@ export const CruceFuentesExternasPanel: React.FC<CruceFuentesExternasPanelProps>
   const clearFilters = () => {
     setMatriculaFilter('');
     setSelectedSource('');
-    setFechaDesde(null);
-    setFechaHasta(null);
+    setFechaDesde('');
+    setFechaHasta('');
     setCustomFilters([]);
     setCrossResults([]);
     setResultsLimited(false);
@@ -345,7 +342,7 @@ export const CruceFuentesExternasPanel: React.FC<CruceFuentesExternasPanelProps>
               Importar Fuente
             </Button>
             <Button
-              leftSection={<IconAdjustments size={16} />}
+              leftSection={<IconFilter size={16} />}
               onClick={toggleFilters}
               variant="light"
             >
@@ -399,21 +396,17 @@ export const CruceFuentesExternasPanel: React.FC<CruceFuentesExternasPanelProps>
               </Group>
 
               <Group grow>
-                <DateInput
+                <TextInput
                   label="Fecha desde"
-                  placeholder="Seleccionar fecha..."
+                  type="date"
                   value={fechaDesde}
-                  onChange={setFechaDesde}
-                  leftSection={<IconCalendar size={16} />}
-                  clearable
+                  onChange={(e) => setFechaDesde(e.target.value)}
                 />
-                <DateInput
+                <TextInput
                   label="Fecha hasta"
-                  placeholder="Seleccionar fecha..."
+                  type="date"
                   value={fechaHasta}
-                  onChange={setFechaHasta}
-                  leftSection={<IconCalendar size={16} />}
-                  clearable
+                  onChange={(e) => setFechaHasta(e.target.value)}
                 />
               </Group>
 

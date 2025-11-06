@@ -592,7 +592,15 @@ function CasosPage() {
                             <IconFolder size={22} />
                           </ThemeIcon>
                           <Box>
-                            <Text size="lg" fw={700} style={{ lineHeight: 1.1 }}>{caso.Nombre_del_Caso}</Text>
+                            <Text 
+                              size="lg" 
+                              fw={700} 
+                              className="caso-nombre-clickable"
+                              style={{ lineHeight: 1.1 }}
+                              onClick={() => navigate(`/casos/${caso.ID_Caso}`)}
+                            >
+                              {caso.Nombre_del_Caso}
+                            </Text>
                             <Text size="sm" c="dimmed" mt={2}>
                               Año: <b>{caso.Año}</b> &nbsp;|&nbsp; NIV: <b>{caso.NIV || '-'}</b>
                             </Text>
@@ -717,7 +725,15 @@ function CasosPage() {
                           <IconFolder size={22} />
                         </ThemeIcon>
                         <Box style={{ flex: 1 }}>
-                          <Text size="lg" fw={700} style={{ lineHeight: 1.1 }}>{caso.Nombre_del_Caso}</Text>
+                          <Text 
+                            size="lg" 
+                            fw={700} 
+                            className="caso-nombre-clickable"
+                            style={{ lineHeight: 1.1 }}
+                            onClick={() => navigate(`/casos/${caso.ID_Caso}`)}
+                          >
+                            {caso.Nombre_del_Caso}
+                          </Text>
                           <Text size="sm" c="dimmed" mt={2}>
                             Año: <b>{caso.Año}</b> &nbsp;|&nbsp; NIV: <b>{caso.NIV || '-'}</b>
                                           </Text>
@@ -829,7 +845,15 @@ function CasosPage() {
                                     <IconFolder size={22} />
                                   </ThemeIcon>
                                   <Box>
-                                    <Text size="lg" fw={700} style={{ lineHeight: 1.1 }}>{caso.Nombre_del_Caso}</Text>
+                                    <Text 
+                                      size="lg" 
+                                      fw={700} 
+                                      className="caso-nombre-clickable"
+                                      style={{ lineHeight: 1.1 }}
+                                      onClick={() => navigate(`/casos/${caso.ID_Caso}`)}
+                                    >
+                                      {caso.Nombre_del_Caso}
+                                    </Text>
                                     <Text size="sm" c="dimmed" mt={2}>
                                       Año: <b>{caso.Año}</b> &nbsp;|&nbsp; NIV: <b>{caso.NIV || '-'}</b>
                                     </Text>
@@ -928,7 +952,15 @@ function CasosPage() {
                                   <IconFolder size={22} />
                                 </ThemeIcon>
                                 <Box style={{ flex: 1 }}>
-                                  <Text size="lg" fw={700} style={{ lineHeight: 1.1 }}>{caso.Nombre_del_Caso}</Text>
+                                  <Text 
+                                    size="lg" 
+                                    fw={700} 
+                                    className="caso-nombre-clickable"
+                                    style={{ lineHeight: 1.1 }}
+                                    onClick={() => navigate(`/casos/${caso.ID_Caso}`)}
+                                  >
+                                    {caso.Nombre_del_Caso}
+                                  </Text>
                                   <Text size="sm" c="dimmed" mt={2}>
                                     Año: <b>{caso.Año}</b> &nbsp;|&nbsp; NIV: <b>{caso.NIV || '-'}</b>
                                                   </Text>
