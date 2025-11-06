@@ -29,6 +29,10 @@ export interface ExternalDataSearchFilters {
   custom_filters?: Record<string, any>;
   fecha_desde?: string;
   fecha_hasta?: string;
+  hora_desde?: string;  // formato HH:MM
+  hora_hasta?: string;  // formato HH:MM
+  lector_ids?: string[];  // lista de IDs de lectores
+  min_lecturas?: number;  // mínimo de lecturas por matrícula
 }
 
 export interface ExternalDataImportRequest {

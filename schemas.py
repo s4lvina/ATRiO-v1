@@ -659,6 +659,10 @@ class ExternalDataSearchFilters(BaseModel):
     custom_filters: Optional[Dict[str, Any]] = None  # filtros personalizados en JSON
     fecha_desde: Optional[datetime.datetime] = None
     fecha_hasta: Optional[datetime.datetime] = None
+    hora_desde: Optional[str] = None  # formato HH:MM
+    hora_hasta: Optional[str] = None  # formato HH:MM
+    lector_ids: Optional[List[str]] = None  # lista de IDs de lectores
+    min_lecturas: Optional[int] = None  # mínimo de lecturas por matrícula
 
 
 # --- Schemas para Autenticación con Tokens ---

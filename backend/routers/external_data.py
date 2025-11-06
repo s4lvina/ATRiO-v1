@@ -9,7 +9,7 @@ from fastapi import (
     BackgroundTasks,
 )
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import and_, or_, text
+from sqlalchemy import and_, or_, text, extract, func
 from typing import List, Dict, Any, Optional
 import pandas as pd
 from datetime import datetime
@@ -315,14 +315,61 @@ async def cross_with_lpr(
                 models.Lectura.Matricula.ilike(f"%{filters.matricula}%")
             )
 
+        # Filtrar por lectores si están especificados
+        if filters.lector_ids and len(filters.lector_ids) > 0:
+            lpr_query = lpr_query.filter(
+                models.Lectura.ID_Lector.in_(filters.lector_ids)
+            )
+
+        # Procesar filtros de fecha/hora
         if filters.fecha_desde:
             lpr_query = lpr_query.filter(
                 models.Lectura.Fecha_y_Hora >= filters.fecha_desde
+            )
+        elif filters.hora_desde:
+            # Si solo hay hora_desde sin fecha, aplicar filtro de hora
+            from sqlalchemy import extract
+            hora_desde_val = int(filters.hora_desde.replace(":", ""))
+            lpr_query = lpr_query.filter(
+                extract("hour", models.Lectura.Fecha_y_Hora) * 100
+                + extract("minute", models.Lectura.Fecha_y_Hora)
+                >= hora_desde_val
             )
 
         if filters.fecha_hasta:
             lpr_query = lpr_query.filter(
                 models.Lectura.Fecha_y_Hora <= filters.fecha_hasta
+            )
+        elif filters.hora_hasta:
+            # Si solo hay hora_hasta sin fecha, aplicar filtro de hora
+            hora_hasta_val = int(filters.hora_hasta.replace(":", ""))
+            lpr_query = lpr_query.filter(
+                extract("hour", models.Lectura.Fecha_y_Hora) * 100
+                + extract("minute", models.Lectura.Fecha_y_Hora)
+                <= hora_hasta_val
+            )
+
+        # Filtrar por mínimo de lecturas si está especificado
+        if filters.min_lecturas and filters.min_lecturas > 1:
+            # Crear subconsulta para contar lecturas por matrícula
+            lectura_count_subquery = (
+                db.query(
+                    models.Lectura.Matricula,
+                    func.count(models.Lectura.ID_Lectura).label("count")
+                )
+                .join(
+                    models.ArchivoExcel,
+                    models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo
+                )
+                .filter(models.ArchivoExcel.ID_Caso == filters.caso_id)
+                .group_by(models.Lectura.Matricula)
+                .having(func.count(models.Lectura.ID_Lectura) >= filters.min_lecturas)
+                .subquery()
+            )
+            # Filtrar solo matrículas que cumplen con el mínimo
+            lpr_query = lpr_query.join(
+                lectura_count_subquery,
+                models.Lectura.Matricula == lectura_count_subquery.c.Matricula
             )
 
         # Ejecutar consulta de lecturas LPR
@@ -960,14 +1007,61 @@ def process_cross_data_in_background(task_id: str, filters_dict: dict, user_id: 
                 models.Lectura.Matricula.ilike(f"%{filters.matricula}%")
             )
 
+        # Filtrar por lectores si están especificados
+        if filters.lector_ids and len(filters.lector_ids) > 0:
+            lpr_query = lpr_query.filter(
+                models.Lectura.ID_Lector.in_(filters.lector_ids)
+            )
+
+        # Procesar filtros de fecha/hora
         if filters.fecha_desde:
             lpr_query = lpr_query.filter(
                 models.Lectura.Fecha_y_Hora >= filters.fecha_desde
+            )
+        elif filters.hora_desde:
+            # Si solo hay hora_desde sin fecha, aplicar filtro de hora
+            from sqlalchemy import extract
+            hora_desde_val = int(filters.hora_desde.replace(":", ""))
+            lpr_query = lpr_query.filter(
+                extract("hour", models.Lectura.Fecha_y_Hora) * 100
+                + extract("minute", models.Lectura.Fecha_y_Hora)
+                >= hora_desde_val
             )
 
         if filters.fecha_hasta:
             lpr_query = lpr_query.filter(
                 models.Lectura.Fecha_y_Hora <= filters.fecha_hasta
+            )
+        elif filters.hora_hasta:
+            # Si solo hay hora_hasta sin fecha, aplicar filtro de hora
+            hora_hasta_val = int(filters.hora_hasta.replace(":", ""))
+            lpr_query = lpr_query.filter(
+                extract("hour", models.Lectura.Fecha_y_Hora) * 100
+                + extract("minute", models.Lectura.Fecha_y_Hora)
+                <= hora_hasta_val
+            )
+
+        # Filtrar por mínimo de lecturas si está especificado
+        if filters.min_lecturas and filters.min_lecturas > 1:
+            # Crear subconsulta para contar lecturas por matrícula
+            lectura_count_subquery = (
+                db.query(
+                    models.Lectura.Matricula,
+                    func.count(models.Lectura.ID_Lectura).label("count")
+                )
+                .join(
+                    models.ArchivoExcel,
+                    models.Lectura.ID_Archivo == models.ArchivoExcel.ID_Archivo
+                )
+                .filter(models.ArchivoExcel.ID_Caso == filters.caso_id)
+                .group_by(models.Lectura.Matricula)
+                .having(func.count(models.Lectura.ID_Lectura) >= filters.min_lecturas)
+                .subquery()
+            )
+            # Filtrar solo matrículas que cumplen con el mínimo
+            lpr_query = lpr_query.join(
+                lectura_count_subquery,
+                models.Lectura.Matricula == lectura_count_subquery.c.Matricula
             )
 
         # Ejecutar consulta de lecturas LPR
