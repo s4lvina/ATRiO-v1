@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Paper,
     Group,
@@ -227,6 +227,7 @@ const VelocidadAnormalPanel: React.FC<VelocidadAnormalPanelProps> = ({
     const [lectoresLoading, setLectoresLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [alertaDatos, setAlertaDatos] = useState<string | null>(null);
+    const [ordenTabla, setOrdenTabla] = useState<{ campo: 'matricula' | 'velocidad' | 'distanciaKm' | 'tiempoHoras' | 'fechaHoraInicio' | 'fechaHoraFin' | 'carretera'; direccion: 'asc' | 'desc'; }>({ campo: 'fechaHoraInicio', direccion: 'desc' });
 
     const mostrarAlertaDatos = useCallback((mensaje: string | null) => {
         setAlertaDatos(mensaje);
@@ -246,6 +247,42 @@ const VelocidadAnormalPanel: React.FC<VelocidadAnormalPanelProps> = ({
             setCarreteraSeleccionada(null);
         }
     };
+
+    const vehiculosOrdenados = useMemo(() => {
+        const data = [...vehiculosRapidos];
+        data.sort((a, b) => {
+            const { campo, direccion } = ordenTabla;
+            let aValue: any = a[campo as keyof typeof a];
+            let bValue: any = b[campo as keyof typeof b];
+
+            if (campo === 'fechaHoraInicio' || campo === 'fechaHoraFin') {
+                aValue = new Date(aValue).getTime();
+                bValue = new Date(bValue).getTime();
+            }
+
+            if (typeof aValue === 'string') {
+                return direccion === 'asc'
+                    ? String(aValue).localeCompare(String(bValue))
+                    : String(bValue).localeCompare(String(aValue));
+            }
+
+            if (typeof aValue === 'number') {
+                return direccion === 'asc' ? aValue - bValue : bValue - aValue;
+            }
+
+            return 0;
+        });
+        return data;
+    }, [vehiculosRapidos, ordenTabla]);
+
+    const toggleOrden = useCallback((campo: 'matricula' | 'velocidad' | 'distanciaKm' | 'tiempoHoras' | 'fechaHoraInicio' | 'fechaHoraFin' | 'carretera') => {
+        setOrdenTabla((prev) => {
+            if (prev.campo === campo) {
+                return { campo, direccion: prev.direccion === 'asc' ? 'desc' : 'asc' };
+            }
+            return { campo, direccion: 'asc' };
+        });
+    }, []);
 
     const cargarLectores = useCallback(async () => {
         setLectoresLoading(true);
@@ -1065,46 +1102,6 @@ const VelocidadAnormalPanel: React.FC<VelocidadAnormalPanelProps> = ({
                             </Alert>
                         )}
 
-                        {resumen && (
-                            <Paper withBorder p="md" radius="md">
-                                <Title order={5} mb="sm">Resumen del análisis</Title>
-                                <Group gap="lg">
-                                    <Stack gap={2}>
-                                        <Text size="sm" c="dimmed">Segmentos analizados</Text>
-                                        <Text size="lg" fw={600}>{resumen.totalSegmentos}</Text>
-                                    </Stack>
-                                    <Stack gap={2}>
-                                        <Text size="sm" c="dimmed">Velocidad elevada</Text>
-                                        <Text size="lg" fw={600}>{resumen.segmentosAltos}</Text>
-                                    </Stack>
-                                    <Stack gap={2}>
-                                        <Text size="sm" c="dimmed">Velocidad reducida</Text>
-                                        <Text size="lg" fw={600}>{resumen.segmentosBajos}</Text>
-                                    </Stack>
-                                    <Stack gap={2}>
-                                        <Text size="sm" c="dimmed">Posibles paradas</Text>
-                                        <Text size="lg" fw={600}>{resumen.paradas}</Text>
-                                    </Stack>
-                                    <Stack gap={2}>
-                                        <Text size="sm" c="dimmed">Velocidad máx.</Text>
-                                        <Text size="lg" fw={600}>{resumen.velocidadMaxima} km/h</Text>
-                                    </Stack>
-                                    <Stack gap={2}>
-                                        <Text size="sm" c="dimmed">Velocidad mín.</Text>
-                                        <Text size="lg" fw={600}>{resumen.velocidadMinima} km/h</Text>
-                                    </Stack>
-                                    <Stack gap={2}>
-                                        <Text size="sm" c="dimmed">Distancia media</Text>
-                                        <Text size="lg" fw={600}>{resumen.distanciaMedia.toFixed(2)} km</Text>
-                                    </Stack>
-                                    <Stack gap={2}>
-                                        <Text size="sm" c="dimmed">Tiempo medio</Text>
-                                        <Text size="lg" fw={600}>{(resumen.tiempoMedioHoras * 60).toFixed(1)} min</Text>
-                                    </Stack>
-                                </Group>
-                            </Paper>
-                        )}
-
                         <Box style={{ position: 'relative' }}>
                             <LoadingOverlay visible={loading && vehiculosRapidos.length === 0} />
                             <Group justify="flex-end" align="center">
@@ -1112,66 +1109,56 @@ const VelocidadAnormalPanel: React.FC<VelocidadAnormalPanelProps> = ({
                                     Resultados: {vehiculosRapidos.length}
                                 </Text>
                             </Group>
-                            <Table striped highlightOnHover>
-                        <thead>
-                            <tr>
-                                <th>Matrícula</th>
-                                <th style={{ textAlign: 'center' }}>Velocidad</th>
-                                <th style={{ textAlign: 'center' }}>Distancia (km)</th>
-                                <th style={{ textAlign: 'center' }}>Tiempo (h)</th>
-                                <th style={{ textAlign: 'center' }}>Clasificación</th>
-                                <th style={{ textAlign: 'center' }}>Inicio</th>
-                                <th style={{ textAlign: 'center' }}>Fin</th>
-                                <th style={{ textAlign: 'center' }}>Lectores</th>
-                                <th style={{ textAlign: 'center' }}>Carretera</th>
-                                <th style={{ textAlign: 'center' }}>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {vehiculosRapidos.map((vehiculo, index) => (
-                                <tr key={`${vehiculo.matricula}-${vehiculo.fechaHoraInicio}-${index}`}>
-                                    <td>{vehiculo.matricula}</td>
-                                    <td style={{ textAlign: 'center' }}>
-                                        <Badge
-                                            color={vehiculo.clasificacion === 'parada' ? 'orange' : vehiculo.clasificacion === 'baja' ? 'yellow' : 'red'}
-                                            leftSection={<IconAlertTriangle size={12} />}
-                                        >
-                                            {vehiculo.velocidad} km/h
-                                        </Badge>
-                                    </td>
-                                    <td style={{ textAlign: 'center' }}>{vehiculo.distanciaKm.toFixed(2)}</td>
-                                    <td style={{ textAlign: 'center' }}>{vehiculo.tiempoHoras.toFixed(2)}</td>
-                                    <td style={{ textAlign: 'center' }}>
-                                        {vehiculo.clasificacion === 'parada'
-                                            ? 'Posible parada'
-                                            : vehiculo.clasificacion === 'baja'
-                                            ? 'Velocidad reducida'
-                                            : 'Velocidad elevada'}
-                                    </td>
-                                    <td style={{ textAlign: 'center' }}>{new Date(vehiculo.fechaHoraInicio).toLocaleString()}</td>
-                                    <td style={{ textAlign: 'center' }}>{new Date(vehiculo.fechaHoraFin).toLocaleString()}</td>
-                                    <td style={{ textAlign: 'center' }}>
-                                        {vehiculo.lectorInicio} → {vehiculo.lectorFin}
-                                    </td>
-                                    <td style={{ textAlign: 'center' }}>{vehiculo.carretera}</td>
-                                    <td style={{ textAlign: 'center' }}>
-                                        <Button
-                                            size="xs"
-                                            variant="light"
-                                            color="green"
-                                            leftSection={<IconCar size={14} />}
-                                            onClick={async () => {
-                                                await onGuardarVehiculos([vehiculo.matricula]);
-                                            }}
-                                        >
-                                            Guardar
-                                        </Button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </Table>
-                </Box>
+                            <Table striped highlightOnHover withColumnBorders verticalSpacing="sm" horizontalSpacing="md">
+                                <thead style={{ background: '#f4f6fb', borderBottom: '1px solid #dce3f5' }}>
+                                    <tr>
+                                        <th style={{ cursor: 'pointer' }} onClick={() => toggleOrden('matricula')}>Matrícula</th>
+                                        <th style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => toggleOrden('velocidad')}>Velocidad</th>
+                                        <th style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => toggleOrden('distanciaKm')}>Distancia (km)</th>
+                                        <th style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => toggleOrden('tiempoHoras')}>Tiempo (h)</th>
+                                        <th style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => toggleOrden('fechaHoraInicio')}>Inicio</th>
+                                        <th style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => toggleOrden('fechaHoraFin')}>Fin</th>
+                                        <th style={{ textAlign: 'center' }}>Lectores</th>
+                                        <th style={{ textAlign: 'center' }}>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {vehiculosOrdenados.map((vehiculo, index) => (
+                                        <tr key={`${vehiculo.matricula}-${vehiculo.fechaHoraInicio}-${index}`}>
+                                            <td>{vehiculo.matricula}</td>
+                                            <td style={{ textAlign: 'center' }}>
+                                                <Badge
+                                                    color={vehiculo.clasificacion === 'parada' ? 'orange' : vehiculo.clasificacion === 'baja' ? 'yellow' : 'red'}
+                                                    leftSection={<IconAlertTriangle size={12} />}
+                                                >
+                                                    {vehiculo.velocidad} km/h
+                                                </Badge>
+                                            </td>
+                                            <td style={{ textAlign: 'center' }}>{vehiculo.distanciaKm.toFixed(2)}</td>
+                                            <td style={{ textAlign: 'center' }}>{vehiculo.tiempoHoras.toFixed(2)}</td>
+                                            <td style={{ textAlign: 'center' }}>{new Date(vehiculo.fechaHoraInicio).toLocaleString()}</td>
+                                            <td style={{ textAlign: 'center' }}>{new Date(vehiculo.fechaHoraFin).toLocaleString()}</td>
+                                            <td style={{ textAlign: 'center' }}>
+                                                {vehiculo.lectorInicio} → {vehiculo.lectorFin}
+                                            </td>
+                                            <td style={{ textAlign: 'center' }}>
+                                                <Button
+                                                    size="xs"
+                                                    variant="subtle"
+                                                    color="green"
+                                                    onClick={async () => {
+                                                        await onGuardarVehiculos([vehiculo.matricula]);
+                                                    }}
+                                                    title="Guardar vehículo"
+                                                >
+                                                    <IconCar size={16} />
+                                                </Button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </Table>
+                        </Box>
 
                     </Stack>
                 </Group>

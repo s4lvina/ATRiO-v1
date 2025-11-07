@@ -21,6 +21,10 @@ export interface VelocidadAnormalTaskPayload {
         detectar_velocidad_reducida?: boolean;
         detectar_velocidad_alta?: boolean;
     };
+    puntos_lectores?: {
+        punto_a: string[];
+        punto_b: string[];
+    };
     distancia_manual_km?: number;
 }
 
