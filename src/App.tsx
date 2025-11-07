@@ -26,6 +26,7 @@ const CasosPage = lazy(() => import('./pages/CasosPage'));
 const ImportarPage = lazy(() => import('./pages/ImportarPage'));
 const CasoDetailPage = lazy(() => import('./pages/CasoDetailPage'));
 const LectoresPage = lazy(() => import('./pages/LectoresPage'));
+const ConsultaLectoresPage = lazy(() => import('./pages/ConsultaLectoresPage'));
 const BusquedaPage = lazy(() => import('./pages/BusquedaPage'));
 const AdminPage = lazy(() => import('./pages/AdminPage'));
 // Añade aquí las demás páginas cuando las crees, usando React.lazy
@@ -58,6 +59,7 @@ function App() {
                       <Route path="casos/:idCaso" element={<CasoDetailPage />} />
                       <Route path="importar" element={<ImportarPage />} />
                       <Route path="lectores" element={<LectoresPage />} />
+                      <Route path="consulta-lectores" element={<ConsultaLectoresPage />} />
                       <Route path="busqueda" element={<BusquedaPage />} />
                       <Route path="admin" element={
                         <ProtectedRoute requireSuperAdmin>

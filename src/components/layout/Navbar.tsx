@@ -1,6 +1,6 @@
 import React from 'react';
 import { Stack, Text, UnstyledButton, useMantineTheme, Box, Group, Avatar, ActionIcon, Badge } from '@mantine/core';
-import { IconHome2, IconFolder, IconFileImport, IconArrowsExchange, IconDeviceCctv, IconSettings, IconUser, IconX, IconFolderOpen, IconPlus } from '@tabler/icons-react';
+import { IconHome2, IconFolder, IconFileImport, IconArrowsExchange, IconDeviceCctv, IconSettings, IconUser, IconX, IconFolderOpen, IconPlus, IconMap } from '@tabler/icons-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { getFooterConfig } from '../../services/configApi';
@@ -12,6 +12,7 @@ const navItems = [
   { icon: IconFileImport, label: 'Importar Datos', path: '/importar' },
   { icon: IconArrowsExchange, label: 'Búsqueda Multi-Caso', path: '/busqueda' },
   { icon: IconDeviceCctv, label: 'Gestión de Lectores', path: '/lectores' },
+  { icon: IconMap, label: 'Consulta de Lectores', path: '/consulta-lectores' },
 ];
 
 interface NavbarProps { collapsed: boolean }
