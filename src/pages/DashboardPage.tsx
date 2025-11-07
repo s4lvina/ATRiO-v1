@@ -3,14 +3,13 @@ import { SimpleGrid, Card, Text, Group, ThemeIcon, rem, Box, Stack, Paper, Grid,
 import { IconFolder, IconDeviceCctv, IconMap2, IconSearch, IconFileImport, IconDatabase } from '@tabler/icons-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getEstadisticasGlobales } from '../services/estadisticasApi';
-import { getArchivosRecientes, getImportacionesRecientes } from '../services/dashboardApi';
+import { getArchivosRecientes, getImportacionesRecientes, type VehiculoSearchResult } from '../services/dashboardApi';
 import { getCasos } from '../services/casosApi';
 import { QuickSearch } from '../components/dashboard/QuickSearch';
 import { ImportTimeline } from '../components/dashboard/ImportTimeline';
 import { ReaderGeoAlerts } from '../components/dashboard/ReaderAlerts';
 import { LectoresMapDashboard } from '../components/dashboard/LectoresMapDashboard';
 import BusquedaMulticasoPanel from '../components/busqueda/BusquedaMulticasoPanel';
-import { buscarVehiculo } from '../services/dashboardApi';
 import { notifications } from '@mantine/notifications';
 
 // Datos de ejemplo para los widgets de resumen
@@ -70,30 +69,33 @@ function HomePage() {
     fetchDashboardData();
   }, [fetchEstadisticas, fetchDashboardData]);
 
-  const handleQuickSearch = async (matricula: string) => {
-    try {
-      const resultado = await buscarVehiculo(matricula);
-      if (resultado && resultado.lecturas.length > 0) {
-        notifications.show({
-          title: 'Vehículo encontrado',
-          message: `Se encontraron ${resultado.lecturas.length} lecturas para la matrícula ${matricula}`,
-          color: 'green',
-        });
-      } else {
-        notifications.show({
-          title: 'Vehículo no encontrado',
-          message: `No se encontraron lecturas para la matrícula ${matricula}`,
-          color: 'yellow',
-        });
-      }
-    } catch (error) {
+  const handleQuickSearch = useCallback((patron: string, resultados: VehiculoSearchResult[]) => {
+    if (!resultados.length) {
       notifications.show({
-        title: 'Error en la búsqueda',
-        message: 'No se pudo realizar la búsqueda del vehículo',
-        color: 'red',
+        title: 'Sin coincidencias',
+        message: `No se encontraron matrículas que coincidan con "${patron.toUpperCase()}"`,
+        color: 'yellow',
       });
+      return;
     }
-  };
+
+    const totalLecturas = resultados.reduce((acum, vehiculo) => acum + vehiculo.lecturas.length, 0);
+
+    if (resultados.length === 1) {
+      notifications.show({
+        title: 'Vehículo encontrado',
+        message: `Se encontraron ${resultados[0].lecturas.length} lecturas para la matrícula ${resultados[0].matricula}`,
+        color: 'green',
+      });
+      return;
+    }
+
+    notifications.show({
+      title: 'Múltiples coincidencias',
+      message: `Se encontraron ${resultados.length} matrículas coincidentes (${totalLecturas} lecturas en total).`,
+      color: 'blue',
+    });
+  }, []);
 
   return (
     <Box style={{ padding: '20px 32px' }}>

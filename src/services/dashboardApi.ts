@@ -25,7 +25,7 @@ interface RecentFile {
   caseName?: string;
 }
 
-interface VehiculoSearchResult {
+export interface VehiculoSearchResult {
   matricula: string;
   lecturas: {
     id: number;
@@ -35,20 +35,18 @@ interface VehiculoSearchResult {
   }[];
 }
 
-export const buscarVehiculo = async (matricula: string): Promise<VehiculoSearchResult> => {
+export const buscarVehiculo = async (matricula: string): Promise<VehiculoSearchResult[]> => {
   try {
     // Normalizar la matrícula quitando espacios y convirtiendo a mayúsculas
     const matriculaNormalizada = matricula.trim().toUpperCase();
+    const contieneComodines = /[\*\?]/.test(matriculaNormalizada);
     
     // Primero obtenemos todos los casos para buscar en todos
     const casosResponse = await apiClient.get('/casos');
     const casos = casosResponse.data.map((caso: any) => caso.ID_Caso);
     
     if (!casos || casos.length === 0) {
-      return {
-        matricula: matriculaNormalizada,
-        lecturas: []
-      };
+      return [];
     }
     
     // Usar el mismo endpoint que la búsqueda multicaso que funciona correctamente
@@ -60,38 +58,35 @@ export const buscarVehiculo = async (matricula: string): Promise<VehiculoSearchR
     // La respuesta viene con un formato diferente, adaptarla
     const vehiculosCoincidentes = response.data;
     if (!vehiculosCoincidentes || vehiculosCoincidentes.length === 0) {
-      return {
-        matricula: matriculaNormalizada,
-        lecturas: []
-      };
+      return [];
     }
 
-    // Encontrar el vehículo que coincide con la matrícula buscada
-    const vehiculo = vehiculosCoincidentes.find((v: any) => 
-      v.matricula.toUpperCase() === matriculaNormalizada
-    );
+  const mapearVehiculo = (vehiculo: any): VehiculoSearchResult => ({
+      matricula: (vehiculo.matricula || '').toUpperCase(),
+      lecturas: vehiculo.casos.flatMap((caso: any) =>
+        caso.lecturas.map((lectura: any) => ({
+          id: lectura.ID_Lectura,
+        fecha: new Date(lectura.Fecha_y_Hora).toISOString(),
+          lector: lectura.ID_Lector,
+          caso: lectura.Nombre_del_Caso || `Caso ${lectura.ID_Caso}`
+        }))
+      )
+    });
 
-    if (!vehiculo) {
-      return {
-        matricula: matriculaNormalizada,
-        lecturas: []
-      };
+    if (contieneComodines) {
+      return vehiculosCoincidentes.map(mapearVehiculo);
     }
 
-    // Extraer todas las lecturas de todos los casos del vehículo
-    const todasLasLecturas = vehiculo.casos.flatMap((caso: any) => 
-      caso.lecturas.map((lectura: any) => ({
-        id: lectura.ID_Lectura,
-        fecha: new Date(lectura.Fecha_y_Hora).toLocaleString('es-ES'),
-        lector: lectura.ID_Lector,
-        caso: lectura.Nombre_del_Caso || `Caso ${lectura.ID_Caso}`
-      }))
+    const vehiculoExacto = vehiculosCoincidentes.find(
+      (v: any) => (v.matricula || '').toUpperCase() === matriculaNormalizada
     );
 
-    return {
-      matricula: matriculaNormalizada,
-      lecturas: todasLasLecturas
-    };
+    if (vehiculoExacto) {
+      return [mapearVehiculo(vehiculoExacto)];
+    }
+
+    // Si no se encontró coincidencia exacta pero hay resultados, devolver todos
+    return vehiculosCoincidentes.map(mapearVehiculo);
   } catch (error) {
     console.error('Error al buscar vehículo:', error);
     throw new Error('No se pudo realizar la búsqueda del vehículo. Por favor, intenta de nuevo.');
