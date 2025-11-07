@@ -2,7 +2,7 @@ import React from 'react';
 import { Container, Title, Tabs, rem } from '@mantine/core';
 import { IconSearch, IconAnalyze, IconStar } from '@tabler/icons-react';
 // Importar el panel reutilizable
-import AnalisisLecturasPanel from '../components/analisis/AnalisisLecturasPanel';
+import AnalisisLecturasPanel from '../analisis/lpr/AnalisisLecturasPanel';
 
 // Eliminar imports que ya no se usan aquí (estados, DataTable, etc.)
 // import { useState, useEffect } from 'react';

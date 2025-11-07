@@ -11,15 +11,15 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { format } from 'date-fns';
 import type { Lectura, Lector, SavedSearch } from '../../types/data'; // Importar tipos necesarios
 import * as XLSX from 'xlsx'; // Importación para la exportación a Excel
-import { ProgressOverlay } from '../common/ProgressOverlay';
+import { ProgressOverlay } from '../../components/common/ProgressOverlay';
 import { getLectorSugerencias } from '../../services/lectoresApi';
 import { Lectura as LecturaAPI } from '../../types/api.ts';
 import apiClient from '../../services/api';
 import type { GpsLectura } from '../../types/data';
 import { getLecturasGps } from '../../services/gpsApi';
 import appEventEmitter from '../../utils/eventEmitter';
-import SaveSearchModal from '../modals/SaveSearchModal';
-import SavedSearchesModal from '../modals/SavedSearchesModal';
+import SaveSearchModal from '../../components/modals/SaveSearchModal';
+import SavedSearchesModal from '../../components/modals/SavedSearchesModal';
 import { useDebouncedValue } from '@mantine/hooks';
 
 // --- Estilos específicos (añadidos aquí también) ---
