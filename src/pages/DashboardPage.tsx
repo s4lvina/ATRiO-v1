@@ -9,7 +9,6 @@ import { QuickSearch } from '../components/dashboard/QuickSearch';
 import { ImportTimeline } from '../components/dashboard/ImportTimeline';
 import { ReaderGeoAlerts } from '../components/dashboard/ReaderAlerts';
 import { LectoresMapDashboard } from '../components/dashboard/LectoresMapDashboard';
-import BusquedaMulticasoPanel from '../components/busqueda/BusquedaMulticasoPanel';
 import { notifications } from '@mantine/notifications';
 
 // Datos de ejemplo para los widgets de resumen
@@ -107,15 +106,9 @@ function HomePage() {
           {/* Buscador Rápido */}
           <QuickSearch onSearch={handleQuickSearch} />
 
-          {/* Título para Búsqueda Multi-Caso */}
-          <Title order={3} mt="md" mb="xs">Búsqueda Multi-Caso</Title>
-          {/* Panel de Búsqueda Multi-Caso */}
-          <Card shadow="sm" radius="md" padding="lg" withBorder mt={0}>
-            <BusquedaMulticasoPanel />
-          </Card>
-
+          <Title order={3} mt="xl" mb="xs">Mapa de Lectores</Title>
           {/* Mapa de Lectores */}
-          <Box mt="xl">
+          <Box>
             <LectoresMapDashboard />
           </Box>
         </Grid.Col>

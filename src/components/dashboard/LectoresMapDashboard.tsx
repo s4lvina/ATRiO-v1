@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
-    Box, Title, Loader, Alert, Group, Text, ActionIcon, Paper, Stack
+    Box, Loader, Alert, Group, Text, ActionIcon, Paper, Stack
 } from '@mantine/core';
 import { IconX } from '@tabler/icons-react';
 import { getLectoresParaMapa } from '../../services/lectoresApi';
@@ -65,11 +65,15 @@ export function LectoresMapDashboard() {
 
   // Ajustar vista del mapa cuando cambian los lectores
   useEffect(() => {
-    if (mapRef.current && lectoresConCoordenadas.length > 0) {
+    if (!mapRef.current) return;
+
+    if (lectoresConCoordenadas.length > 0) {
       const bounds = L.latLngBounds(
         lectoresConCoordenadas.map(lector => [lector.Coordenada_Y!, lector.Coordenada_X!])
       );
       mapRef.current.fitBounds(bounds, { padding: [40, 40] });
+    } else {
+      mapRef.current.setView([40.4168, -3.7038], 11);
     }
   }, [lectoresConCoordenadas]);
 
@@ -91,7 +95,6 @@ export function LectoresMapDashboard() {
 
   return (
     <Paper shadow="sm" p="md" withBorder style={{ position: 'relative' }}>
-      <Title order={3} mb="md">Mapa de Lectores</Title>
       <Box style={{ height: '640px', width: '100%', position: 'relative' }}>
         {infoBanner && (
           <Box
@@ -161,12 +164,17 @@ export function LectoresMapDashboard() {
         {lectoresConCoordenadas.length > 0 ? (
           <MapContainer 
             center={[40.4168, -3.7038]} 
-            zoom={11} 
+            zoom={11}
+            minZoom={9}
+            maxZoom={14}
             scrollWheelZoom={true}
             doubleClickZoom={true}
             dragging={true}
             style={{ height: '100%', width: '100%' }}
-            ref={mapRef}
+            whenCreated={(mapInstance) => {
+              mapRef.current = mapInstance;
+              mapInstance.setView([40.4168, -3.7038], 11);
+            }}
           >
             <TileLayer
               url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png"
