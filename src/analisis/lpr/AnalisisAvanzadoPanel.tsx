@@ -177,8 +177,11 @@ function AnalisisAvanzadoPanel({ casoId }: PatronesPanelProps) {
         notifications.show({ title: 'Éxito', message: `Lecturas marcadas como relevantes.`, color: 'green' });
         setSelectedRows([]);
     };
-    const handleGuardarVehiculos = async () => {
-        const matriculasUnicas = Array.from(new Set(selectedRows.map(r => r.matricula || r.Matricula)));
+    const handleGuardarVehiculos = async (matriculasDesdePanel?: string[]) => {
+        const matriculasUnicas = matriculasDesdePanel && matriculasDesdePanel.length > 0
+            ? Array.from(new Set(matriculasDesdePanel))
+            : Array.from(new Set(selectedRows.map(r => r.matricula || r.Matricula)));
+
         if (matriculasUnicas.length === 0) {
             notifications.show({ title: 'Sin matrículas', message: 'No hay matrículas seleccionadas.', color: 'orange' });
             return;
@@ -195,7 +198,9 @@ function AnalisisAvanzadoPanel({ casoId }: PatronesPanelProps) {
             }
         }
         notifications.show({ title: 'Éxito', message: `Vehículos guardados.`, color: 'green' });
-        setSelectedRows([]);
+        if (!matriculasDesdePanel) {
+            setSelectedRows([]);
+        }
     };
 
     // Calcular el número de acompañantes que cumplen el filtro de mínimo de coincidencias
@@ -226,9 +231,6 @@ function AnalisisAvanzadoPanel({ casoId }: PatronesPanelProps) {
                     casoId={casoId}
                     vehiculosRapidos={vehiculosRapidos}
                     setVehiculosRapidos={setVehiculosRapidos}
-                    selectedRows={selectedRows}
-                    setSelectedRows={setSelectedRows}
-                    onMarcarRelevante={handleMarcarRelevante}
                     onGuardarVehiculos={handleGuardarVehiculos}
                     loading={velocidadLoading}
                     setLoading={setVelocidadLoading}
