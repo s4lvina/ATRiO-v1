@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Box, Text, Loader, Alert, Breadcrumbs, Anchor, Button, Group, ActionIcon, Tooltip, TextInput, SimpleGrid, Select, LoadingOverlay, Container, Table, Modal, Stack, Textarea, Title, Divider, Collapse, Badge, Center } from '@mantine/core';
+import { Box, Text, Loader, Alert, Breadcrumbs, Anchor, Button, Group, ActionIcon, Tooltip, TextInput, SimpleGrid, Select, LoadingOverlay, Container, Table, Modal, Stack, Textarea, Title, Divider, Collapse, Badge, Center, Paper } from '@mantine/core';
 import { type DataTableSortStatus } from 'mantine-datatable';
 import { IconAlertCircle, IconFiles, IconListDetails, IconMapPin, IconDownload, IconEye, IconTrash, IconSearch, IconClearAll, IconStar, IconStarOff, IconPencil, IconAnalyze, IconFileImport, IconCar, IconFlask, IconBook, IconTable, IconTarget, IconMap, IconRoute, IconDeviceCctv, IconArrowsJoin, IconBookmark, IconHelpCircle, IconRefresh, IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import { getCasoById } from '../services/casosApi';
@@ -21,7 +21,7 @@ import CasoMap from '../components/maps/CasoMap';
 import EditNotaModal from '../components/modals/EditNotaModal';
 import LecturasRelevantesPanel from '../components/caso/LecturasRelevantesPanel';
 import VehiculosPanel from '../components/vehiculos/VehiculosPanel';
-import AnalisisAvanzadoPanel from '../analisis/lpr/AnalisisAvanzadoPanel';
+import AnalisisAvanzadoPanel, { ANALISIS_AVANZADO_SUBTABS, type AnalisisAvanzadoSubTab } from '../analisis/lpr/AnalisisAvanzadoPanel';
 import HelpButton from '../components/common/HelpButton';
 import AnalisisLecturasPanel from '../analisis/lpr/AnalisisLecturasPanel';
 import GpsAnalysisPanel from '../components/gps/GpsAnalysisPanel';
@@ -255,6 +255,7 @@ function CasoDetailPage() {
 
   // El estado activeMainTab se mantiene, pero controla la sección activa
   const [activeMainTab, setActiveMainTab] = useState<string | null>('analisis-lpr');
+  const [activeAnalisisSubTab, setActiveAnalisisSubTab] = useState<AnalisisAvanzadoSubTab>('velocidad');
 
   // ---- NUEVO: Estado para el punto GPS a mostrar en el mapa ----
   const [puntoGpsSeleccionado, setPuntoGpsSeleccionado] = useState<GpsLectura | null>(null);
@@ -655,17 +656,73 @@ const handleDeleteArchivo = async (archivoId: number) => {
                 <Group gap={0} align="flex-start">
                     <Box>
                         <Text fw={500} c="#2b4fcf" mb="xs">Análisis sobre Lecturas</Text>
-                        <Group gap="xs">
+                        <Group gap="xs" align="flex-start">
                             {caseSections.filter(section => section.section === 'lecturas').map((section) => (
-                                <Button
-                                    key={section.id}
-                                    variant={activeMainTab === section.id ? 'filled' : 'light'}
-                                    leftSection={<section.icon size={16} />}
-                                    onClick={() => setActiveMainTab(section.id)}
-                                    color="#2b4fcf"
-                                >
-                                    {section.label}
-                                </Button>
+                                section.id === 'lanzadera' ? (
+                                    <Box
+                                        key={section.id}
+                                        style={{
+                                            position: 'relative',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center'
+                                        }}
+                                    >
+                                        <Button
+                                            variant={activeMainTab === section.id ? 'filled' : 'light'}
+                                            leftSection={<section.icon size={16} />}
+                                            onClick={() => setActiveMainTab(section.id)}
+                                            color="#2b4fcf"
+                                        >
+                                            {section.label}
+                                        </Button>
+                                        {activeMainTab === 'lanzadera' && (
+                                            <Paper
+                                                withBorder
+                                                shadow="sm"
+                                                radius="xl"
+                                                p="xs"
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: 'calc(100% + 12px)',
+                                                    left: '50%',
+                                                    transform: 'translateX(-50%)',
+                                                    background: '#f8fafc',
+                                                    zIndex: 5
+                                                }}
+                                            >
+                                                <Group gap="xs" justify="center" wrap="nowrap">
+                                                    {ANALISIS_AVANZADO_SUBTABS.map(({ value, label, icon: IconComponent, color }) => (
+                                                        <Button
+                                                            key={value}
+                                                            size="xs"
+                                                            variant={activeAnalisisSubTab === value ? 'filled' : 'light'}
+                                                            leftSection={<IconComponent size={14} />}
+                                                            color={color}
+                                                            onClick={() => {
+                                                                setActiveMainTab('lanzadera');
+                                                                setActiveAnalisisSubTab(value);
+                                                            }}
+                                                            style={{ fontWeight: 600 }}
+                                                        >
+                                                            {label}
+                                                        </Button>
+                                                    ))}
+                                                </Group>
+                                            </Paper>
+                                        )}
+                                    </Box>
+                                ) : (
+                                    <Button
+                                        key={section.id}
+                                        variant={activeMainTab === section.id ? 'filled' : 'light'}
+                                        leftSection={<section.icon size={16} />}
+                                        onClick={() => setActiveMainTab(section.id)}
+                                        color="#2b4fcf"
+                                    >
+                                        {section.label}
+                                    </Button>
+                                )
                             ))}
                         </Group>
                     </Box>
@@ -742,8 +799,14 @@ const handleDeleteArchivo = async (archivoId: number) => {
               </Box>
 
               {/* Pestaña Detección de Patrones */}
-              <Box style={{ display: activeMainTab === 'lanzadera' ? 'block' : 'none', position: 'relative' }}>
-                  <AnalisisAvanzadoPanel casoId={idCasoNum!} />
+              <Box
+                style={{
+                  display: activeMainTab === 'lanzadera' ? 'block' : 'none',
+                  position: 'relative',
+                  marginTop: activeMainTab === 'lanzadera' ? '48px' : 0
+                }}
+              >
+                  <AnalisisAvanzadoPanel casoId={idCasoNum!} activeSubTab={activeAnalisisSubTab} />
               </Box>
 
               {/* Pestaña Cruce de Fuentes Externas */}

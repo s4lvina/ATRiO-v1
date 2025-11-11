@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Box, Title, Text, Paper, Group, Button, TextInput, NumberInput, Select, Badge, Collapse, Card, Stack, ActionIcon, Menu } from '@mantine/core';
+import { Box, Title, Text, Paper, Group, Button, TextInput, NumberInput, Select, Badge, Card, Stack, ActionIcon, Menu } from '@mantine/core';
 import { IconSearch, IconMapPin, IconSortAscending, IconSortDescending, IconGauge, IconUsersGroup, IconWorld } from '@tabler/icons-react';
 import apiClient from '../../services/api';
 import { notifications } from '@mantine/notifications';
@@ -8,11 +8,27 @@ import VelocidadAnormalPanel, { type VehiculoRapido } from './VelocidadAnormalPa
 import { useMapHighlight } from '../../context/MapHighlightContext';
 import appEventEmitter from '../../utils/eventEmitter';
 
+export type AnalisisAvanzadoSubTab = 'velocidad' | 'lanzadera' | 'matriculas';
+
+type SubTabDefinition = {
+    value: AnalisisAvanzadoSubTab;
+    label: string;
+    icon: typeof IconGauge;
+    color: string;
+};
+
+export const ANALISIS_AVANZADO_SUBTABS: SubTabDefinition[] = [
+    { value: 'velocidad', label: 'Vehículos rápidos', icon: IconGauge, color: '#1d4ed8' },
+    { value: 'lanzadera', label: 'Vehículo acompañante', icon: IconUsersGroup, color: '#9333ea' },
+    { value: 'matriculas', label: 'Matrículas extranjeras', icon: IconWorld, color: '#059669' }
+];
+
 interface PatronesPanelProps {
     casoId: number;
+    activeSubTab?: AnalisisAvanzadoSubTab;
 }
 
-function AnalisisAvanzadoPanel({ casoId }: PatronesPanelProps) {
+function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad' }: PatronesPanelProps) {
     const [vehiculosRapidos, setVehiculosRapidos] = useState<VehiculoRapido[]>([]);
     const [velocidadLoading, setVelocidadLoading] = useState(false);
     const [lanzaderaParams, setLanzaderaParams] = useState({
@@ -27,7 +43,6 @@ function AnalisisAvanzadoPanel({ casoId }: PatronesPanelProps) {
     const [lanzaderaLoading, setLanzaderaLoading] = useState(false);
     const [lanzaderaDetalles, setLanzaderaDetalles] = useState<any[]>([]);
     const [selectedRows, setSelectedRows] = useState<any[]>([]);
-    const [activeSubTab, setActiveSubTab] = useState<'velocidad' | 'lanzadera' | 'matriculas'>('velocidad');
     const { setHighlightedLecturas } = useMapHighlight();
     const [ordenCoincidencias, setOrdenCoincidencias] = useState<'fecha'|'matricula'|'tipo'>('fecha');
     const [ordenAsc, setOrdenAsc] = useState(true);
@@ -155,12 +170,6 @@ function AnalisisAvanzadoPanel({ casoId }: PatronesPanelProps) {
         }
     };
 
-    const subTabs = [
-        { value: 'velocidad' as const, label: 'Vehículos rápidos', icon: IconGauge, color: '#1d4ed8' },
-        { value: 'lanzadera' as const, label: 'Vehículo acompañante', icon: IconUsersGroup, color: '#9333ea' },
-        { value: 'matriculas' as const, label: 'Matrículas extranjeras', icon: IconWorld, color: '#059669' }
-    ];
-
     // Acciones
     const handleMarcarRelevante = async () => {
         const lecturasConId = selectedRows.filter(r => r.tipo === 'velocidad' && r.ID_Lectura);
@@ -244,24 +253,6 @@ function AnalisisAvanzadoPanel({ casoId }: PatronesPanelProps) {
 
     return (
         <Box>
-            <Paper withBorder p="sm" mb="md" radius="md" style={{ background: '#f8fafc' }}>
-                <Group gap="xs">
-                    {subTabs.map(({ value, label, icon: IconComponent, color }) => (
-                        <Button
-                            key={value}
-                            size="xs"
-                            variant={activeSubTab === value ? 'filled' : 'light'}
-                            leftSection={<IconComponent size={14} />}
-                            color={color}
-                            onClick={() => setActiveSubTab(value)}
-                            style={{ fontWeight: 600 }}
-                        >
-                            {label}
-                        </Button>
-                    ))}
-                </Group>
-            </Paper>
-
             {activeSubTab === 'velocidad' && (
                 <VelocidadAnormalPanel
                     casoId={casoId}
