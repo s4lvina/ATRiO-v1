@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Group, Button, TextInput, Title, Table, LoadingOverlay, MultiSelect, ActionIcon, Loader } from '@mantine/core';
+import { Box, Group, Button, TextInput, Table, LoadingOverlay, MultiSelect, Stack, Text } from '@mantine/core';
 import { IconSearch, IconArrowUp, IconArrowDown, IconArrowsSort } from '@tabler/icons-react';
 import CountryFlag from 'react-country-flag';
 import { platePatterns } from '../../utils/platePatterns';
@@ -212,12 +212,9 @@ export default function MatriculasExtranjerasPanel({ loading: externalLoading }:
   const isLoading = externalLoading || loadingLecturas || searching;
 
   return (
-    <Box>
-      <Group justify="space-between" mb="md">
-        <Title order={4}>Búsqueda de Matrículas Extranjeras</Title>
-      </Group>
-      <Group justify="space-between" mb="md">
-        <Group>
+    <Stack gap="md">
+      <Group align="flex-start" gap="xl" wrap="nowrap">
+        <Stack gap="sm" style={{ flex: '0 0 320px' }}>
           <MultiSelect
             label="Países (opcional)"
             placeholder="Todos los países"
@@ -242,113 +239,111 @@ export default function MatriculasExtranjerasPanel({ loading: externalLoading }:
             onChange={e => setMatricula(e.target.value)}
             placeholder="Ej: 1234ABC"
           />
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: 12, color: '#666', marginBottom: 2 }}>Fecha inicio (opcional)</span>
+          <Stack gap={4}>
+            <Text size="sm" c="dimmed">Fecha inicio (opcional)</Text>
             <TextInput
               type="date"
               value={fechaInicio ? fechaInicio.toISOString().split('T')[0] : ''}
               onChange={e => setFechaInicio(e.target.value ? new Date(e.target.value) : null)}
-              style={{ minWidth: 160 }}
             />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: 12, color: '#666', marginBottom: 2 }}>Fecha fin (opcional)</span>
+          </Stack>
+          <Stack gap={4}>
+            <Text size="sm" c="dimmed">Fecha fin (opcional)</Text>
             <TextInput
               type="date"
               value={fechaFin ? fechaFin.toISOString().split('T')[0] : ''}
               onChange={e => setFechaFin(e.target.value ? new Date(e.target.value) : null)}
-              style={{ minWidth: 160 }}
             />
-          </div>
-          <Button leftSection={<IconSearch size={16} />} onClick={handleBuscar} loading={searching}>
+          </Stack>
+          <Button fullWidth leftSection={<IconSearch size={16} />} onClick={handleBuscar} loading={searching}>
             Buscar
           </Button>
-        </Group>
-      </Group>
-      <Box style={{ position: 'relative' }}>
-        <LoadingOverlay visible={isLoading && !loadingLecturas} />
-        <Table striped highlightOnHover withColumnBorders>
-          <thead>
-            <tr>
-              <th>
-                <Group gap={4} style={{ cursor: 'pointer' }} onClick={() => handleSort('pais')}>
-                  País
-                  {sortField === 'pais' ? (
-                    sortDirection === 'asc' ? <IconArrowUp size={14} /> : <IconArrowDown size={14} />
-                  ) : (
-                    <IconArrowsSort size={14} />
-                  )}
-                </Group>
-              </th>
-              <th>
-                <Group gap={4} style={{ cursor: 'pointer' }} onClick={() => handleSort('matricula')}>
-                  Matrícula
-                  {sortField === 'matricula' ? (
-                    sortDirection === 'asc' ? <IconArrowUp size={14} /> : <IconArrowDown size={14} />
-                  ) : (
-                    <IconArrowsSort size={14} />
-                  )}
-                </Group>
-              </th>
-              <th>
-                <Group gap={4} style={{ cursor: 'pointer' }} onClick={() => handleSort('fecha')}>
-                  Fecha/Hora
-                  {sortField === 'fecha' ? (
-                    sortDirection === 'asc' ? <IconArrowUp size={14} /> : <IconArrowDown size={14} />
-                  ) : (
-                    <IconArrowsSort size={14} />
-                  )}
-                </Group>
-              </th>
-              <th>
-                <Group gap={4} style={{ cursor: 'pointer' }} onClick={() => handleSort('lector')}>
-                  Lector
-                  {sortField === 'lector' ? (
-                    sortDirection === 'asc' ? <IconArrowUp size={14} /> : <IconArrowDown size={14} />
-                  ) : (
-                    <IconArrowsSort size={14} />
-                  )}
-                </Group>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedResults.length === 0 ? (
+        </Stack>
+        <Box style={{ flex: 1, position: 'relative' }}>
+          <LoadingOverlay visible={isLoading && !loadingLecturas} />
+          <Table striped highlightOnHover withColumnBorders>
+            <thead>
               <tr>
-                <td colSpan={4} style={{ textAlign: 'center', color: '#888' }}>No hay resultados.</td>
-              </tr>
-            ) : (
-              sortedResults.map((r, i) => (
-                <tr key={i}>
-                  <td style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {r.pais && (
-                      <>
-                        {r.pais.code === 'FRIT' ? (
-                          <>
-                            <CountryFlag countryCode="FR" svg style={{ width: 24 }} />
-                            <CountryFlag countryCode="IT" svg style={{ width: 24 }} />
-                          </>
-                        ) : (
-                          <CountryFlag countryCode={r.pais.code} svg style={{ width: 24 }} />
-                        )}
-                        {r.pais.name}
-                        {r.pais.isPotentiallyIncomplete && (
-                          <span style={{ color: 'orange', marginLeft: '8px' }}>
-                            (Posible lectura incompleta)
-                          </span>
-                        )}
-                      </>
+                <th>
+                  <Group gap={4} style={{ cursor: 'pointer' }} onClick={() => handleSort('pais')}>
+                    País
+                    {sortField === 'pais' ? (
+                      sortDirection === 'asc' ? <IconArrowUp size={14} /> : <IconArrowDown size={14} />
+                    ) : (
+                      <IconArrowsSort size={14} />
                     )}
-                  </td>
-                  <td>{r.Matricula}</td>
-                  <td>{new Date(r.Fecha_y_Hora).toLocaleString()}</td>
-                  <td>{r.ID_Lector || '-'}</td>
+                  </Group>
+                </th>
+                <th>
+                  <Group gap={4} style={{ cursor: 'pointer' }} onClick={() => handleSort('matricula')}>
+                    Matrícula
+                    {sortField === 'matricula' ? (
+                      sortDirection === 'asc' ? <IconArrowUp size={14} /> : <IconArrowDown size={14} />
+                    ) : (
+                      <IconArrowsSort size={14} />
+                    )}
+                  </Group>
+                </th>
+                <th>
+                  <Group gap={4} style={{ cursor: 'pointer' }} onClick={() => handleSort('fecha')}>
+                    Fecha/Hora
+                    {sortField === 'fecha' ? (
+                      sortDirection === 'asc' ? <IconArrowUp size={14} /> : <IconArrowDown size={14} />
+                    ) : (
+                      <IconArrowsSort size={14} />
+                    )}
+                  </Group>
+                </th>
+                <th>
+                  <Group gap={4} style={{ cursor: 'pointer' }} onClick={() => handleSort('lector')}>
+                    Lector
+                    {sortField === 'lector' ? (
+                      sortDirection === 'asc' ? <IconArrowUp size={14} /> : <IconArrowDown size={14} />
+                    ) : (
+                      <IconArrowsSort size={14} />
+                    )}
+                  </Group>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedResults.length === 0 ? (
+                <tr>
+                  <td colSpan={4} style={{ textAlign: 'center', color: '#888' }}>No hay resultados.</td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </Table>
-      </Box>
-    </Box>
+              ) : (
+                sortedResults.map((r, i) => (
+                  <tr key={i}>
+                    <td style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {r.pais && (
+                        <>
+                          {r.pais.code === 'FRIT' ? (
+                            <>
+                              <CountryFlag countryCode="FR" svg style={{ width: 24 }} />
+                              <CountryFlag countryCode="IT" svg style={{ width: 24 }} />
+                            </>
+                          ) : (
+                            <CountryFlag countryCode={r.pais.code} svg style={{ width: 24 }} />
+                          )}
+                          {r.pais.name}
+                          {r.pais.isPotentiallyIncomplete && (
+                            <span style={{ color: 'orange', marginLeft: '8px' }}>
+                              (Posible lectura incompleta)
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </td>
+                    <td>{r.Matricula}</td>
+                    <td>{new Date(r.Fecha_y_Hora).toLocaleString()}</td>
+                    <td>{r.ID_Lector || '-'}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </Table>
+        </Box>
+      </Group>
+    </Stack>
   );
 } 

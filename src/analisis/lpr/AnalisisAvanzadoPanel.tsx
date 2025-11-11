@@ -269,162 +269,178 @@ function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad' }: PatronesP
                     <Group justify="space-between" mb="md">
                         <Title order={4}>Detección de Vehículo Acompañante</Title>
                     </Group>
-                    <Group mb="md" align="flex-end">
-                        <TextInput
-                            label="Matrícula objetivo"
-                            value={lanzaderaParams?.matricula || ''}
-                            onChange={e => setLanzaderaParams(p => ({ ...p, matricula: e.target.value }))}
-                            placeholder="Introduce matrícula"
-                            required
-                        />
-                        <TextInput
-                            type="date"
-                            label="Fecha Inicio"
-                            value={lanzaderaParams?.fechaInicio || ''}
-                            onChange={e => setLanzaderaParams(p => ({ ...p, fechaInicio: e.target.value }))}
-                        />
-                        <TextInput
-                            type="date"
-                            label="Fecha Fin"
-                            value={lanzaderaParams?.fechaFin || ''}
-                            onChange={e => setLanzaderaParams(p => ({ ...p, fechaFin: e.target.value }))}
-                        />
-                        <NumberInput
-                            label="Ventana temporal (minutos)"
-                            value={lanzaderaParams?.ventanaMinutos || 10}
-                            onChange={v => setLanzaderaParams(p => ({ ...p, ventanaMinutos: typeof v === 'number' ? v : 10 }))}
-                            min={1}
-                            max={120}
-                        />
-                        <NumberInput
-                            label="Diferencia mínima entre lecturas (min)"
-                            value={lanzaderaParams?.diferenciaMinima || 5}
-                            onChange={v => setLanzaderaParams(p => ({ ...p, diferenciaMinima: typeof v === 'number' ? v : 5 }))}
-                            min={1}
-                            max={60}
-                        />
-                        <NumberInput
-                            label="Mínimo de coincidencias"
-                            value={lanzaderaParams?.minCoincidencias || 2}
-                            onChange={v => setLanzaderaParams(p => ({ ...p, minCoincidencias: typeof v === 'number' ? v : 2 }))}
-                            min={2}
-                            max={20}
-                        />
-                        <Select
-                            label="Dirección de acompañamiento"
-                            value={lanzaderaParams?.direccionAcompanamiento || 'ambas'}
-                            onChange={v => setLanzaderaParams(p => ({ ...p, direccionAcompanamiento: v || 'ambas' }))}
-                            data={[
-                                { value: 'ambas', label: 'Por delante y por detrás' },
-                                { value: 'delante', label: 'Solo por delante' },
-                                { value: 'detras', label: 'Solo por detrás' }
-                            ]}
-                        />
-                        <Group mt="md">
-                            <Button
-                                leftSection={<IconSearch size={16} />}
-                                onClick={handleBuscarLanzadera}
-                                loading={lanzaderaLoading}
-                            >
-                                Buscar
-                            </Button>
-                            <Button
-                                variant="light"
-                                color="gray"
-                                onClick={async () => {
-                                    try {
-                                        await apiClient.post('/api/admin/cache/clear-lanzadera');
-                                        notifications.show({
-                                            title: 'Caché limpiado',
-                                            message: 'Se ha limpiado el caché del análisis de lanzaderas',
-                                            color: 'green'
+
+                    <Group align="flex-start" gap="xl" wrap="nowrap">
+                        <Stack gap="sm" style={{ flex: '0 0 320px' }}>
+                            <TextInput
+                                label="Matrícula objetivo"
+                                value={lanzaderaParams?.matricula || ''}
+                                onChange={e => setLanzaderaParams(p => ({ ...p, matricula: e.target.value }))}
+                                placeholder="Introduce matrícula"
+                                required
+                                style={{ width: '100%' }}
+                            />
+                            <TextInput
+                                type="date"
+                                label="Fecha inicio"
+                                value={lanzaderaParams?.fechaInicio || ''}
+                                onChange={e => setLanzaderaParams(p => ({ ...p, fechaInicio: e.target.value }))}
+                                style={{ width: '100%' }}
+                            />
+                            <TextInput
+                                type="date"
+                                label="Fecha fin"
+                                value={lanzaderaParams?.fechaFin || ''}
+                                onChange={e => setLanzaderaParams(p => ({ ...p, fechaFin: e.target.value }))}
+                                style={{ width: '100%' }}
+                            />
+                            <NumberInput
+                                label="Ventana temporal (minutos)"
+                                value={lanzaderaParams?.ventanaMinutos || 10}
+                                onChange={v => setLanzaderaParams(p => ({ ...p, ventanaMinutos: typeof v === 'number' ? v : 10 }))}
+                                min={1}
+                                max={120}
+                                style={{ width: '100%' }}
+                            />
+                            <NumberInput
+                                label="Diferencia mínima entre lecturas (min)"
+                                value={lanzaderaParams?.diferenciaMinima || 5}
+                                onChange={v => setLanzaderaParams(p => ({ ...p, diferenciaMinima: typeof v === 'number' ? v : 5 }))}
+                                min={1}
+                                max={60}
+                                style={{ width: '100%' }}
+                            />
+                            <NumberInput
+                                label="Mínimo de coincidencias"
+                                value={lanzaderaParams?.minCoincidencias || 2}
+                                onChange={v => setLanzaderaParams(p => ({ ...p, minCoincidencias: typeof v === 'number' ? v : 2 }))}
+                                min={2}
+                                max={20}
+                                style={{ width: '100%' }}
+                            />
+                            <Select
+                                label="Dirección de acompañamiento"
+                                value={lanzaderaParams?.direccionAcompanamiento || 'ambas'}
+                                onChange={v => setLanzaderaParams(p => ({ ...p, direccionAcompanamiento: v || 'ambas' }))}
+                                data={[
+                                    { value: 'ambas', label: 'Por delante y por detrás' },
+                                    { value: 'delante', label: 'Solo por delante' },
+                                    { value: 'detras', label: 'Solo por detrás' }
+                                ]}
+                                style={{ width: '100%' }}
+                            />
+                            <Stack gap="xs" mt="sm">
+                                <Button
+                                    leftSection={<IconSearch size={16} />}
+                                    onClick={handleBuscarLanzadera}
+                                    loading={lanzaderaLoading}
+                                    fullWidth
+                                >
+                                    Buscar
+                                </Button>
+                                <Button
+                                    fullWidth
+                                    variant="light"
+                                    color="gray"
+                                    onClick={async () => {
+                                        try {
+                                            await apiClient.post('/api/admin/cache/clear-lanzadera');
+                                            notifications.show({
+                                                title: 'Caché limpiado',
+                                                message: 'Se ha limpiado el caché del análisis de lanzaderas',
+                                                color: 'green'
+                                            });
+                                        } catch (error) {
+                                            console.warn('No se pudo limpiar el caché:', error);
+                                        }
+
+                                        setLanzaderaParams({
+                                            matricula: '',
+                                            ventanaMinutos: 10,
+                                            diferenciaMinima: 5,
+                                            fechaInicio: '',
+                                            fechaFin: '',
+                                            minCoincidencias: 2,
+                                            direccionAcompanamiento: 'ambas'
                                         });
-                                    } catch (error) {
-                                        console.warn('No se pudo limpiar el caché:', error);
-                                    }
+                                        setLanzaderaDetalles([]);
+                                        setSelectedRows([]);
+                                    }}
+                                >
+                                    Limpiar
+                                </Button>
+                            </Stack>
+                        </Stack>
 
-                                    setLanzaderaParams({
-                                        matricula: '',
-                                        ventanaMinutos: 10,
-                                        diferenciaMinima: 5,
-                                        fechaInicio: '',
-                                        fechaFin: '',
-                                        minCoincidencias: 2,
-                                        direccionAcompanamiento: 'ambas'
-                                    });
-                                setLanzaderaDetalles([]);
-                                    setSelectedRows([]);
-                                }}
-                            >
-                                Limpiar
-                            </Button>
-                        </Group>
-                    </Group>
+                        <Stack gap="sm" style={{ flex: 1 }}>
+                            <Group justify="space-between" align="center">
+                                <Title order={5} mb={0}>Lecturas Intercaladas (Objetivo y Acompañante)</Title>
+                                <Group gap="xs" align="center">
+                                    <Text fw={500}>Coincidencias: {numAcompanantesFiltrados}</Text>
+                                    <Menu shadow="md" width={180}>
+                                        <Menu.Target>
+                                            <ActionIcon variant="light" color="blue"><IconSortAscending size={18} /></ActionIcon>
+                                        </Menu.Target>
+                                        <Menu.Dropdown>
+                                            <Menu.Item onClick={() => { setOrdenCoincidencias('fecha'); setOrdenAsc(true); }}>Fecha ascendente</Menu.Item>
+                                            <Menu.Item onClick={() => { setOrdenCoincidencias('fecha'); setOrdenAsc(false); }}>Fecha descendente</Menu.Item>
+                                            <Menu.Item onClick={() => { setOrdenCoincidencias('matricula'); setOrdenAsc(true); }}>Matrícula ascendente</Menu.Item>
+                                            <Menu.Item onClick={() => { setOrdenCoincidencias('matricula'); setOrdenAsc(false); }}>Matrícula descendente</Menu.Item>
+                                        </Menu.Dropdown>
+                                    </Menu>
+                                </Group>
+                            </Group>
 
-                    <Title order={5} mt="md" mb="xs">Lecturas Intercaladas (Objetivo y Acompañante)</Title>
-                    <Group align="center" mb="xs">
-                        <Text fw={500}>Coincidencias encontradas: {numAcompanantesFiltrados}</Text>
-                        <Menu shadow="md" width={180}>
-                            <Menu.Target>
-                                <ActionIcon variant="light" color="blue"><IconSortAscending size={18} /></ActionIcon>
-                            </Menu.Target>
-                            <Menu.Dropdown>
-                                <Menu.Item onClick={() => { setOrdenCoincidencias('fecha'); setOrdenAsc(true); }}>Fecha ascendente</Menu.Item>
-                                <Menu.Item onClick={() => { setOrdenCoincidencias('fecha'); setOrdenAsc(false); }}>Fecha descendente</Menu.Item>
-                                <Menu.Item onClick={() => { setOrdenCoincidencias('matricula'); setOrdenAsc(true); }}>Matrícula ascendente</Menu.Item>
-                                <Menu.Item onClick={() => { setOrdenCoincidencias('matricula'); setOrdenAsc(false); }}>Matrícula descendente</Menu.Item>
-                            </Menu.Dropdown>
-                        </Menu>
-                    </Group>
-
-                    <Stack>
-                        {numAcompanantesFiltrados === 0 && (
-                            <Text c="dimmed" ta="center" my="md">No se han encontrado vehículos acompañantes</Text>
-                        )}
-                        {Object.entries(agrupacionAcompanantes)
-                            .filter(([_, coincidencias]) => coincidencias.length >= (lanzaderaParams.minCoincidencias || 2))
-                            .sort((a, b) => b[1].length - a[1].length)
-                            .map(([matricula, coincidencias]) => (
-                                <Card key={matricula} shadow="sm" p="md" radius="md" withBorder mb="sm">
-                                    <Group justify="space-between" mb="xs">
-                                        <Text fw={700}>
-                                            {matricula} <Badge color="gray" ml="sm">Coincidencias: {coincidencias.length}</Badge>
-                                        </Text>
-                                        <Button size="xs" onClick={() => setHighlightedLecturas(coincidencias.flatMap(c => [c.objetivo, c.acompanante]))} leftSection={<IconMapPin size={16} />}>
-                                            Ver en mapa
-                                        </Button>
-                                    </Group>
-                                    <Stack gap={4}>
-                                        {coincidencias.map((c, i) => (
-                                            <Group key={i} gap="md">
-                                                <Badge color="blue">OBJETIVO</Badge>
-                                                <Text fw={700}>{c.objetivo.matricula}</Text>
-                                                <Text>{c.objetivo.fecha} {c.objetivo.hora.length === 5 ? c.objetivo.hora + ':00' : c.objetivo.hora}</Text>
-                                                <Text size="sm" color="dimmed">{c.objetivo.lector}</Text>
-                                                <Badge color="gray">ACOMPAÑANTE</Badge>
-                                                <Text fw={400}>{c.acompanante.matricula}</Text>
-                                                <Text>{c.acompanante.fecha} {c.acompanante.hora.length === 5 ? c.acompanante.hora + ':00' : c.acompanante.hora}</Text>
-                                                <Text size="sm" color="dimmed">{c.acompanante.lector}</Text>
-                                                {c.acompanante.direccion_temporal && (
-                                                    <Badge 
-                                                        color={
-                                                            c.acompanante.direccion_temporal === 'delante' ? 'green' : 
-                                                            c.acompanante.direccion_temporal === 'detras' ? 'orange' : 
-                                                            'blue'
-                                                        }
-                                                        size="sm"
-                                                    >
-                                                        {c.acompanante.direccion_temporal === 'delante' ? 'Por delante' : 
-                                                         c.acompanante.direccion_temporal === 'detras' ? 'Por detrás' : 
-                                                         'Simultáneo'}
-                                                    </Badge>
-                                                )}
+                            <Stack>
+                                {numAcompanantesFiltrados === 0 && (
+                                    <Text c="dimmed" ta="center" my="md">No se han encontrado vehículos acompañantes</Text>
+                                )}
+                                {Object.entries(agrupacionAcompanantes)
+                                    .filter(([_, coincidencias]) => coincidencias.length >= (lanzaderaParams.minCoincidencias || 2))
+                                    .sort((a, b) => b[1].length - a[1].length)
+                                    .map(([matricula, coincidencias]) => (
+                                        <Card key={matricula} shadow="sm" p="md" radius="md" withBorder mb="sm">
+                                            <Group justify="space-between" mb="xs">
+                                                <Text fw={700}>
+                                                    {matricula} <Badge color="gray" ml="sm">Coincidencias: {coincidencias.length}</Badge>
+                                                </Text>
+                                                <Button size="xs" onClick={() => setHighlightedLecturas(coincidencias.flatMap(c => [c.objetivo, c.acompanante]))} leftSection={<IconMapPin size={16} />}>
+                                                    Ver en mapa
+                                                </Button>
                                             </Group>
-                                        ))}
-                                    </Stack>
-                                </Card>
-                            ))}
-                    </Stack>
+                                            <Stack gap={4}>
+                                                {coincidencias.map((c, i) => (
+                                                    <Group key={i} gap="md">
+                                                        <Badge color="blue">OBJETIVO</Badge>
+                                                        <Text fw={700}>{c.objetivo.matricula}</Text>
+                                                        <Text>{c.objetivo.fecha} {c.objetivo.hora.length === 5 ? c.objetivo.hora + ':00' : c.objetivo.hora}</Text>
+                                                        <Text size="sm" color="dimmed">{c.objetivo.lector}</Text>
+                                                        <Badge color="gray">ACOMPAÑANTE</Badge>
+                                                        <Text fw={400}>{c.acompanante.matricula}</Text>
+                                                        <Text>{c.acompanante.fecha} {c.acompanante.hora.length === 5 ? c.acompanante.hora + ':00' : c.acompanante.hora}</Text>
+                                                        <Text size="sm" color="dimmed">{c.acompanante.lector}</Text>
+                                                        {c.acompanante.direccion_temporal && (
+                                                            <Badge 
+                                                                color={
+                                                                    c.acompanante.direccion_temporal === 'delante' ? 'green' : 
+                                                                    c.acompanante.direccion_temporal === 'detras' ? 'orange' : 
+                                                                    'blue'
+                                                                }
+                                                                size="sm"
+                                                            >
+                                                                {c.acompanante.direccion_temporal === 'delante' ? 'Por delante' : 
+                                                                 c.acompanante.direccion_temporal === 'detras' ? 'Por detrás' : 
+                                                                 'Simultáneo'}
+                                                            </Badge>
+                                                        )}
+                                                    </Group>
+                                                ))}
+                                            </Stack>
+                                        </Card>
+                                    ))}
+                            </Stack>
+                        </Stack>
+                    </Group>
                 </Paper>
             )}
 
