@@ -10,13 +10,11 @@ import {
     Box,
     Alert,
     LoadingOverlay,
-    Table,
     Badge,
     Title,
     SegmentedControl,
     MultiSelect,
     Select,
-    Divider,
 } from '@mantine/core';
 import { IconSearch, IconCar, IconAlertTriangle, IconInfoCircle } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
@@ -24,6 +22,7 @@ import apiClient from '../../services/api';
 import type { Lectura, Lector } from '../../types/data';
 import { useTask } from '../../contexts/TaskContext';
 import { iniciarVelocidadAnormalAsync, VelocidadAnormalTaskPayload } from './utils/velocidadAnormalService';
+import { DataTable, type DataTableColumn, type DataTableSortStatus } from 'mantine-datatable';
 
 export interface VehiculoRapido {
     matricula: string;
@@ -80,6 +79,7 @@ interface AnalisisResumen {
 const PARADA_THRESHOLD = 45; // km/h
 const MAX_VELOCIDAD_PERMITIDA = 300; // km/h
 const VELOCIDAD_NOTIFICATION_ID = 'velocidad-anormal-task';
+type VehiculoRapidoConId = VehiculoRapido & { __id: string };
 
 const parsePKFlexible = (pkString: string): number => {
     if (!pkString) return 0;
@@ -275,14 +275,96 @@ const VelocidadAnormalPanel: React.FC<VelocidadAnormalPanelProps> = ({
         return data;
     }, [vehiculosRapidos, ordenTabla]);
 
-    const toggleOrden = useCallback((campo: 'matricula' | 'velocidad' | 'distanciaKm' | 'tiempoHoras' | 'fechaHoraInicio' | 'fechaHoraFin' | 'carretera') => {
-        setOrdenTabla((prev) => {
-            if (prev.campo === campo) {
-                return { campo, direccion: prev.direccion === 'asc' ? 'desc' : 'asc' };
-            }
-            return { campo, direccion: 'asc' };
-        });
-    }, []);
+    const vehiculosConId = useMemo<VehiculoRapidoConId[]>(
+        () =>
+            vehiculosOrdenados.map((vehiculo, index) => ({
+                ...vehiculo,
+                __id: `${vehiculo.matricula}-${vehiculo.fechaHoraInicio}-${index}`,
+            })),
+        [vehiculosOrdenados],
+    );
+
+    const dataTableColumns = useMemo<DataTableColumn<VehiculoRapidoConId>[]>(() => [
+        {
+            accessor: 'matricula',
+            title: 'Matrícula',
+            sortable: true,
+        },
+        {
+            accessor: 'velocidad',
+            title: 'Velocidad',
+            sortable: true,
+            textAlign: 'center',
+            render: (vehiculo) => (
+                <Badge
+                    color={vehiculo.clasificacion === 'parada' ? 'orange' : vehiculo.clasificacion === 'baja' ? 'yellow' : 'red'}
+                    leftSection={<IconAlertTriangle size={12} />}
+                >
+                    {vehiculo.velocidad} km/h
+                </Badge>
+            ),
+        },
+        {
+            accessor: 'distanciaKm',
+            title: 'Distancia (km)',
+            sortable: true,
+            textAlign: 'center',
+            render: (vehiculo) => vehiculo.distanciaKm.toFixed(2),
+        },
+        {
+            accessor: 'tiempoHoras',
+            title: 'Tiempo (h)',
+            sortable: true,
+            textAlign: 'center',
+            render: (vehiculo) => vehiculo.tiempoHoras.toFixed(2),
+        },
+        {
+            accessor: 'fechaHoraInicio',
+            title: 'Inicio',
+            sortable: true,
+            textAlign: 'center',
+            render: (vehiculo) => new Date(vehiculo.fechaHoraInicio).toLocaleString(),
+        },
+        {
+            accessor: 'fechaHoraFin',
+            title: 'Fin',
+            sortable: true,
+            textAlign: 'center',
+            render: (vehiculo) => new Date(vehiculo.fechaHoraFin).toLocaleString(),
+        },
+        {
+            accessor: 'carretera',
+            title: 'Lectores',
+            textAlign: 'center',
+            render: (vehiculo) => `${vehiculo.lectorInicio} → ${vehiculo.lectorFin}`,
+        },
+        {
+            accessor: 'acciones',
+            title: 'Acciones',
+            textAlign: 'center',
+            render: (vehiculo) => (
+                <Button
+                    size="xs"
+                    variant="subtle"
+                    color="green"
+                    onClick={async () => {
+                        await onGuardarVehiculos([vehiculo.matricula]);
+                    }}
+                    title="Guardar vehículo"
+                >
+                    <IconCar size={16} />
+                </Button>
+            ),
+        },
+    ], [onGuardarVehiculos]);
+
+    const dataTableSortStatus = useMemo<DataTableSortStatus<VehiculoRapidoConId>>(
+        () => ({
+            columnAccessor: ordenTabla.campo as keyof VehiculoRapidoConId,
+            direction: ordenTabla.direccion,
+        }),
+        [ordenTabla],
+    );
 
     const cargarLectores = useCallback(async () => {
         setLectoresLoading(true);
@@ -1089,7 +1171,7 @@ const VelocidadAnormalPanel: React.FC<VelocidadAnormalPanelProps> = ({
                         </Group>
                     </Stack>
 
-                    <Stack gap="md" style={{ flex: 1 }}>
+                    <Stack gap="xs" style={{ flex: 1 }}>
                         {error && (
                             <Alert color="red" title="Error">
                                 {error}
@@ -1104,60 +1186,34 @@ const VelocidadAnormalPanel: React.FC<VelocidadAnormalPanelProps> = ({
 
                         <Box style={{ position: 'relative' }}>
                             <LoadingOverlay visible={loading && vehiculosRapidos.length === 0} />
-                            <Group justify="flex-end" align="center">
+                            <DataTable<VehiculoRapidoConId>
+                                withTableBorder
+                                borderRadius="sm"
+                                withColumnBorders
+                                striped
+                                highlightOnHover
+                                records={vehiculosConId}
+                                columns={dataTableColumns}
+                                idAccessor="__id"
+                                verticalSpacing="sm"
+                                horizontalSpacing="md"
+                                minHeight={200}
+                                sortStatus={dataTableSortStatus}
+                                onSortStatusChange={({ columnAccessor, direction }) => {
+                                    if (columnAccessor === 'acciones') {
+                                        return;
+                                    }
+                                    setOrdenTabla({
+                                        campo: columnAccessor as 'matricula' | 'velocidad' | 'distanciaKm' | 'tiempoHoras' | 'fechaHoraInicio' | 'fechaHoraFin' | 'carretera',
+                                        direccion: direction,
+                                    });
+                                }}
+                            />
+                            <Group justify="flex-end" align="center" mt="sm">
                                 <Text size="sm" c="dimmed">
                                     Resultados: {vehiculosRapidos.length}
                                 </Text>
                             </Group>
-                            <Table striped highlightOnHover withColumnBorders verticalSpacing="sm" horizontalSpacing="md">
-                                <thead style={{ background: '#f4f6fb', borderBottom: '1px solid #dce3f5' }}>
-                                    <tr>
-                                        <th style={{ cursor: 'pointer' }} onClick={() => toggleOrden('matricula')}>Matrícula</th>
-                                        <th style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => toggleOrden('velocidad')}>Velocidad</th>
-                                        <th style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => toggleOrden('distanciaKm')}>Distancia (km)</th>
-                                        <th style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => toggleOrden('tiempoHoras')}>Tiempo (h)</th>
-                                        <th style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => toggleOrden('fechaHoraInicio')}>Inicio</th>
-                                        <th style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => toggleOrden('fechaHoraFin')}>Fin</th>
-                                        <th style={{ textAlign: 'center' }}>Lectores</th>
-                                        <th style={{ textAlign: 'center' }}>Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {vehiculosOrdenados.map((vehiculo, index) => (
-                                        <tr key={`${vehiculo.matricula}-${vehiculo.fechaHoraInicio}-${index}`}>
-                                            <td>{vehiculo.matricula}</td>
-                                            <td style={{ textAlign: 'center' }}>
-                                                <Badge
-                                                    color={vehiculo.clasificacion === 'parada' ? 'orange' : vehiculo.clasificacion === 'baja' ? 'yellow' : 'red'}
-                                                    leftSection={<IconAlertTriangle size={12} />}
-                                                >
-                                                    {vehiculo.velocidad} km/h
-                                                </Badge>
-                                            </td>
-                                            <td style={{ textAlign: 'center' }}>{vehiculo.distanciaKm.toFixed(2)}</td>
-                                            <td style={{ textAlign: 'center' }}>{vehiculo.tiempoHoras.toFixed(2)}</td>
-                                            <td style={{ textAlign: 'center' }}>{new Date(vehiculo.fechaHoraInicio).toLocaleString()}</td>
-                                            <td style={{ textAlign: 'center' }}>{new Date(vehiculo.fechaHoraFin).toLocaleString()}</td>
-                                            <td style={{ textAlign: 'center' }}>
-                                                {vehiculo.lectorInicio} → {vehiculo.lectorFin}
-                                            </td>
-                                            <td style={{ textAlign: 'center' }}>
-                                                <Button
-                                                    size="xs"
-                                                    variant="subtle"
-                                                    color="green"
-                                                    onClick={async () => {
-                                                        await onGuardarVehiculos([vehiculo.matricula]);
-                                                    }}
-                                                    title="Guardar vehículo"
-                                                >
-                                                    <IconCar size={16} />
-                                                </Button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </Table>
                         </Box>
 
                     </Stack>

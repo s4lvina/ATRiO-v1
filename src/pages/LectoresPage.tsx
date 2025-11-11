@@ -78,12 +78,12 @@ function LectoresPage() {
 
   // Efecto para recargar cuando cambian los filtros o la paginación
   useEffect(() => {
-    fetchLectores();
+      fetchLectores();
   }, [fetchLectores]);
 
   // Efecto para recargar cuando cambia la ordenación, reseteando la página
   useEffect(() => {
-    setPagination(prev => ({ ...prev, page: 1 }));
+      setPagination(prev => ({ ...prev, page: 1 }));
   }, [sortStatus]);
   
   const provinciasUnicas = useMemo(() => {
@@ -379,11 +379,11 @@ function LectoresPage() {
         </Group>
       </Group>
 
-      <Box style={{ position: 'relative' }}>
-        <LoadingOverlay visible={loading} overlayProps={{ radius: "sm", blur: 2 }} />
+        <Box style={{ position: 'relative' }}>
+           <LoadingOverlay visible={loading} overlayProps={{ radius: "sm", blur: 2 }} />
         {error && <Alert color="red" title="Error">{error}</Alert>}
-        {!error && (
-          <>
+           {!error && (
+             <>
                <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 5 }} mb="md">
                  <MultiSelect
                      label="Filtrar por Provincia"

@@ -6,6 +6,7 @@ import { notifications } from '@mantine/notifications';
 import MatriculasExtranjerasPanel from './MatriculasExtranjerasPanel';
 import VelocidadAnormalPanel, { type VehiculoRapido } from './VelocidadAnormalPanel';
 import { useMapHighlight } from '../../context/MapHighlightContext';
+import appEventEmitter from '../../utils/eventEmitter';
 
 interface PatronesPanelProps {
     casoId: number;
@@ -178,26 +179,61 @@ function AnalisisAvanzadoPanel({ casoId }: PatronesPanelProps) {
         setSelectedRows([]);
     };
     const handleGuardarVehiculos = async (matriculasDesdePanel?: string[]) => {
-        const matriculasUnicas = matriculasDesdePanel && matriculasDesdePanel.length > 0
-            ? Array.from(new Set(matriculasDesdePanel))
-            : Array.from(new Set(selectedRows.map(r => r.matricula || r.Matricula)));
+        const matriculasBase = matriculasDesdePanel && matriculasDesdePanel.length > 0
+            ? matriculasDesdePanel
+            : selectedRows.map(r => r.matricula || r.Matricula);
+
+        const matriculasLimpias = matriculasBase
+            .filter((m): m is string => typeof m === 'string' && m.trim() !== '')
+            .map((m) => m.trim().toUpperCase());
+
+        const matriculasUnicas = Array.from(new Set(matriculasLimpias));
 
         if (matriculasUnicas.length === 0) {
-            notifications.show({ title: 'Sin matrículas', message: 'No hay matrículas seleccionadas.', color: 'orange' });
+            notifications.show({ title: 'Sin matrículas', message: 'No hay matrículas válidas seleccionadas.', color: 'orange' });
             return;
         }
+
+        let vehiculosCreados = 0;
+        let vehiculosExistentes = 0;
+        let errores = 0;
+
         for (const matricula of matriculasUnicas) {
             try {
-                await apiClient.post('/vehiculos', { Matricula: matricula });
+                const response = await apiClient.post('/vehiculos', { Matricula: matricula, CasoId: casoId });
+                if (response.status === 201) {
+                    vehiculosCreados++;
+                } else if (response.status === 200 || response.status === 409 || response.status === 400) {
+                    vehiculosExistentes++;
+                }
             } catch (e: any) {
-                if (e.response?.status === 400 || e.response?.status === 409) {
-                    notifications.show({ title: 'Vehículo Existente', message: `El vehículo ${matricula} ya existe.`, color: 'blue' });
+                if (e?.response?.status === 400 || e?.response?.status === 409) {
+                    vehiculosExistentes++;
                 } else {
-                    notifications.show({ title: 'Error', message: `No se pudo guardar el vehículo ${matricula}.`, color: 'red' });
+                    errores++;
+                    notifications.show({
+                        title: 'Error',
+                        message: `No se pudo guardar el vehículo ${matricula}.`,
+                        color: 'red'
+                    });
                 }
             }
         }
-        notifications.show({ title: 'Éxito', message: `Vehículos guardados.`, color: 'green' });
+
+        if (vehiculosCreados > 0) {
+            notifications.show({ title: 'Vehículos guardados', message: `${vehiculosCreados} vehículo(s) añadido(s).`, color: 'green' });
+        }
+        if (vehiculosExistentes > 0) {
+            notifications.show({ title: 'Vehículos existentes', message: `${vehiculosExistentes} vehículo(s) ya estaban registrados.`, color: 'blue' });
+        }
+        if (errores === 0 && vehiculosCreados === 0 && vehiculosExistentes === 0) {
+            notifications.show({ title: 'Sin cambios', message: 'No se realizaron modificaciones.', color: 'orange' });
+        }
+
+        if (vehiculosCreados > 0 || vehiculosExistentes > 0) {
+            appEventEmitter.emit('listaVehiculosCambiada');
+        }
+
         if (!matriculasDesdePanel) {
             setSelectedRows([]);
         }
@@ -425,4 +461,4 @@ function AnalisisAvanzadoPanel({ casoId }: PatronesPanelProps) {
     );
 }
 
-export default AnalisisAvanzadoPanel; 
+export default AnalisisAvanzadoPanel;
