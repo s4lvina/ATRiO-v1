@@ -125,6 +125,8 @@ function ImportarPage() {
   const [selectedCasoName, setSelectedCasoName] = useState<string | null>(null);
   const [fileType, setFileType] = useState<'LPR' | 'GPS' | 'GPX_KML' | 'EXTERNO'>('LPR');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]); // Para importación múltiple
+  const [isMultipleMode, setIsMultipleMode] = useState(false); // Modo múltiple activado
   
   // Estados para el mapeo
   const [excelHeaders, setExcelHeaders] = useState<string[]>([]);
@@ -137,6 +139,10 @@ function ImportarPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  
+  // Estados para importación múltiple
+  const [batchUploadProgress, setBatchUploadProgress] = useState<{ [fileName: string]: { progress: number; status: 'pending' | 'uploading' | 'completed' | 'error'; error?: string; taskId?: string } }>({});
+  const [batchResults, setBatchResults] = useState<{ [fileName: string]: UploadResponse | null }>({});
 
   // Estados para la lista de archivos
   const [archivosList, setArchivosList] = useState<ArchivoExcel[]>([]);
@@ -594,9 +600,190 @@ function ImportarPage() {
     }
   }, [fileType]);
 
+  // --- NUEVO: Función para leer headers de un archivo Excel ---
+  const readSingleFileHeaders = async (file: File): Promise<string[]> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = e.target?.result;
+          if (!data) throw new Error('No se pudo leer el archivo');
+          
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+          if (jsonData && jsonData.length > 0) {
+            const headers = jsonData[0]
+              .map(header => String(header || '').trim())
+              .filter(header => header.length > 0);
+            resolve(headers);
+          } else {
+            reject(new Error('El archivo Excel está vacío o no tiene cabeceras.'));
+          }
+        } catch (error: any) {
+          reject(error);
+        }
+      };
+      reader.onerror = () => reject(new Error('Error al leer el archivo.'));
+      reader.readAsArrayBuffer(file);
+    });
+  };
+
+  // --- NUEVO: Validar que todos los archivos tengan la misma estructura ---
+  const validateMultipleFilesStructure = async (files: File[]): Promise<{ valid: boolean; error?: string; headers?: string[] }> => {
+    if (files.length === 0) {
+      return { valid: false, error: 'No se seleccionaron archivos.' };
+    }
+
+    try {
+      setProcessingStatus('Validando estructura de archivos...');
+      const headersList: string[][] = [];
+
+      // Leer headers de todos los archivos
+      for (const file of files) {
+        const headers = await readSingleFileHeaders(file);
+        headersList.push(headers);
+      }
+
+      // Comparar que todos tengan las mismas columnas (en el mismo orden)
+      const firstHeaders = headersList[0];
+      const firstHeadersLower = firstHeaders.map(h => h.toLowerCase());
+
+      for (let i = 1; i < headersList.length; i++) {
+        const currentHeaders = headersList[i];
+        const currentHeadersLower = currentHeaders.map(h => h.toLowerCase());
+
+        // Verificar que tengan el mismo número de columnas
+        if (currentHeaders.length !== firstHeaders.length) {
+          return {
+            valid: false,
+            error: `El archivo "${files[i].name}" tiene ${currentHeaders.length} columnas, pero se esperaban ${firstHeaders.length} (como en "${files[0].name}").`
+          };
+        }
+
+        // Verificar que las columnas sean las mismas (comparación insensible a mayúsculas)
+        for (let j = 0; j < firstHeaders.length; j++) {
+          if (firstHeadersLower[j] !== currentHeadersLower[j]) {
+            return {
+              valid: false,
+              error: `El archivo "${files[i].name}" tiene una columna diferente en la posición ${j + 1}: "${currentHeaders[j]}" (se esperaba "${firstHeaders[j]}" como en "${files[0].name}").`
+            };
+          }
+        }
+      }
+
+      return { valid: true, headers: firstHeaders };
+    } catch (error: any) {
+      return { valid: false, error: error.message || 'Error al validar la estructura de los archivos.' };
+    }
+  };
+
+  // --- NUEVO: Leer cabeceras de múltiples archivos ---
+  const readMultipleFilesHeaders = useCallback(async (files: File[]) => {
+    setIsReadingHeaders(true);
+    setExcelHeaders([]);
+    setColumnMapping({});
+    setMappingError(null);
+    setProcessingStatus('Analizando estructura de los archivos...');
+
+    try {
+      if (fileType === 'GPX_KML') {
+        setMappingError('La importación múltiple no está disponible para archivos GPX/KML.');
+        setIsReadingHeaders(false);
+        return;
+      }
+
+      // Validar que todos los archivos tengan la misma estructura
+      const validation = await validateMultipleFilesStructure(files);
+      
+      if (!validation.valid) {
+        setMappingError(validation.error || 'Error al validar los archivos.');
+        notifications.show({
+          title: 'Error de Validación',
+          message: validation.error || 'Los archivos no tienen la misma estructura.',
+          color: 'red'
+        });
+        setIsReadingHeaders(false);
+        setProcessingStatus(null);
+        return;
+      }
+
+      // Usar los headers del primer archivo para el mapeo
+      const headers = validation.headers || [];
+      setExcelHeaders(headers);
+
+      // Auto-mapeo usando los headers del primer archivo
+      const initialMapping: ColumnMapping = {};
+      const allFields = [...REQUIRED_FIELDS[fileType], ...OPTIONAL_FIELDS[fileType]];
+      const mappedHeaders = new Set<string>();
+
+      // Primero, verificar si hay una columna DateTime
+      let detectedDateTimeColumn: string | null = null;
+      const dateTimeTerms = AUTO_MAP_TERMS['DateTime'] || [];
+      for (const header of headers) {
+        const lowerHeader = header.toLowerCase();
+        if (dateTimeTerms.includes(lowerHeader)) {
+          detectedDateTimeColumn = header;
+          setFechaHoraCombinada(true);
+          break;
+        }
+      }
+
+      // Si se detectó una columna DateTime, mapearla a Fecha y Hora
+      if (detectedDateTimeColumn) {
+        initialMapping['Fecha'] = detectedDateTimeColumn;
+        initialMapping['Hora'] = detectedDateTimeColumn;
+        mappedHeaders.add(detectedDateTimeColumn.toLowerCase());
+      }
+
+      // Mapear el resto de campos
+      allFields.forEach(field => {
+        if (detectedDateTimeColumn && (field === 'Fecha' || field === 'Hora')) {
+          return;
+        }
+        
+        initialMapping[field] = initialMapping[field] || null;
+        const terms = AUTO_MAP_TERMS[field];
+        if (terms) {
+          for (const header of headers) {
+            const lowerHeader = header.toLowerCase();
+            if (terms.includes(lowerHeader) && !mappedHeaders.has(lowerHeader)) {
+              initialMapping[field] = header;
+              mappedHeaders.add(lowerHeader);
+              break;
+            }
+          }
+        }
+      });
+
+      setColumnMapping(initialMapping);
+
+      notifications.show({
+        title: 'Archivos Validados',
+        message: `Se validaron ${files.length} archivos con estructura idéntica. Se mapearon automáticamente ${Object.values(initialMapping).filter(v => v !== null).length} campos.`,
+        color: 'green',
+        autoClose: 5000
+      });
+    } catch (error: any) {
+      setMappingError(`Error al procesar los archivos: ${error.message}`);
+      notifications.show({
+        title: 'Error de Procesamiento',
+        message: error.message,
+        color: 'red'
+      });
+    } finally {
+      setIsReadingHeaders(false);
+      setProcessingStatus(null);
+    }
+  }, [fileType]);
+
   // Efecto para leer cabeceras cuando cambia el archivo
   useEffect(() => {
-    if (selectedFile) {
+    if (isMultipleMode && selectedFiles.length > 0) {
+      readMultipleFilesHeaders(selectedFiles);
+    } else if (!isMultipleMode && selectedFile) {
       readExcelHeaders(selectedFile);
     } else {
       // Limpiar si se deselecciona el archivo
@@ -604,17 +791,17 @@ function ImportarPage() {
       setColumnMapping({});
       setMappingError(null);
     }
-  }, [selectedFile, readExcelHeaders]);
+  }, [selectedFile, selectedFiles, isMultipleMode, readExcelHeaders, readMultipleFilesHeaders]);
 
   // Resetear mapeo si cambia el tipo de archivo mientras hay un archivo seleccionado
   useEffect(() => {
-      if(selectedFile) {
+      if(selectedFile || (isMultipleMode && selectedFiles.length > 0)) {
           const initialMapping: ColumnMapping = {};
           REQUIRED_FIELDS[fileType].forEach(field => initialMapping[field] = null);
           OPTIONAL_FIELDS[fileType].forEach(field => initialMapping[field] = null);
           setColumnMapping(initialMapping);
       }
-  }, [fileType, selectedFile]);
+  }, [fileType, selectedFile, isMultipleMode, selectedFiles]);
 
   // Manejar cambio en los Select del modal de mapeo
   const handleMappingChange = (requiredField: string, selectedExcelHeader: string | null) => {
@@ -710,8 +897,203 @@ function ImportarPage() {
     }
   };
 
+  // --- NUEVO: Función para importación múltiple ---
+  const handleMultipleImport = async () => {
+    if (selectedFiles.length === 0 || !selectedCasoId) {
+      setUploadError('Por favor, seleccione al menos un archivo y un caso.');
+      return;
+    }
+
+    if (!isMappingComplete()) {
+      setUploadError('Por favor, complete el mapeo de columnas antes de importar.');
+      return;
+    }
+
+    setUploadError(null);
+    setImportWarning(null);
+    setIsUploading(true);
+    setProcessingStatus('Preparando importación múltiple...');
+
+    // Preparar el mapeo final
+    const finalMapping = Object.entries(columnMapping)
+      .filter(([_, value]) => value !== null)
+      .reduce((obj, [key, value]) => {
+        obj[key] = value as string;
+        return obj;
+      }, {} as { [key: string]: string });
+
+    // Añadir formato de fecha/hora si está combinada
+    if (fechaHoraCombinada) {
+      finalMapping['formato_fecha_hora'] = formatoFechaHora;
+    }
+
+    const mappingJson = JSON.stringify(finalMapping);
+
+    // Inicializar el progreso de cada archivo
+    const initialProgress: typeof batchUploadProgress = {};
+    selectedFiles.forEach(file => {
+      initialProgress[file.name] = {
+        progress: 0,
+        status: 'pending'
+      };
+    });
+    setBatchUploadProgress(initialProgress);
+    setBatchResults({});
+
+    // Procesar archivos secuencialmente para evitar sobrecarga
+    let successCount = 0;
+    let errorCount = 0;
+    const filesWithTasks: string[] = [];
+
+    for (let i = 0; i < selectedFiles.length; i++) {
+      const file = selectedFiles[i];
+      
+      setProcessingStatus(`Importando archivo ${i + 1} de ${selectedFiles.length}: ${file.name}...`);
+      
+      setBatchUploadProgress(prev => ({
+        ...prev,
+        [file.name]: { ...prev[file.name], status: 'uploading', progress: 10 }
+      }));
+
+      try {
+        const resultado = await uploadArchivoExcel(
+          selectedCasoId,
+          fileType,
+          file,
+          mappingJson
+        );
+
+        // Actualizar progreso y resultado
+        setBatchUploadProgress(prev => ({
+          ...prev,
+          [file.name]: { ...prev[file.name], status: 'completed', progress: 100, taskId: resultado.task_id }
+        }));
+
+        setBatchResults(prev => ({
+          ...prev,
+          [file.name]: resultado
+        }));
+
+        // Añadir tarea de seguimiento si hay task_id
+        if (resultado.task_id) {
+          filesWithTasks.push(file.name);
+          addTask({
+            id: resultado.task_id,
+            onComplete: (result: any) => {
+              setBatchUploadProgress(prev => {
+                const updated = {
+                  ...prev,
+                  [file.name]: { ...prev[file.name], status: 'completed', progress: 100 }
+                };
+                // Verificar si todos los archivos están completos
+                const allComplete = selectedFiles.every(f => 
+                  updated[f.name]?.status === 'completed' || updated[f.name]?.status === 'error'
+                );
+                if (allComplete) {
+                  const finalSuccess = selectedFiles.filter(f => updated[f.name]?.status === 'completed').length;
+                  const finalError = selectedFiles.filter(f => updated[f.name]?.status === 'error').length;
+                  setTimeout(() => handleBatchComplete(finalSuccess, finalError), 1000);
+                }
+                return updated;
+              });
+            },
+            onError: (error: string) => {
+              setBatchUploadProgress(prev => {
+                const updated = {
+                  ...prev,
+                  [file.name]: { ...prev[file.name], status: 'error', error: error }
+                };
+                // Verificar si todos los archivos están completos
+                const allComplete = selectedFiles.every(f => 
+                  updated[f.name]?.status === 'completed' || updated[f.name]?.status === 'error'
+                );
+                if (allComplete) {
+                  const finalSuccess = selectedFiles.filter(f => updated[f.name]?.status === 'completed').length;
+                  const finalError = selectedFiles.filter(f => updated[f.name]?.status === 'error').length;
+                  setTimeout(() => handleBatchComplete(finalSuccess, finalError), 1000);
+                }
+                return updated;
+              });
+            }
+          });
+        } else {
+          successCount++;
+        }
+
+      } catch (error: any) {
+        const errorMessage = error.response?.data?.detail || error.message || 'Error desconocido';
+        setBatchUploadProgress(prev => ({
+          ...prev,
+          [file.name]: { ...prev[file.name], status: 'error', error: errorMessage, progress: 0 }
+        }));
+        errorCount++;
+      }
+
+      // Pequeña pausa entre archivos para no sobrecargar el servidor
+      if (i < selectedFiles.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+
+    // Si todos se procesaron inmediatamente (sin task_id), mostrar resultado final
+    if (filesWithTasks.length === 0 && successCount + errorCount === selectedFiles.length) {
+      handleBatchComplete(successCount, errorCount);
+    }
+
+    setIsUploading(false);
+    setProcessingStatus(null);
+  };
+
+  // --- NUEVO: Manejar finalización del lote ---
+  const handleBatchComplete = (successCount: number, errorCount: number) => {
+    if (errorCount === 0) {
+      notifications.show({
+        title: 'Importación Múltiple Completada',
+        message: `Se importaron exitosamente ${successCount} archivo${successCount !== 1 ? 's' : ''}.`,
+        color: 'green',
+        icon: <IconCheck size={18} />
+      });
+    } else if (successCount === 0) {
+      notifications.show({
+        title: 'Error en Importación Múltiple',
+        message: `No se pudo importar ninguno de los ${errorCount} archivo${errorCount !== 1 ? 's' : ''}.`,
+        color: 'red',
+        icon: <IconAlertCircle size={18} />
+      });
+    } else {
+      notifications.show({
+        title: 'Importación Múltiple Parcial',
+        message: `Se importaron ${successCount} archivo${successCount !== 1 ? 's' : ''} exitosamente. ${errorCount} archivo${errorCount !== 1 ? 's' : ''} fallaron.`,
+        color: 'orange',
+        icon: <IconAlertCircle size={18} />
+      });
+    }
+
+    // Refrescar lista de archivos sin mostrar notificación adicional
+    if (selectedCasoId) {
+      setTimeout(() => {
+        fetchArchivos(selectedCasoId, false); // false para no mostrar notificación redundante
+      }, 2000);
+    }
+
+    // Limpiar después de unos segundos
+    setTimeout(() => {
+      setSelectedFiles([]);
+      setExcelHeaders([]);
+      setColumnMapping({});
+      setBatchUploadProgress({});
+      setBatchResults({});
+      setIsMultipleMode(false);
+    }, 5000);
+  };
+
   // --- MEJORADO: Manejar el envío con mejor feedback ---
   const handleImport = async () => {
+    if (isMultipleMode && selectedFiles.length > 0) {
+      handleMultipleImport();
+      return;
+    }
+
     if (!selectedFile || !selectedCasoId) {
       setUploadError('Por favor, seleccione un archivo y un caso.');
       return;
@@ -1018,7 +1400,15 @@ function ImportarPage() {
   }, [selectedFile, selectedCasoId, fileType]);
 
   const handleFileSelect = (file: File | null) => {
-    if (!file) return;
+    if (isMultipleMode) {
+      // Modo múltiple: no se usa este handler directamente
+      return;
+    }
+
+    if (!file) {
+      setSelectedFile(null);
+      return;
+    }
 
     // Validar tipo de archivo según el tipo seleccionado
     const fileExtension = file.name.split('.').pop()?.toLowerCase();
@@ -1040,6 +1430,46 @@ function ImportarPage() {
     }
 
     setSelectedFile(file);
+    setUploadError(null);
+    setImportWarning(null);
+  };
+
+  // --- NUEVO: Handler para selección múltiple de archivos ---
+  const handleMultipleFileSelect = (files: File[] | null) => {
+    if (!files || files.length === 0) {
+      setSelectedFiles([]);
+      setExcelHeaders([]);
+      setColumnMapping({});
+      return;
+    }
+
+    // Validar tipo de archivo según el tipo seleccionado
+    const fileExtension = files[0].name.split('.').pop()?.toLowerCase();
+    let validExtensions: string[] = [];
+    if (fileType === 'GPX_KML') {
+      validExtensions = ['gpx', 'kml'];
+    } else if (fileType === 'EXTERNO') {
+      validExtensions = ['xlsx', 'xls', 'csv'];
+    } else {
+      validExtensions = ['xlsx', 'xls', 'csv'];
+    }
+
+    // Validar todos los archivos
+    const invalidFiles = files.filter(file => {
+      const ext = file.name.split('.').pop()?.toLowerCase();
+      return !validExtensions.includes(ext || '');
+    });
+
+    if (invalidFiles.length > 0) {
+      setUploadError(
+        fileType === 'GPX_KML'
+          ? `Algunos archivos no son válidos. Por favor, seleccione solo archivos GPX (.gpx) o KML (.kml).`
+          : `Algunos archivos no son válidos. Por favor, seleccione solo archivos Excel (.xlsx, .xls) o CSV (.csv).`
+      );
+      return;
+    }
+
+    setSelectedFiles(files);
     setUploadError(null);
     setImportWarning(null);
   };
@@ -1132,11 +1562,11 @@ function ImportarPage() {
 
       <Grid gutter="xl" align="flex-start">
         <Grid.Col span={{ base: 12, md: 5 }}>
-          <Paper shadow="sm" p="md" withBorder>
+          <Paper shadow="sm" p="sm" withBorder>
             {/* Formulario de importación principal */}
-            <Stack gap="lg">
+            <Stack gap="sm">
               {/* Selector de Caso y botón Ir al Caso */}
-              <Group align="flex-end" justify="space-between" mb="md">
+              <Group align="flex-end" justify="space-between" mb="sm">
                 <Box style={{ flex: 1 }}>
                   <Select
                     label="Selecciona un Caso"
@@ -1182,7 +1612,7 @@ function ImportarPage() {
               </Group>
 
               {/* Tipo de Archivo - Reemplazado Radio.Group por Group de botones */}
-              <Box>
+              <Box mt="xs">
                 <Text size="sm" fw={500} mb="xs">Tipo de Archivo a Importar</Text>
                 <Group>
                   <Button
@@ -1256,17 +1686,19 @@ function ImportarPage() {
                 </Group>
               </Box>
 
-              {/* Input de Archivo */}
-              <FileInput
-                label="Archivo"
-                placeholder="Seleccione un archivo"
-                leftSection={<IconFileSpreadsheet size={rem(18)} />}
-                value={selectedFile}
-                onChange={handleFileSelect}
-                accept={fileType === 'GPX_KML' ? ".gpx,.kml" : ".xlsx,.xls,.csv"}
-                disabled={!selectedCasoId || isUploading || isReadingHeaders}
-                clearable
-              />
+              {/* Input de Archivo - Modo simple */}
+              {!isMultipleMode && (
+                <FileInput
+                  label="Archivo"
+                  placeholder="Seleccione un archivo"
+                  leftSection={<IconFileSpreadsheet size={rem(18)} />}
+                  value={selectedFile}
+                  onChange={handleFileSelect}
+                  accept={fileType === 'GPX_KML' ? ".gpx,.kml" : ".xlsx,.xls,.csv"}
+                  disabled={!selectedCasoId || isUploading || isReadingHeaders}
+                  clearable
+                />
+              )}
 
               {/* Indicador de procesamiento de headers */}
               {isReadingHeaders && (
@@ -1280,7 +1712,7 @@ function ImportarPage() {
               <Button
                   leftSection={<IconSettings size={18} />}
                   onClick={openMappingModal}
-                  disabled={!selectedFile || isUploading || isReadingHeaders}
+                  disabled={(!selectedFile && !isMultipleMode) || (isMultipleMode && selectedFiles.length === 0) || isUploading || isReadingHeaders}
                   variant="outline"
                   mt="xs"
               >
@@ -1289,18 +1721,27 @@ function ImportarPage() {
               </Button>
 
               {/* Alerta de error de mapeo */}
-              {mappingError && <Alert title="Error de Lectura" color="red" icon={<IconAlertCircle />}>{mappingError}</Alert>}
+              {mappingError && <Alert title="Error de Lectura" color="red" icon={<IconAlertCircle />} mt="xs">{mappingError}</Alert>}
 
               {/* Botón Importar */}
               <Button
                 leftSection={<IconUpload size={18} />}
-                onClick={validarLectores}
+                onClick={isMultipleMode ? handleMultipleImport : validarLectores}
                 loading={isUploading || validandoLectores}
-                disabled={!selectedCasoId || !selectedFile || !isMappingComplete() || isReadingHeaders}
-                mt="lg"
+                disabled={
+                  !selectedCasoId || 
+                  (!isMultipleMode && !selectedFile) || 
+                  (isMultipleMode && selectedFiles.length === 0) || 
+                  !isMappingComplete() || 
+                  isReadingHeaders
+                }
+                mt="md"
                 fullWidth
               >
-                {validandoLectores ? 'Validando...' : isUploading ? 'Importando...' : 'Importar Archivo'}
+                {validandoLectores ? 'Validando...' : 
+                 isUploading ? (isMultipleMode ? `Importando ${selectedFiles.length} archivo${selectedFiles.length !== 1 ? 's' : ''}...` : 'Importando...') : 
+                 isMultipleMode ? `Importar ${selectedFiles.length} Archivo${selectedFiles.length !== 1 ? 's' : ''}` : 
+                 'Importar Archivo'}
               </Button>
 
               {/* Progress bar durante la subida */}
@@ -1316,6 +1757,112 @@ function ImportarPage() {
 
               {/* Advertencia de importación */}
               {importWarning}
+
+              {/* Sección de Importación Múltiple - Debajo de los botones */}
+              <Divider my="md" label="Importación Múltiple" labelPosition="center" />
+              
+              <Paper withBorder p="sm" style={{ backgroundColor: '#f8f9fa' }}>
+                <Stack gap="sm">
+                  <Checkbox
+                    label={
+                      <Text fw={500} size="sm">
+                        Importar múltiples archivos con estructura idéntica
+                      </Text>
+                    }
+                    checked={isMultipleMode}
+                    onChange={(event) => {
+                      const newMode = event.currentTarget.checked;
+                      setIsMultipleMode(newMode);
+                      if (newMode) {
+                        setSelectedFile(null);
+                        setSelectedFiles([]);
+                      } else {
+                        setSelectedFiles([]);
+                        setSelectedFile(null);
+                      }
+                      setExcelHeaders([]);
+                      setColumnMapping({});
+                      setMappingError(null);
+                      setBatchUploadProgress({});
+                      setBatchResults({});
+                    }}
+                    disabled={isUploading || isReadingHeaders || fileType === 'GPX_KML'}
+                    description={
+                      <Text size="xs" c="dimmed" mt={4}>
+                        {fileType === 'GPX_KML' 
+                          ? 'No disponible para archivos GPX/KML' 
+                          : 'Todos los archivos deben tener exactamente las mismas columnas en el mismo orden'}
+                      </Text>
+                    }
+                  />
+
+                  {/* Input de Archivo - Modo múltiple */}
+                  {isMultipleMode && (
+                    <FileInput
+                      label={
+                        <Text size="sm" fw={500}>
+                          Archivos {selectedFiles.length > 0 && `(${selectedFiles.length} seleccionado${selectedFiles.length !== 1 ? 's' : ''})`}
+                        </Text>
+                      }
+                      placeholder="Seleccione uno o más archivos"
+                      leftSection={<IconFileSpreadsheet size={rem(18)} />}
+                      value={selectedFiles}
+                      onChange={handleMultipleFileSelect}
+                      accept={fileType === 'GPX_KML' ? ".gpx,.kml" : ".xlsx,.xls,.csv"}
+                      disabled={!selectedCasoId || isUploading || isReadingHeaders}
+                      clearable
+                      multiple
+                    />
+                  )}
+
+                  {/* Lista de archivos seleccionados en modo múltiple */}
+                  {isMultipleMode && selectedFiles.length > 0 && (
+                    <Box>
+                      <Text size="sm" fw={500} mb="xs" c="dimmed">Archivos seleccionados:</Text>
+                      <Stack gap="xs">
+                        {selectedFiles.map((file, index) => {
+                          const progress = batchUploadProgress[file.name];
+                          return (
+                            <Paper key={index} p="xs" withBorder style={{ backgroundColor: 'white' }}>
+                              <Group justify="space-between" align="center">
+                                <Group gap="xs" style={{ flex: 1 }} align="center">
+                                  <IconFileSpreadsheet size={16} color="#666" />
+                                  <Text size="sm" style={{ flex: 1 }} truncate>
+                                    {file.name}
+                                  </Text>
+                                </Group>
+                                {progress && (
+                                  <Badge
+                                    color={
+                                      progress.status === 'completed' ? 'green' :
+                                      progress.status === 'error' ? 'red' :
+                                      progress.status === 'uploading' ? 'blue' : 'gray'
+                                    }
+                                    variant="light"
+                                    size="sm"
+                                  >
+                                    {progress.status === 'completed' ? '✓ Completado' :
+                                     progress.status === 'error' ? '✗ Error' :
+                                     progress.status === 'uploading' ? 'Subiendo...' : 'Pendiente'}
+                                  </Badge>
+                                )}
+                              </Group>
+                              {progress && progress.status === 'uploading' && (
+                                <Progress value={progress.progress} size="sm" mt="xs" radius="xl" />
+                              )}
+                              {progress && progress.status === 'error' && progress.error && (
+                                <Text size="xs" c="red" mt="xs" style={{ fontStyle: 'italic' }}>
+                                  {progress.error}
+                                </Text>
+                              )}
+                            </Paper>
+                          );
+                        })}
+                      </Stack>
+                    </Box>
+                  )}
+                </Stack>
+              </Paper>
             </Stack>
           </Paper>
         </Grid.Col>
