@@ -596,25 +596,29 @@ def get_footer_config():
     # Aquí deberías leer la configuración del footer de alguna fuente persistente,
     # como un archivo JSON, una base de datos, o variables de entorno.
     # Por ahora, leeremos del archivo footer_config.json
+    # Si el archivo no existe, devolvemos un valor por defecto
+    default_config = {"text": "ATRiO 1.0 - Sistema de Análisis de Tráfico"}
+    
     try:
-        with open("footer_config.json", "r", encoding="utf-8") as f:
-            config = json.load(f)
-            return config
-    except FileNotFoundError:
-        raise HTTPException(
-            status_code=404, detail="Archivo de configuración del footer no encontrado"
-        )
+        if os.path.exists("footer_config.json"):
+            with open("footer_config.json", "r", encoding="utf-8") as f:
+                config = json.load(f)
+                # Validar que tenga el formato correcto
+                if isinstance(config, dict) and "text" in config:
+                    return config
+                else:
+                    logger.warning("El archivo footer_config.json no tiene el formato correcto, usando valor por defecto")
+                    return default_config
+        else:
+            # Si el archivo no existe, devolvemos el valor por defecto
+            return default_config
     except json.JSONDecodeError:
-        raise HTTPException(
-            status_code=500,
-            detail="Error al decodificar el archivo JSON de configuración del footer",
-        )
+        logger.warning("Error al decodificar el archivo JSON de configuración del footer, usando valor por defecto")
+        return default_config
     except Exception as e:
         logger.error(f"Error al leer la configuración del footer: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Error interno del servidor al obtener la configuración del footer",
-        )
+        # En caso de error, devolvemos el valor por defecto en lugar de lanzar una excepción
+        return default_config
 
 
 @config_router.post("/footer")

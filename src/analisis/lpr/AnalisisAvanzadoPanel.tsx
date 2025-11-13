@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Box, Title, Text, Paper, Group, Button, TextInput, NumberInput, Select, Badge, Card, Stack, ActionIcon, Menu } from '@mantine/core';
-import { IconSearch, IconMapPin, IconSortAscending, IconSortDescending, IconGauge, IconUsersGroup, IconWorld } from '@tabler/icons-react';
+import { Box, Title, Text, Paper, Group, Button, TextInput, NumberInput, Select, Badge, Card, Stack, ActionIcon, Menu, Tooltip, Divider, Timeline, ThemeIcon } from '@mantine/core';
+import { IconSearch, IconMapPin, IconSortAscending, IconSortDescending, IconGauge, IconUsersGroup, IconWorld, IconClock, IconRoute, IconArrowRight } from '@tabler/icons-react';
 import apiClient from '../../services/api';
 import { notifications } from '@mantine/notifications';
 import MatriculasExtranjerasPanel from './MatriculasExtranjerasPanel';
@@ -29,6 +29,79 @@ interface PatronesPanelProps {
     analisisLprRef?: React.RefObject<import('./AnalisisLecturasPanel').AnalisisLecturasPanelHandle>;
     onNavigateToLpr?: () => void;
 }
+
+// Función helper para parsear PK de un string de lector
+const parsePKFromLector = (lectorString: string): number => {
+    try {
+        // Formato esperado: "LPR01 PK066+000C A-42" o similar
+        const pkMatch = lectorString.match(/PK(\d+)\+?(\d*)/i);
+        if (pkMatch) {
+            const km = parseInt(pkMatch[1], 10) || 0;
+            const metros = pkMatch[2] ? parseInt(pkMatch[2], 10) : 0;
+            return km + (metros / 1000);
+        }
+        return 0;
+    } catch {
+        return 0;
+    }
+};
+
+// Función helper para extraer carretera del string de lector
+const parseCarreteraFromLector = (lectorString: string): string => {
+    try {
+        // Buscar patrones como "A-42", "M-30", etc.
+        const carreteraMatch = lectorString.match(/([AM]-\d+|[AM]\d+)/i);
+        return carreteraMatch ? carreteraMatch[1].toUpperCase() : '';
+    } catch {
+        return '';
+    }
+};
+
+// Función para calcular distancia entre dos lecturas basándose en PK
+const calcularDistanciaEntreLecturas = (lector1: string, lector2: string): { distancia: number | null; mismaCarretera: boolean } => {
+    try {
+        const pk1 = parsePKFromLector(lector1);
+        const pk2 = parsePKFromLector(lector2);
+        const carretera1 = parseCarreteraFromLector(lector1);
+        const carretera2 = parseCarreteraFromLector(lector2);
+        
+        if (pk1 === 0 || pk2 === 0 || carretera1 !== carretera2 || !carretera1) {
+            return { distancia: null, mismaCarretera: false };
+        }
+        
+        const longitudesCirculares: Record<string, number> = {
+            'M-30': 32.5,
+            'M30': 32.5,
+            'M-40': 63.3,
+            'M40': 63.3,
+        };
+        
+        const longitud = longitudesCirculares[carretera1] || null;
+        let distancia = Math.abs(pk2 - pk1);
+        
+        // Si es una carretera circular y la distancia es mayor que la mitad, tomar el camino más corto
+        if (longitud && distancia > longitud / 2) {
+            distancia = longitud - distancia;
+        }
+        
+        return { distancia, mismaCarretera: true };
+    } catch {
+        return { distancia: null, mismaCarretera: false };
+    }
+};
+
+// Función para formatear tiempo en minutos a texto legible
+const formatearTiempo = (minutos: number): string => {
+    if (minutos < 1) {
+        return `${Math.round(minutos * 60)}s`;
+    } else if (minutos < 60) {
+        return `${Math.round(minutos)}min`;
+    } else {
+        const horas = Math.floor(minutos / 60);
+        const mins = Math.round(minutos % 60);
+        return mins > 0 ? `${horas}h ${mins}min` : `${horas}h`;
+    }
+};
 
 function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad', analisisLprRef, onNavigateToLpr }: PatronesPanelProps) {
     const [vehiculosRapidos, setVehiculosRapidos] = useState<VehiculoRapido[]>([]);
@@ -430,9 +503,10 @@ function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad', analisisLpr
                                     .map(([matricula, coincidencias]) => (
                                         <Card key={matricula} shadow="sm" p="md" radius="md" withBorder mb="sm">
                                             <Group justify="space-between" mb="xs">
-                                                <Text fw={700}>
-                                                    {matricula} <Badge color="gray" ml="sm">Coincidencias: {coincidencias.length}</Badge>
-                                                </Text>
+                                                <Group gap="sm" align="center">
+                                                    <Text fw={700}>{matricula}</Text>
+                                                    <Badge color="gray">Coincidencias: {coincidencias.length}</Badge>
+                                                </Group>
                                                 <Button 
                                                     size="xs" 
                                                     onClick={() => {
@@ -479,33 +553,133 @@ function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad', analisisLpr
                                                     Ver Lecturas
                                                 </Button>
                                             </Group>
-                                            <Stack gap={4}>
-                                                {coincidencias.map((c, i) => (
-                                                    <Group key={i} gap="md">
-                                                        <Badge color="blue">OBJETIVO</Badge>
-                                                        <Text fw={700}>{c.objetivo.matricula}</Text>
-                                                        <Text>{c.objetivo.fecha} {c.objetivo.hora.length === 5 ? c.objetivo.hora + ':00' : c.objetivo.hora}</Text>
-                                                        <Text size="sm" color="dimmed">{c.objetivo.lector}</Text>
-                                                        <Badge color="gray">ACOMPAÑANTE</Badge>
-                                                        <Text fw={400}>{c.acompanante.matricula}</Text>
-                                                        <Text>{c.acompanante.fecha} {c.acompanante.hora.length === 5 ? c.acompanante.hora + ':00' : c.acompanante.hora}</Text>
-                                                        <Text size="sm" color="dimmed">{c.acompanante.lector}</Text>
-                                                        {c.acompanante.direccion_temporal && (
-                                                            <Badge 
-                                                                color={
-                                                                    c.acompanante.direccion_temporal === 'delante' ? 'green' : 
-                                                                    c.acompanante.direccion_temporal === 'detras' ? 'orange' : 
-                                                                    'blue'
-                                                                }
-                                                                size="sm"
-                                                            >
-                                                                {c.acompanante.direccion_temporal === 'delante' ? 'Por delante' : 
-                                                                 c.acompanante.direccion_temporal === 'detras' ? 'Por detrás' : 
-                                                                 'Simultáneo'}
-                                                            </Badge>
-                                                        )}
-                                                    </Group>
-                                                ))}
+                                            <Stack gap="md" mt="sm">
+                                                {coincidencias.map((c, i) => {
+                                                    // Calcular diferencia temporal
+                                                    const horaObjetivo = c.objetivo.hora.length === 5 ? c.objetivo.hora + ':00' : c.objetivo.hora;
+                                                    const horaAcompanante = c.acompanante.hora.length === 5 ? c.acompanante.hora + ':00' : c.acompanante.hora;
+                                                    const fechaHoraObjetivo = new Date(`${c.objetivo.fecha}T${horaObjetivo}`);
+                                                    const fechaHoraAcompanante = new Date(`${c.acompanante.fecha}T${horaAcompanante}`);
+                                                    const diferenciaMinutos = Math.abs((fechaHoraObjetivo.getTime() - fechaHoraAcompanante.getTime()) / (1000 * 60));
+                                                    
+                                                    // Calcular distancia
+                                                    const { distancia, mismaCarretera } = calcularDistanciaEntreLecturas(c.objetivo.lector, c.acompanante.lector);
+                                                    
+                                                    // Determinar quién va primero
+                                                    const objetivoPrimero = fechaHoraObjetivo < fechaHoraAcompanante;
+                                                    
+                                                    return (
+                                                        <Paper key={i} p="sm" withBorder radius="md" style={{ backgroundColor: i % 2 === 0 ? 'var(--mantine-color-gray-0)' : 'white' }}>
+                                                            <Group gap="md" align="flex-start" wrap="nowrap">
+                                                                {/* Columna izquierda: Objetivo */}
+                                                                <Box style={{ flex: 1, minWidth: 200 }}>
+                                                                    <Group gap="xs" mb="xs">
+                                                                        <Badge color="blue" size="lg">OBJETIVO</Badge>
+                                                                        <Text fw={700} size="sm">{c.objetivo.matricula}</Text>
+                                                                    </Group>
+                                                                    <Stack gap={4}>
+                                                                        <Group gap={4} align="center">
+                                                                            <IconClock size={14} color="var(--mantine-color-gray-6)" />
+                                                                            <Text size="sm" fw={500}>
+                                                                                {c.objetivo.fecha}
+                                                                            </Text>
+                                                                        </Group>
+                                                                        <Text size="lg" fw={600} c="blue" style={{ fontFamily: 'monospace' }}>
+                                                                            {horaObjetivo}
+                                                                        </Text>
+                                                                        <Group gap={4} align="center" mt={4}>
+                                                                            <IconRoute size={14} color="var(--mantine-color-gray-6)" />
+                                                                            <Text size="xs" c="dimmed" lineClamp={1}>
+                                                                                {c.objetivo.lector}
+                                                                            </Text>
+                                                                        </Group>
+                                                                    </Stack>
+                                                                </Box>
+                                                                
+                                                                {/* Columna central: Información de diferencia temporal */}
+                                                                <Box style={{ flex: 0, minWidth: 140, textAlign: 'center' }}>
+                                                                    <Stack gap={6} align="center">
+                                                                        <ThemeIcon 
+                                                                            size="xl" 
+                                                                            radius="xl" 
+                                                                            variant="light"
+                                                                            color={
+                                                                                c.acompanante.direccion_temporal === 'delante' ? 'green' : 
+                                                                                c.acompanante.direccion_temporal === 'detras' ? 'orange' : 
+                                                                                'blue'
+                                                                            }
+                                                                        >
+                                                                            <IconArrowRight 
+                                                                                size={20} 
+                                                                                style={{ 
+                                                                                    transform: c.acompanante.direccion_temporal === 'detras' ? 'rotate(180deg)' : 
+                                                                                              c.acompanante.direccion_temporal === 'ambas' ? 'rotate(90deg)' : 'none'
+                                                                                }} 
+                                                                            />
+                                                                        </ThemeIcon>
+                                                                        <Badge 
+                                                                            color={
+                                                                                c.acompanante.direccion_temporal === 'delante' ? 'green' : 
+                                                                                c.acompanante.direccion_temporal === 'detras' ? 'orange' : 
+                                                                                'blue'
+                                                                            }
+                                                                            size="xl"
+                                                                            variant="filled"
+                                                                            style={{ 
+                                                                                fontSize: '16px',
+                                                                                fontWeight: 700,
+                                                                                padding: '8px 16px',
+                                                                                minWidth: '100px'
+                                                                            }}
+                                                                        >
+                                                                            {formatearTiempo(diferenciaMinutos)}
+                                                                        </Badge>
+                                                                        {c.acompanante.direccion_temporal && (
+                                                                            <Badge 
+                                                                                color={
+                                                                                    c.acompanante.direccion_temporal === 'delante' ? 'green' : 
+                                                                                    c.acompanante.direccion_temporal === 'detras' ? 'orange' : 
+                                                                                    'blue'
+                                                                                }
+                                                                                size="sm"
+                                                                                variant="light"
+                                                                            >
+                                                                                {c.acompanante.direccion_temporal === 'delante' ? 'Por delante' : 
+                                                                                 c.acompanante.direccion_temporal === 'detras' ? 'Por detrás' : 
+                                                                                 'Simultáneo'}
+                                                                            </Badge>
+                                                                        )}
+                                                                    </Stack>
+                                                                </Box>
+                                                                
+                                                                {/* Columna derecha: Acompañante */}
+                                                                <Box style={{ flex: 1, minWidth: 200 }}>
+                                                                    <Group gap="xs" mb="xs">
+                                                                        <Badge color="gray" size="lg">ACOMPAÑANTE</Badge>
+                                                                        <Text fw={700} size="sm">{c.acompanante.matricula}</Text>
+                                                                    </Group>
+                                                                    <Stack gap={4}>
+                                                                        <Group gap={4} align="center">
+                                                                            <IconClock size={14} color="var(--mantine-color-gray-6)" />
+                                                                            <Text size="sm" fw={500}>
+                                                                                {c.acompanante.fecha}
+                                                                            </Text>
+                                                                        </Group>
+                                                                        <Text size="lg" fw={600} c="gray" style={{ fontFamily: 'monospace' }}>
+                                                                            {horaAcompanante}
+                                                                        </Text>
+                                                                        <Group gap={4} align="center" mt={4}>
+                                                                            <IconRoute size={14} color="var(--mantine-color-gray-6)" />
+                                                                            <Text size="xs" c="dimmed" lineClamp={1}>
+                                                                                {c.acompanante.lector}
+                                                                            </Text>
+                                                                        </Group>
+                                                                    </Stack>
+                                                                </Box>
+                                                            </Group>
+                                                        </Paper>
+                                                    );
+                                                })}
                                             </Stack>
                                         </Card>
                                     ))}
