@@ -15,3 +15,4 @@ export const ANALISIS_AVANZADO_SUBTABS: SubTabDefinition[] = [
     { value: 'matriculas', label: 'Matrículas extranjeras', icon: IconWorld, color: '#059669' }
 ];
 
+

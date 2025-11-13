@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Box, Title, Text, Paper, Group, Button, TextInput, NumberInput, Select, Badge, Card, Stack, ActionIcon, Menu, Tooltip, Divider, Timeline, ThemeIcon, Autocomplete, Loader } from '@mantine/core';
-import { IconSearch, IconMapPin, IconSortAscending, IconSortDescending, IconGauge, IconUsersGroup, IconWorld, IconClock, IconRoute, IconArrowRight } from '@tabler/icons-react';
+import { Box, Title, Text, Paper, Group, Button, TextInput, NumberInput, Select, Badge, Card, Stack, ActionIcon, Menu, Tooltip, Divider, Timeline, ThemeIcon, Autocomplete, Loader, Collapse } from '@mantine/core';
+import { IconSearch, IconMapPin, IconSortAscending, IconSortDescending, IconGauge, IconUsersGroup, IconWorld, IconClock, IconRoute, IconArrowRight, IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import apiClient from '../../services/api';
 import { notifications } from '@mantine/notifications';
 import MatriculasExtranjerasPanel from './MatriculasExtranjerasPanel';
@@ -125,6 +125,7 @@ function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad', analisisLpr
     const [ordenAsc, setOrdenAsc] = useState(true);
     const [vehiculosCaso, setVehiculosCaso] = useState<Vehiculo[]>([]);
     const [vehiculosLoading, setVehiculosLoading] = useState(false);
+    const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
 
     // Cargar vehículos del caso
     useEffect(() => {
@@ -164,6 +165,13 @@ function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad', analisisLpr
             notifications.hide('lanzadera-loading');
         };
     }, [casoId]);
+
+    // Colapsar todos los cards cuando se realiza una nueva búsqueda
+    useEffect(() => {
+        if (lanzaderaDetalles.length > 0) {
+            setExpandedCards(new Set());
+        }
+    }, [lanzaderaDetalles]);
 
     // Placeholder para la función de búsqueda
     const handleBuscarLanzadera = async () => {
@@ -384,6 +392,19 @@ function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad', analisisLpr
         }
     };
 
+    // Función para alternar el estado de expansión de un card
+    const toggleCardExpansion = (matricula: string) => {
+        setExpandedCards(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(matricula)) {
+                newSet.delete(matricula);
+            } else {
+                newSet.add(matricula);
+            }
+            return newSet;
+        });
+    };
+
     // Calcular el número de acompañantes que cumplen el filtro de mínimo de coincidencias
     const numAcompanantesFiltrados = Object.values(agrupacionAcompanantes).filter(coincidencias => coincidencias.length >= (lanzaderaParams.minCoincidencias || 2)).length;
 
@@ -506,6 +527,7 @@ function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad', analisisLpr
                                         });
                                         setLanzaderaDetalles([]);
                                         setSelectedRows([]);
+                                        setExpandedCards(new Set());
                                     }}
                                 >
                                     Limpiar
@@ -539,10 +561,20 @@ function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad', analisisLpr
                                 {Object.entries(agrupacionAcompanantes)
                                     .filter(([_, coincidencias]) => coincidencias.length >= (lanzaderaParams.minCoincidencias || 2))
                                     .sort((a, b) => b[1].length - a[1].length)
-                                    .map(([matricula, coincidencias]) => (
+                                    .map(([matricula, coincidencias]) => {
+                                        const isExpanded = expandedCards.has(matricula);
+                                        return (
                                         <Card key={matricula} shadow="sm" p="md" radius="md" withBorder mb="sm">
                                             <Group justify="space-between" mb="xs">
                                                 <Group gap="sm" align="center">
+                                                    <ActionIcon
+                                                        variant="subtle"
+                                                        color="gray"
+                                                        onClick={() => toggleCardExpansion(matricula)}
+                                                        style={{ cursor: 'pointer' }}
+                                                    >
+                                                        {isExpanded ? <IconChevronUp size={18} /> : <IconChevronDown size={18} />}
+                                                    </ActionIcon>
                                                     <Text fw={700}>{matricula}</Text>
                                                     <Badge color="gray">Coincidencias: {coincidencias.length}</Badge>
                                                 </Group>
@@ -592,7 +624,8 @@ function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad', analisisLpr
                                                     Ver Lecturas
                                                 </Button>
                                             </Group>
-                                            <Stack gap="md" mt="sm">
+                                            <Collapse in={isExpanded}>
+                                                <Stack gap="md" mt="sm">
                                                 {coincidencias.map((c, i) => {
                                                     // Calcular diferencia temporal
                                                     const horaObjetivo = c.objetivo.hora.length === 5 ? c.objetivo.hora + ':00' : c.objetivo.hora;
@@ -719,9 +752,11 @@ function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad', analisisLpr
                                                         </Paper>
                                                     );
                                                 })}
-                                            </Stack>
+                                                </Stack>
+                                            </Collapse>
                                         </Card>
-                                    ))}
+                                        );
+                                    })}
                             </Stack>
                         </Stack>
                     </Group>
