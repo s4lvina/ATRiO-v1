@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Box, Text, Loader, Alert, Breadcrumbs, Anchor, Button, Group, ActionIcon, Tooltip, TextInput, SimpleGrid, Select, LoadingOverlay, Container, Table, Modal, Stack, Textarea, Title, Divider, Collapse, Badge, Center, Paper } from '@mantine/core';
 import { type DataTableSortStatus } from 'mantine-datatable';
@@ -23,7 +23,7 @@ import LecturasRelevantesPanel from '../components/caso/LecturasRelevantesPanel'
 import VehiculosPanel from '../components/vehiculos/VehiculosPanel';
 import AnalisisAvanzadoPanel, { ANALISIS_AVANZADO_SUBTABS, type AnalisisAvanzadoSubTab } from '../analisis/lpr/AnalisisAvanzadoPanel';
 import HelpButton from '../components/common/HelpButton';
-import AnalisisLecturasPanel from '../analisis/lpr/AnalisisLecturasPanel';
+import AnalisisLecturasPanel, { type AnalisisLecturasPanelHandle } from '../analisis/lpr/AnalisisLecturasPanel';
 import GpsAnalysisPanel from '../components/gps/GpsAnalysisPanel';
 import DatosGpsPanel from '../components/gps/DatosGpsPanel';
 import { CruceFuentesExternasPanel } from '../components/cruce_externos/CruceFuentesExternasPanel';
@@ -271,6 +271,9 @@ function CasoDetailPage() {
           return newSet;
       });
   }, []);
+
+  // ---- NUEVO: Ref para el panel de lecturas LPR ----
+  const analisisLprRef = useRef<AnalisisLecturasPanelHandle>(null);
 
   // --- ESTADO Y LÓGICA PARA LECTURAS RELEVANTES ---
   const [lecturasRelevantes, setLecturasRelevantes] = useState<Lectura[]>([]);
@@ -789,6 +792,7 @@ const handleDeleteArchivo = async (archivoId: number) => {
               {/* Pestaña Lecturas LPR */}
               <Box style={{ display: activeMainTab === 'analisis-lpr' ? 'block' : 'none', position: 'relative' }}>
                   <AnalisisLecturasPanel
+                    ref={analisisLprRef}
                     casoIdFijo={idCasoNum!}
                     interactedMatriculas={interactedMatriculas}
                     addInteractedMatricula={addInteractedMatricula}
@@ -806,7 +810,12 @@ const handleDeleteArchivo = async (archivoId: number) => {
                   marginTop: activeMainTab === 'lanzadera' ? '48px' : 0
                 }}
               >
-                  <AnalisisAvanzadoPanel casoId={idCasoNum!} activeSubTab={activeAnalisisSubTab} />
+                  <AnalisisAvanzadoPanel 
+                    casoId={idCasoNum!} 
+                    activeSubTab={activeAnalisisSubTab}
+                    analisisLprRef={analisisLprRef}
+                    onNavigateToLpr={() => setActiveMainTab('analisis-lpr')}
+                  />
               </Box>
 
               {/* Pestaña Cruce de Fuentes Externas */}

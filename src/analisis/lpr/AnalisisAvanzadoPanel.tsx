@@ -26,14 +26,16 @@ export const ANALISIS_AVANZADO_SUBTABS: SubTabDefinition[] = [
 interface PatronesPanelProps {
     casoId: number;
     activeSubTab?: AnalisisAvanzadoSubTab;
+    analisisLprRef?: React.RefObject<import('./AnalisisLecturasPanel').AnalisisLecturasPanelHandle>;
+    onNavigateToLpr?: () => void;
 }
 
-function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad' }: PatronesPanelProps) {
+function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad', analisisLprRef, onNavigateToLpr }: PatronesPanelProps) {
     const [vehiculosRapidos, setVehiculosRapidos] = useState<VehiculoRapido[]>([]);
     const [velocidadLoading, setVelocidadLoading] = useState(false);
     const [lanzaderaParams, setLanzaderaParams] = useState({
         matricula: '',
-        ventanaMinutos: 10,
+        ventanaMinutos: 2,
         diferenciaMinima: 5,
         fechaInicio: '',
         fechaFin: '',
@@ -46,6 +48,14 @@ function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad' }: PatronesP
     const { setHighlightedLecturas } = useMapHighlight();
     const [ordenCoincidencias, setOrdenCoincidencias] = useState<'fecha'|'matricula'|'tipo'>('fecha');
     const [ordenAsc, setOrdenAsc] = useState(true);
+
+    // Limpiar notificaciones cuando el componente se desmonte o cambie el caso
+    useEffect(() => {
+        return () => {
+            // Limpiar la notificación de búsqueda de vehículo acompañante al desmontar
+            notifications.hide('lanzadera-loading');
+        };
+    }, [casoId]);
 
     // Placeholder para la función de búsqueda
     const handleBuscarLanzadera = async () => {
@@ -125,22 +135,40 @@ function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad' }: PatronesP
         const lecturasAcompanantes = lecturas.filter(l => l.matricula !== matriculaObjetivo);
         // Para cada acompañante, buscar coincidencias con el objetivo
         const mapa: Record<string, { objetivo: any, acompanante: any }[]> = {};
+        const ventanaMaximaMinutos = lanzaderaParams.ventanaMinutos || 2;
+        
         lecturasAcompanantes.forEach(acom => {
             // Buscar lecturas objetivo cercanas en fecha/hora/lector
             const posibles = lecturasObjetivo.filter(obj => obj.fecha === acom.fecha && obj.lector === acom.lector);
             posibles.forEach(obj => {
-                if (!mapa[acom.matricula]) mapa[acom.matricula] = [];
-                mapa[acom.matricula].push({ 
-                    objetivo: obj, 
-                    acompanante: {
-                        ...acom,
-                        direccion_temporal: acom.direccion_temporal || 'desconocida'
+                // Calcular diferencia temporal en minutos
+                const horaObjetivo = obj.hora.length === 5 ? obj.hora + ':00' : obj.hora;
+                const horaAcompanante = acom.hora.length === 5 ? acom.hora + ':00' : acom.hora;
+                
+                try {
+                    const fechaHoraObjetivo = new Date(`${obj.fecha}T${horaObjetivo}`);
+                    const fechaHoraAcompanante = new Date(`${acom.fecha}T${horaAcompanante}`);
+                    const diferenciaMinutos = Math.abs((fechaHoraObjetivo.getTime() - fechaHoraAcompanante.getTime()) / (1000 * 60));
+                    
+                    // Solo incluir si la diferencia está dentro de la ventana máxima
+                    if (diferenciaMinutos <= ventanaMaximaMinutos) {
+                        if (!mapa[acom.matricula]) mapa[acom.matricula] = [];
+                        mapa[acom.matricula].push({ 
+                            objetivo: obj, 
+                            acompanante: {
+                                ...acom,
+                                direccion_temporal: acom.direccion_temporal || 'desconocida'
+                            }
+                        });
                     }
-                });
+                } catch (error) {
+                    // Si hay error al parsear fechas, omitir esta coincidencia
+                    console.warn('Error al calcular diferencia temporal:', error);
+                }
             });
         });
         return mapa;
-    }, [lanzaderaDetalles, matriculaObjetivo]);
+    }, [lanzaderaDetalles, matriculaObjetivo, lanzaderaParams.ventanaMinutos]);
 
     // Helpers para identificar filas únicas
     const getLanzaderaRowId = (detalle: any) => `lanzadera-${detalle.matricula}-${detalle.fecha}-${detalle.hora}-${detalle.lector}`;
@@ -295,11 +323,12 @@ function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad' }: PatronesP
                                 style={{ width: '100%' }}
                             />
                             <NumberInput
-                                label="Ventana temporal (minutos)"
-                                value={lanzaderaParams?.ventanaMinutos || 10}
-                                onChange={v => setLanzaderaParams(p => ({ ...p, ventanaMinutos: typeof v === 'number' ? v : 10 }))}
+                                label="Ventana temporal máxima (min)"
+                                value={lanzaderaParams?.ventanaMinutos || 2}
+                                onChange={v => setLanzaderaParams(p => ({ ...p, ventanaMinutos: typeof v === 'number' ? v : 2 }))}
                                 min={1}
                                 max={120}
+                                description="Máxima diferencia temporal permitida entre vehículos en el mismo lector"
                                 style={{ width: '100%' }}
                             />
                             <NumberInput
@@ -356,7 +385,7 @@ function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad' }: PatronesP
 
                                         setLanzaderaParams({
                                             matricula: '',
-                                            ventanaMinutos: 10,
+                                            ventanaMinutos: 2,
                                             diferenciaMinima: 5,
                                             fechaInicio: '',
                                             fechaFin: '',
@@ -404,8 +433,50 @@ function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad' }: PatronesP
                                                 <Text fw={700}>
                                                     {matricula} <Badge color="gray" ml="sm">Coincidencias: {coincidencias.length}</Badge>
                                                 </Text>
-                                                <Button size="xs" onClick={() => setHighlightedLecturas(coincidencias.flatMap(c => [c.objetivo, c.acompanante]))} leftSection={<IconMapPin size={16} />}>
-                                                    Ver en mapa
+                                                <Button 
+                                                    size="xs" 
+                                                    onClick={() => {
+                                                        // Obtener todas las matrículas únicas del card (objetivo + acompañante)
+                                                        const matriculas = Array.from(new Set([
+                                                            matriculaObjetivo,
+                                                            matricula
+                                                        ]));
+                                                        
+                                                        // Obtener fechas y lectores únicos
+                                                        const fechas = Array.from(new Set(coincidencias.map(c => c.objetivo.fecha)));
+                                                        const lectores = Array.from(new Set(coincidencias.map(c => c.objetivo.lector)));
+                                                        
+                                                        // Aplicar filtros en el panel LPR
+                                                        if (analisisLprRef?.current) {
+                                                            analisisLprRef.current.aplicarFiltros({
+                                                                matriculaTags: matriculas,
+                                                                fechaInicio: fechas.length > 0 ? fechas[0] : undefined,
+                                                                fechaFin: fechas.length > 0 ? fechas[fechas.length - 1] : undefined,
+                                                                lectorIds: lectores
+                                                            });
+                                                            
+                                                            // Navegar al panel LPR
+                                                            if (onNavigateToLpr) {
+                                                                onNavigateToLpr();
+                                                            }
+                                                            
+                                                            notifications.show({
+                                                                title: 'Filtros aplicados',
+                                                                message: `Se han aplicado filtros para ${matriculas.length} matrícula${matriculas.length !== 1 ? 's' : ''} en el panel LPR`,
+                                                                color: 'blue',
+                                                                autoClose: 3000
+                                                            });
+                                                        } else {
+                                                            notifications.show({
+                                                                title: 'Error',
+                                                                message: 'No se pudo acceder al panel LPR',
+                                                                color: 'red'
+                                                            });
+                                                        }
+                                                    }} 
+                                                    leftSection={<IconSearch size={16} />}
+                                                >
+                                                    Ver Lecturas
                                                 </Button>
                                             </Group>
                                             <Stack gap={4}>

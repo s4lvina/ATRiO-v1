@@ -92,6 +92,15 @@ interface AnalisisLecturasPanelProps {
 // --- Interfaz para métodos expuestos ---
 export interface AnalisisLecturasPanelHandle {
   exportarListaLectores: () => Promise<void>;
+  aplicarFiltros: (filtros: {
+    matricula?: string;
+    matriculaTags?: string[];
+    fechaInicio?: string;
+    fechaFin?: string;
+    horaInicio?: string;
+    horaFin?: string;
+    lectorIds?: string[];
+  }) => void;
 }
 
 interface ExtendedLectura {
@@ -1013,10 +1022,145 @@ const AnalisisLecturasPanel = forwardRef<AnalisisLecturasPanelHandle, AnalisisLe
         }
     }, []); // Dependencias vacías, ya que no usa props ni estado que cambie
 
+    // --- Función para ejecutar búsqueda con parámetros directos (sin depender de debounce) ---
+    const ejecutarBusquedaConParametros = useCallback(async (paramsDirectos: {
+        matriculaTags?: string[];
+        fechaInicio?: string;
+        fechaFin?: string;
+        horaInicio?: string;
+        horaFin?: string;
+        lectorIds?: string[];
+    }) => {
+        const notificationId = 'analisis-loading';
+        notifications.show({
+            id: notificationId,
+            title: 'Procesando búsqueda de lecturas...',
+            message: 'Por favor, espera mientras se procesan los resultados.',
+            color: 'blue',
+            autoClose: false,
+            withCloseButton: false,
+            position: 'bottom-right',
+            style: { minWidth: 350 }
+        });
+        setOverlayMessage('Procesando búsqueda de lecturas...');
+        setOverlayProgress(0);
+        setLoading(true);
+        try {
+            setResults([]);
+            setSelectedRecords([]);
+            
+            const params = new URLSearchParams();
+            
+            // Usar los parámetros directos en lugar de los valores debounced
+            if (paramsDirectos.fechaInicio) params.append('fecha_inicio', paramsDirectos.fechaInicio);
+            if (paramsDirectos.fechaFin) params.append('fecha_fin', paramsDirectos.fechaFin);
+            if (paramsDirectos.horaInicio) params.append('hora_inicio', paramsDirectos.horaInicio);
+            if (paramsDirectos.horaFin) params.append('hora_fin', paramsDirectos.horaFin);
+            if (paramsDirectos.lectorIds && paramsDirectos.lectorIds.length > 0) {
+                paramsDirectos.lectorIds.forEach(id => params.append('lector_ids', id));
+            }
+            debouncedSelectedCarreteras.forEach(id => params.append('carretera_ids', id));
+            debouncedSelectedSentidos.forEach(s => params.append('sentido', s));
+            selectedOrganismos.forEach(o => params.append('organismos', o));
+            selectedProvincias.forEach(p => params.append('provincias', p));
+            
+            // Añadir ID del caso
+            if (casoIdFijo) {
+                params.append('caso_ids', String(casoIdFijo));
+            } else if (permitirSeleccionCaso) {
+                debouncedSelectedCasos.forEach(id => params.append('caso_ids', id));
+            }
+            
+            // Añadir matrículas (cada una como parámetro separado)
+            if (paramsDirectos.matriculaTags && paramsDirectos.matriculaTags.length > 0) {
+                paramsDirectos.matriculaTags.forEach(tag => params.append('matricula', tag));
+            }
+            
+            if (tipoFuenteFijo) params.append('tipo_fuente', tipoFuenteFijo);
+            
+            params.append('limit', '100000');
+            const queryString = params.toString();
+            const searchUrl = `${API_BASE_URL}/lecturas?${queryString}`;
+            
+            console.log('[AnalisisLecturasPanel] URL de búsqueda (desde aplicarFiltros):', searchUrl);
+            const response = await fetch(searchUrl);
+            
+            if (!response.ok) {
+                throw new Error(`Error en la búsqueda: ${response.statusText || response.status}`);
+            }
+            
+            const data = await response.json();
+            if (!Array.isArray(data)) {
+                throw new Error('Formato de respuesta inesperado');
+            }
+            
+            console.log(`[AnalisisLecturasPanel] Resultados (desde aplicarFiltros): ${data.length} lecturas`);
+            setResults(data);
+            notifications.update({
+                id: notificationId,
+                title: 'Búsqueda completada',
+                message: `Se encontraron ${data.length} lecturas.`,
+                color: 'green',
+                autoClose: 2000,
+                loading: false,
+            });
+        } catch (error) {
+            console.error('Error en la búsqueda:', error);
+            notifications.update({
+                id: notificationId,
+                title: 'Error en la búsqueda',
+                message: error instanceof Error ? error.message : 'Error desconocido',
+                color: 'red',
+                autoClose: 4000,
+                loading: false,
+            });
+        } finally {
+            setOverlayProgress(100);
+            setOverlayMessage('');
+            setLoading(false);
+        }
+    }, [casoIdFijo, permitirSeleccionCaso, debouncedSelectedCarreteras, debouncedSelectedSentidos, selectedOrganismos, selectedProvincias, tipoFuenteFijo]);
+
+    // --- Función para aplicar filtros externamente ---
+    const aplicarFiltros = useCallback((filtros: {
+        matricula?: string;
+        matriculaTags?: string[];
+        fechaInicio?: string;
+        fechaFin?: string;
+        horaInicio?: string;
+        horaFin?: string;
+        lectorIds?: string[];
+    }) => {
+        // Establecer los estados para que se muestren en la UI
+        if (filtros.matriculaTags && filtros.matriculaTags.length > 0) {
+            setMatriculaTags(filtros.matriculaTags);
+            setCurrentMatriculaInput('');
+        } else if (filtros.matricula) {
+            setMatriculaTags([filtros.matricula]);
+            setCurrentMatriculaInput('');
+        }
+        if (filtros.fechaInicio !== undefined) setFechaInicio(filtros.fechaInicio);
+        if (filtros.fechaFin !== undefined) setFechaFin(filtros.fechaFin);
+        if (filtros.horaInicio !== undefined) setTimeFrom(filtros.horaInicio);
+        if (filtros.horaFin !== undefined) setTimeTo(filtros.horaFin);
+        if (filtros.lectorIds !== undefined) setSelectedLectores(filtros.lectorIds);
+        
+        // Ejecutar búsqueda inmediatamente con los parámetros directos (sin esperar debounce)
+        ejecutarBusquedaConParametros({
+            matriculaTags: filtros.matriculaTags || (filtros.matricula ? [filtros.matricula] : []),
+            fechaInicio: filtros.fechaInicio,
+            fechaFin: filtros.fechaFin,
+            horaInicio: filtros.horaInicio,
+            horaFin: filtros.horaFin,
+            lectorIds: filtros.lectorIds
+        });
+    }, [ejecutarBusquedaConParametros]);
+
     // --- Exponer métodos mediante useImperativeHandle ---
     useImperativeHandle(ref, () => ({
-        exportarListaLectores
-    }), [exportarListaLectores]); // Asegúrate de incluir la función en las dependencias
+        exportarListaLectores,
+        aplicarFiltros
+    }), [exportarListaLectores, aplicarFiltros]); // Asegúrate de incluir la función en las dependencias
 
     // --- Funciones para Acciones (Marcar, Desmarcar, Guardar Vehículos) ---
     const handleMarcarRelevante = async () => {

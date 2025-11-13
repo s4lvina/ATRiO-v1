@@ -121,6 +121,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = useCallback(() => {
+    // Limpiar todas las notificaciones al cerrar sesión
+    notifications.clean();
+    // También limpiar específicamente la notificación de búsqueda de vehículo acompañante si existe
+    notifications.hide('lanzadera-loading');
+    
     setUser(null);
     setIsAuthenticated(false);
     localStorage.removeItem(JWT_TOKEN_KEY);
