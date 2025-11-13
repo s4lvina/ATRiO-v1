@@ -5662,6 +5662,169 @@ def detectar_vehiculos_lanzadera(
 
 
 @app.post(
+    "/casos/{caso_id}/cruzar-vehiculos",
+    response_model=schemas.CruzarVehiculosResponse,
+)
+def cruzar_vehiculos(
+    caso_id: int,
+    request: schemas.CruzarVehiculosRequest,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_active_user),
+):
+    """
+    Cruza dos vehículos para encontrar coincidencias en el mismo lector
+    dentro de una ventana temporal especificada.
+    """
+    logger.info(
+        f"[Cruzar Vehículos] Caso: {caso_id}, Matrícula1: {request.matricula1}, "
+        f"Matrícula2: {request.matricula2}, Ventana: {request.ventana_minutos} min"
+    )
+
+    # Validar que el caso existe
+    caso = db.query(models.Caso).filter(models.Caso.ID_Caso == caso_id).first()
+    if not caso:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Caso no encontrado"
+        )
+
+    # Normalizar matrículas
+    matricula1 = request.matricula1.strip().upper()
+    matricula2 = request.matricula2.strip().upper()
+
+    if matricula1 == matricula2:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Las dos matrículas deben ser diferentes",
+        )
+
+    # Construir query base para lecturas del caso
+    archivos_caso = db.query(models.ArchivoExcel.ID_Archivo).filter(
+        models.ArchivoExcel.ID_Caso == caso_id
+    )
+
+    # Obtener lecturas del vehículo 1
+    query1 = db.query(models.Lectura).filter(
+        models.Lectura.ID_Archivo.in_(archivos_caso),
+        models.Lectura.Matricula == matricula1,
+    )
+
+    # Obtener lecturas del vehículo 2
+    query2 = db.query(models.Lectura).filter(
+        models.Lectura.ID_Archivo.in_(archivos_caso),
+        models.Lectura.Matricula == matricula2,
+    )
+
+    # Aplicar filtros de fecha si se proporcionan
+    if request.fecha_inicio:
+        fecha_inicio_dt = datetime.strptime(request.fecha_inicio, "%Y-%m-%d")
+        query1 = query1.filter(models.Lectura.Fecha_y_Hora >= fecha_inicio_dt)
+        query2 = query2.filter(models.Lectura.Fecha_y_Hora >= fecha_inicio_dt)
+
+    if request.fecha_fin:
+        fecha_fin_dt = datetime.strptime(request.fecha_fin, "%Y-%m-%d")
+        fecha_fin_dt = datetime.combine(fecha_fin_dt, datetime.max.time())
+        query1 = query1.filter(models.Lectura.Fecha_y_Hora <= fecha_fin_dt)
+        query2 = query2.filter(models.Lectura.Fecha_y_Hora <= fecha_fin_dt)
+
+    # Aplicar filtro de lectores si se proporciona
+    if request.lectores and len(request.lectores) > 0:
+        query1 = query1.filter(models.Lectura.ID_Lector.in_(request.lectores))
+        query2 = query2.filter(models.Lectura.ID_Lector.in_(request.lectores))
+
+    # Aplicar filtro de carretera si se proporciona
+    if request.carretera:
+        query1 = query1.join(models.Lector).filter(
+            models.Lector.Carretera == request.carretera
+        )
+        query2 = query2.join(models.Lector).filter(
+            models.Lector.Carretera == request.carretera
+        )
+
+    # Obtener todas las lecturas
+    lecturas1 = query1.order_by(models.Lectura.Fecha_y_Hora).all()
+    lecturas2 = query2.order_by(models.Lectura.Fecha_y_Hora).all()
+
+    logger.info(
+        f"[Cruzar Vehículos] Lecturas vehículo 1: {len(lecturas1)}, "
+        f"Lecturas vehículo 2: {len(lecturas2)}"
+    )
+
+    if not lecturas1 or not lecturas2:
+        return schemas.CruzarVehiculosResponse(coincidencias=[])
+
+    # Buscar coincidencias: para cada lectura del vehículo 1,
+    # buscar lecturas del vehículo 2 en el mismo lector dentro de la ventana temporal
+    coincidencias = []
+    ventana_timedelta = timedelta(minutes=request.ventana_minutos)
+
+    # Agrupar lecturas del vehículo 2 por lector para optimizar la búsqueda
+    lecturas2_por_lector = defaultdict(list)
+    for lectura2 in lecturas2:
+        lecturas2_por_lector[lectura2.ID_Lector].append(lectura2)
+
+    for lectura1 in lecturas1:
+        # Obtener lecturas del vehículo 2 en el mismo lector
+        lecturas2_mismo_lector = lecturas2_por_lector.get(lectura1.ID_Lector, [])
+
+        if not lecturas2_mismo_lector:
+            continue
+
+        # Calcular ventana temporal alrededor de lectura1
+        ventana_inicio = lectura1.Fecha_y_Hora - ventana_timedelta
+        ventana_fin = lectura1.Fecha_y_Hora + ventana_timedelta
+
+        # Buscar lecturas del vehículo 2 dentro de la ventana temporal
+        for lectura2 in lecturas2_mismo_lector:
+            if ventana_inicio <= lectura2.Fecha_y_Hora <= ventana_fin:
+                # Calcular diferencia temporal
+                diferencia = abs(
+                    (lectura2.Fecha_y_Hora - lectura1.Fecha_y_Hora).total_seconds()
+                    / 60
+                )
+
+                # Solo agregar si está dentro de la ventana
+                if diferencia <= request.ventana_minutos:
+                    fecha = lectura1.Fecha_y_Hora.date().isoformat()
+                    hora1 = lectura1.Fecha_y_Hora.time().strftime("%H:%M")
+                    hora2 = lectura2.Fecha_y_Hora.time().strftime("%H:%M")
+
+                    coincidencias.append(
+                        schemas.CruzarVehiculosCoincidencia(
+                            matricula1=matricula1,
+                            matricula2=matricula2,
+                            fecha=fecha,
+                            hora1=hora1,
+                            hora2=hora2,
+                            lector=lectura1.ID_Lector,
+                        )
+                    )
+
+    # Eliminar duplicados (puede haber múltiples coincidencias en el mismo lector/fecha)
+    # Mantener solo una por combinación única de (fecha, lector, hora1, hora2)
+    coincidencias_unicas = []
+    vistas = set()
+    for coincidencia in coincidencias:
+        clave = (
+            coincidencia.fecha,
+            coincidencia.lector,
+            coincidencia.hora1,
+            coincidencia.hora2,
+        )
+        if clave not in vistas:
+            vistas.add(clave)
+            coincidencias_unicas.append(coincidencia)
+
+    # Ordenar por fecha y hora
+    coincidencias_unicas.sort(key=lambda c: (c.fecha, c.hora1))
+
+    logger.info(
+        f"[Cruzar Vehículos] Coincidencias encontradas: {len(coincidencias_unicas)}"
+    )
+
+    return schemas.CruzarVehiculosResponse(coincidencias=coincidencias_unicas)
+
+
+@app.post(
     "/casos/{caso_id}/saved_searches",
     response_model=schemas.SavedSearch,
     status_code=status.HTTP_201_CREATED,

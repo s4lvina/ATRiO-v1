@@ -495,6 +495,41 @@ class LanzaderaResponse(BaseModel):
     )
 
 
+class CruzarVehiculosRequest(BaseModel):
+    matricula1: str = Field(..., description="Matrícula del primer vehículo")
+    matricula2: str = Field(..., description="Matrícula del segundo vehículo")
+    ventana_minutos: int = Field(
+        10, description="Ventana temporal máxima en minutos para considerar coincidencia"
+    )
+    fecha_inicio: Optional[str] = Field(
+        None, description="Fecha de inicio del análisis (YYYY-MM-DD)"
+    )
+    fecha_fin: Optional[str] = Field(
+        None, description="Fecha de fin del análisis (YYYY-MM-DD)"
+    )
+    lectores: Optional[List[str]] = Field(
+        None, description="Lista de IDs de lectores para filtrar (opcional)"
+    )
+    carretera: Optional[str] = Field(
+        None, description="Nombre de la carretera para filtrar (opcional)"
+    )
+
+
+class CruzarVehiculosCoincidencia(BaseModel):
+    matricula1: str = Field(..., description="Matrícula del primer vehículo")
+    matricula2: str = Field(..., description="Matrícula del segundo vehículo")
+    fecha: str = Field(..., description="Fecha de la coincidencia (YYYY-MM-DD)")
+    hora1: str = Field(..., description="Hora de la lectura del primer vehículo (HH:MM)")
+    hora2: str = Field(..., description="Hora de la lectura del segundo vehículo (HH:MM)")
+    lector: str = Field(..., description="ID del lector donde se detectó la coincidencia")
+
+
+class CruzarVehiculosResponse(BaseModel):
+    coincidencias: List[CruzarVehiculosCoincidencia] = Field(
+        ..., description="Lista de coincidencias encontradas entre los dos vehículos"
+    )
+
+
 # --- Schemas ANTIGUOS (Relacionados con ResultadoLanzadera...) ---
 # Los comentamos o eliminamos ya que no se usarán con el nuevo enfoque
 # class ResultadoLanzaderaSchema(BaseModel):

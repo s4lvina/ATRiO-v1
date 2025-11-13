@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Box, Title, Text, Paper, Group, Button, TextInput, NumberInput, Select, Badge, Card, Stack, ActionIcon, Menu, Tooltip, Divider, Timeline, ThemeIcon, Autocomplete, Loader, Collapse } from '@mantine/core';
-import { IconSearch, IconMapPin, IconSortAscending, IconSortDescending, IconGauge, IconUsersGroup, IconWorld, IconClock, IconRoute, IconArrowRight, IconChevronDown, IconChevronUp } from '@tabler/icons-react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Box, Title, Text, Paper, Group, Button, TextInput, NumberInput, Select, Badge, Card, Stack, ActionIcon, Menu, Tooltip, Divider, Timeline, ThemeIcon, Autocomplete, Loader, Collapse, SegmentedControl, MultiSelect } from '@mantine/core';
+import { IconSearch, IconMapPin, IconSortAscending, IconSortDescending, IconGauge, IconUsersGroup, IconWorld, IconClock, IconRoute, IconArrowRight, IconChevronDown, IconChevronUp, IconGitMerge } from '@tabler/icons-react';
 import apiClient from '../../services/api';
 import { notifications } from '@mantine/notifications';
 import MatriculasExtranjerasPanel from './MatriculasExtranjerasPanel';
@@ -8,7 +8,7 @@ import VelocidadAnormalPanel, { type VehiculoRapido } from './VelocidadAnormalPa
 import { useMapHighlight } from '../../context/MapHighlightContext';
 import appEventEmitter from '../../utils/eventEmitter';
 import { getVehiculosPorCaso } from '../../services/casosApi';
-import type { Vehiculo } from '../../types/data';
+import type { Vehiculo, Lector } from '../../types/data';
 
 export type AnalisisAvanzadoSubTab = 'velocidad' | 'lanzadera' | 'matriculas';
 
@@ -126,6 +126,25 @@ function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad', analisisLpr
     const [vehiculosCaso, setVehiculosCaso] = useState<Vehiculo[]>([]);
     const [vehiculosLoading, setVehiculosLoading] = useState(false);
     const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+    
+    // Estado para modo dual
+    const [modoDual, setModoDual] = useState<'acompanante' | 'cruce'>('acompanante');
+    
+    // Estado para modo cruce
+    const [cruceParams, setCruceParams] = useState({
+        matricula1: '',
+        matricula2: '',
+        lectoresSeleccionados: [] as string[],
+        carreteraSeleccionada: null as string | null,
+        ventanaMinutos: 10,
+        fechaInicio: '',
+        fechaFin: '',
+    });
+    const [cruceLoading, setCruceLoading] = useState(false);
+    const [cruceResultados, setCruceResultados] = useState<any[]>([]);
+    const [lectoresDisponibles, setLectoresDisponibles] = useState<Array<{value: string, label: string, carretera?: string | null}>>([]);
+    const [carreterasDisponibles, setCarreterasDisponibles] = useState<string[]>([]);
+    const [lectoresLoading, setLectoresLoading] = useState(false);
 
     // Cargar vehículos del caso
     useEffect(() => {
@@ -172,6 +191,41 @@ function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad', analisisLpr
             setExpandedCards(new Set());
         }
     }, [lanzaderaDetalles]);
+
+    // Cargar lectores y carreteras del caso
+    const cargarLectores = useCallback(async () => {
+        setLectoresLoading(true);
+        try {
+            const response = await apiClient.get(`/casos/${casoId}/lectores`);
+            const lectores: Lector[] = Array.isArray(response.data) ? response.data : [];
+
+            const opciones = lectores
+                .filter((lector) => lector.ID_Lector)
+                .map((lector) => ({
+                    value: String(lector.ID_Lector!),
+                    label: `${lector.Nombre || lector.ID_Lector} (${lector.Carretera || 'Carretera desconocida'})`,
+                    carretera: lector.Carretera,
+                }));
+
+            const carreteras = Array.from(new Set(lectores.map((lector) => lector.Carretera).filter(Boolean))).sort() as string[];
+
+            setLectoresDisponibles(opciones);
+            setCarreterasDisponibles(carreteras);
+        } catch (err) {
+            console.error('Error al cargar lectores del caso:', err);
+            notifications.show({
+                title: 'Error al cargar lectores',
+                message: 'No se pudieron obtener los lectores activos del caso.',
+                color: 'red',
+            });
+        } finally {
+            setLectoresLoading(false);
+        }
+    }, [casoId]);
+
+    useEffect(() => {
+        cargarLectores();
+    }, [cargarLectores]);
 
     // Placeholder para la función de búsqueda
     const handleBuscarLanzadera = async () => {
@@ -405,6 +459,92 @@ function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad', analisisLpr
         });
     };
 
+    // Función para buscar cruces entre vehículos
+    const handleBuscarCruce = async () => {
+        if (!cruceParams.matricula1 || !cruceParams.matricula2) {
+            notifications.show({
+                title: 'Error',
+                message: 'Por favor, introduce ambas matrículas',
+                color: 'red'
+            });
+            return;
+        }
+
+        if (cruceParams.matricula1 === cruceParams.matricula2) {
+            notifications.show({
+                title: 'Error',
+                message: 'Las matrículas deben ser diferentes',
+                color: 'red'
+            });
+            return;
+        }
+
+        setCruceLoading(true);
+        const notificationId = 'cruce-loading';
+        notifications.show({
+            id: notificationId,
+            title: 'Buscando cruces...',
+            message: 'Analizando coincidencias entre vehículos.',
+            color: 'blue',
+            autoClose: false,
+            withCloseButton: false,
+            loading: true,
+        });
+
+        try {
+            const payload: any = {
+                matricula1: cruceParams.matricula1.trim().toUpperCase(),
+                matricula2: cruceParams.matricula2.trim().toUpperCase(),
+                ventana_minutos: cruceParams.ventanaMinutos,
+            };
+
+            if (cruceParams.fechaInicio) payload.fecha_inicio = cruceParams.fechaInicio;
+            if (cruceParams.fechaFin) payload.fecha_fin = cruceParams.fechaFin;
+            if (cruceParams.lectoresSeleccionados.length > 0) {
+                payload.lectores = cruceParams.lectoresSeleccionados;
+            }
+            if (cruceParams.carreteraSeleccionada) {
+                payload.carretera = cruceParams.carreteraSeleccionada;
+            }
+
+            const response = await apiClient.post(`/casos/${casoId}/cruzar-vehiculos`, payload);
+            setCruceResultados(response.data.coincidencias || []);
+
+            if (response.data.coincidencias.length === 0) {
+                notifications.update({
+                    id: notificationId,
+                    title: 'Sin resultados',
+                    message: 'No se encontraron coincidencias entre los vehículos seleccionados.',
+                    color: 'blue',
+                    loading: false,
+                    autoClose: 4000,
+                });
+            } else {
+                notifications.update({
+                    id: notificationId,
+                    title: 'Búsqueda completada',
+                    message: `Se encontraron ${response.data.coincidencias.length} coincidencia(s) entre los vehículos.`,
+                    color: 'green',
+                    autoClose: 2000,
+                    loading: false,
+                });
+            }
+        } catch (error: any) {
+            console.error('Error al buscar cruces:', error);
+            const errorMessage = error?.response?.data?.detail || error?.message || 'Ocurrió un error al buscar cruces';
+            notifications.update({
+                id: notificationId,
+                title: 'Error',
+                message: errorMessage,
+                color: 'red',
+                autoClose: 4000,
+                loading: false,
+            });
+        } finally {
+            setCruceLoading(false);
+        }
+    };
+
     // Calcular el número de acompañantes que cumplen el filtro de mínimo de coincidencias
     const numAcompanantesFiltrados = Object.values(agrupacionAcompanantes).filter(coincidencias => coincidencias.length >= (lanzaderaParams.minCoincidencias || 2)).length;
 
@@ -428,7 +568,23 @@ function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad', analisisLpr
                     </Group>
 
                     <Group align="flex-start" gap="xl" wrap="nowrap">
-                        <Stack gap="sm" style={{ flex: '0 0 320px' }}>
+                        <Stack gap="sm" style={{ flex: '0 0 340px' }}>
+                            <SegmentedControl
+                                value={modoDual}
+                                onChange={(value) => {
+                                    setModoDual(value as 'acompanante' | 'cruce');
+                                    setCruceResultados([]);
+                                    setLanzaderaDetalles([]);
+                                    setExpandedCards(new Set());
+                                }}
+                                data={[
+                                    { label: 'Búsqueda Global', value: 'acompanante' },
+                                    { label: 'Vehículos Conocidos', value: 'cruce' },
+                                ]}
+                            />
+
+                            {modoDual === 'acompanante' && (
+                            <>
                             <Autocomplete
                                 label="Matrícula objetivo"
                                 value={lanzaderaParams?.matricula || ''}
@@ -533,8 +689,119 @@ function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad', analisisLpr
                                     Limpiar
                                 </Button>
                             </Stack>
+                            </>
+                            )}
+
+                            {modoDual === 'cruce' && (
+                            <>
+                            <Autocomplete
+                                label="Vehículo 1"
+                                value={cruceParams.matricula1}
+                                onChange={(value) => setCruceParams(p => ({ ...p, matricula1: value }))}
+                                placeholder="Introduce o selecciona matrícula"
+                                data={Array.from(new Set(vehiculosCaso.map(v => v.Matricula).filter(Boolean))).sort()}
+                                rightSection={vehiculosLoading ? <Loader size="xs" /> : undefined}
+                                required
+                                style={{ width: '100%' }}
+                                limit={10}
+                                maxDropdownHeight={200}
+                            />
+                            <Autocomplete
+                                label="Vehículo 2"
+                                value={cruceParams.matricula2}
+                                onChange={(value) => setCruceParams(p => ({ ...p, matricula2: value }))}
+                                placeholder="Introduce o selecciona matrícula"
+                                data={Array.from(new Set(vehiculosCaso.map(v => v.Matricula).filter(Boolean))).sort()}
+                                rightSection={vehiculosLoading ? <Loader size="xs" /> : undefined}
+                                required
+                                style={{ width: '100%' }}
+                                limit={10}
+                                maxDropdownHeight={200}
+                            />
+                            <MultiSelect
+                                label="Lectores (opcional)"
+                                placeholder={lectoresLoading ? 'Cargando lectores...' : 'Selecciona lectores específicos (deja vacío para todos)'}
+                                data={lectoresDisponibles}
+                                value={cruceParams.lectoresSeleccionados}
+                                onChange={(value) => setCruceParams(p => ({ ...p, lectoresSeleccionados: value }))}
+                                searchable
+                                nothingFound="Sin lectores disponibles"
+                                disabled={lectoresLoading}
+                                clearable
+                                style={{ width: '100%' }}
+                            />
+                            <Select
+                                label="Carretera (opcional)"
+                                placeholder={lectoresLoading ? 'Cargando carreteras...' : 'Selecciona una carretera (deja vacío para todas)'}
+                                data={carreterasDisponibles.map((carretera) => ({ value: carretera, label: carretera }))}
+                                value={cruceParams.carreteraSeleccionada}
+                                onChange={(value) => setCruceParams(p => ({ ...p, carreteraSeleccionada: value }))}
+                                searchable
+                                nothingFound="Sin carreteras disponibles"
+                                disabled={lectoresLoading}
+                                clearable
+                                style={{ width: '100%' }}
+                            />
+                            <NumberInput
+                                label="Ventana temporal máxima (min)"
+                                value={cruceParams.ventanaMinutos}
+                                onChange={(v) => setCruceParams(p => ({ ...p, ventanaMinutos: typeof v === 'number' ? v : 10 }))}
+                                min={1}
+                                max={120}
+                                description="Máxima diferencia temporal permitida entre vehículos en el mismo lector"
+                                style={{ width: '100%' }}
+                            />
+                            <TextInput
+                                type="date"
+                                label="Fecha inicio (opcional)"
+                                value={cruceParams.fechaInicio}
+                                onChange={e => setCruceParams(p => ({ ...p, fechaInicio: e.target.value }))}
+                                style={{ width: '100%' }}
+                            />
+                            <TextInput
+                                type="date"
+                                label="Fecha fin (opcional)"
+                                value={cruceParams.fechaFin}
+                                onChange={e => setCruceParams(p => ({ ...p, fechaFin: e.target.value }))}
+                                style={{ width: '100%' }}
+                            />
+                            <Text size="xs" c="dimmed" mt="xs">
+                                Deja vacíos los filtros de lectores y carretera para buscar en todos los lectores del caso automáticamente.
+                            </Text>
+                            <Stack gap="xs" mt="sm">
+                                <Button
+                                    leftSection={<IconSearch size={16} />}
+                                    onClick={handleBuscarCruce}
+                                    loading={cruceLoading}
+                                    fullWidth
+                                >
+                                    Buscar Cruce
+                                </Button>
+                                <Button
+                                    fullWidth
+                                    variant="light"
+                                    color="gray"
+                                    onClick={() => {
+                                        setCruceParams({
+                                            matricula1: '',
+                                            matricula2: '',
+                                            lectoresSeleccionados: [],
+                                            carreteraSeleccionada: null,
+                                            ventanaMinutos: 10,
+                                            fechaInicio: '',
+                                            fechaFin: '',
+                                        });
+                                        setCruceResultados([]);
+                                    }}
+                                >
+                                    Limpiar
+                                </Button>
+                            </Stack>
+                            </>
+                            )}
                         </Stack>
 
+                        {modoDual === 'acompanante' && (
                         <Stack gap="sm" style={{ flex: 1 }}>
                             <Group justify="space-between" align="center">
                                 <Title order={5} mb={0}>Lecturas Intercaladas (Objetivo y Acompañante)</Title>
@@ -759,6 +1026,96 @@ function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad', analisisLpr
                                     })}
                             </Stack>
                         </Stack>
+                        )}
+
+                        {modoDual === 'cruce' && (
+                        <Stack gap="sm" style={{ flex: 1 }}>
+                            <Group justify="space-between" align="center">
+                                <Title order={5} mb={0}>Resultados del Cruce</Title>
+                                <Text fw={500}>Coincidencias: {cruceResultados.length}</Text>
+                            </Group>
+
+                            {cruceResultados.length === 0 && !cruceLoading && (
+                                <Text c="dimmed" ta="center" my="md">
+                                    No se han encontrado coincidencias entre los vehículos seleccionados
+                                </Text>
+                            )}
+
+                            {cruceResultados.length > 0 && (
+                                <Stack gap="md">
+                                    {cruceResultados.map((coincidencia, index) => {
+                                        const hora1 = coincidencia.hora1?.length === 5 ? coincidencia.hora1 + ':00' : coincidencia.hora1;
+                                        const hora2 = coincidencia.hora2?.length === 5 ? coincidencia.hora2 + ':00' : coincidencia.hora2;
+                                        const fechaHora1 = new Date(`${coincidencia.fecha}T${hora1}`);
+                                        const fechaHora2 = new Date(`${coincidencia.fecha}T${hora2}`);
+                                        const diferenciaMinutos = Math.abs((fechaHora1.getTime() - fechaHora2.getTime()) / (1000 * 60));
+
+                                        return (
+                                            <Card key={index} shadow="sm" p="md" radius="md" withBorder>
+                                                <Group gap="md" align="flex-start" wrap="nowrap">
+                                                    <Box style={{ flex: 1, minWidth: 200 }}>
+                                                        <Group gap="xs" mb="xs">
+                                                            <Badge color="blue" size="lg">{coincidencia.matricula1}</Badge>
+                                                        </Group>
+                                                        <Stack gap={4}>
+                                                            <Group gap={4} align="center">
+                                                                <IconClock size={14} color="var(--mantine-color-gray-6)" />
+                                                                <Text size="sm" fw={500}>{coincidencia.fecha}</Text>
+                                                            </Group>
+                                                            <Text size="lg" fw={600} c="blue" style={{ fontFamily: 'monospace' }}>
+                                                                {hora1}
+                                                            </Text>
+                                                            <Group gap={4} align="center" mt={4}>
+                                                                <IconRoute size={14} color="var(--mantine-color-gray-6)" />
+                                                                <Text size="xs" c="dimmed" lineClamp={1}>
+                                                                    {coincidencia.lector}
+                                                                </Text>
+                                                            </Group>
+                                                        </Stack>
+                                                    </Box>
+
+                                                    <Box style={{ flex: 0, minWidth: 140, textAlign: 'center' }}>
+                                                        <Stack gap={6} align="center">
+                                                            <ThemeIcon size="xl" radius="xl" variant="light" color="green">
+                                                                <IconGitMerge size={20} />
+                                                            </ThemeIcon>
+                                                            <Badge color="green" size="xl" variant="filled" style={{ fontSize: '16px', fontWeight: 700, padding: '8px 16px', minWidth: '100px' }}>
+                                                                {formatearTiempo(diferenciaMinutos)}
+                                                            </Badge>
+                                                            <Badge color={diferenciaMinutos <= 5 ? 'green' : diferenciaMinutos <= 30 ? 'yellow' : 'orange'} size="sm" variant="light">
+                                                                {diferenciaMinutos <= 5 ? 'Reunión posible' : diferenciaMinutos <= 30 ? 'Reunión probable' : 'Reunión improbable'}
+                                                            </Badge>
+                                                        </Stack>
+                                                    </Box>
+
+                                                    <Box style={{ flex: 1, minWidth: 200 }}>
+                                                        <Group gap="xs" mb="xs">
+                                                            <Badge color="gray" size="lg">{coincidencia.matricula2}</Badge>
+                                                        </Group>
+                                                        <Stack gap={4}>
+                                                            <Group gap={4} align="center">
+                                                                <IconClock size={14} color="var(--mantine-color-gray-6)" />
+                                                                <Text size="sm" fw={500}>{coincidencia.fecha}</Text>
+                                                            </Group>
+                                                            <Text size="lg" fw={600} c="gray" style={{ fontFamily: 'monospace' }}>
+                                                                {hora2}
+                                                            </Text>
+                                                            <Group gap={4} align="center" mt={4}>
+                                                                <IconRoute size={14} color="var(--mantine-color-gray-6)" />
+                                                                <Text size="xs" c="dimmed" lineClamp={1}>
+                                                                    {coincidencia.lector}
+                                                                </Text>
+                                                            </Group>
+                                                        </Stack>
+                                                    </Box>
+                                                </Group>
+                                            </Card>
+                                        );
+                                    })}
+                                </Stack>
+                            )}
+                        </Stack>
+                        )}
                     </Group>
                 </Paper>
             )}
