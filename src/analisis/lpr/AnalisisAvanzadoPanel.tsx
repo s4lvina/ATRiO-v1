@@ -145,6 +145,80 @@ function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad', analisisLpr
     const [lectoresDisponibles, setLectoresDisponibles] = useState<Array<{value: string, label: string, carretera?: string | null}>>([]);
     const [carreterasDisponibles, setCarreterasDisponibles] = useState<string[]>([]);
     const [lectoresLoading, setLectoresLoading] = useState(false);
+    const [expandedCruceCards, setExpandedCruceCards] = useState<Set<number>>(new Set());
+
+    // Claves para sessionStorage (memoizadas)
+    const cruceStorageKey = useMemo(() => `cruce_resultados_${casoId}`, [casoId]);
+    const cruceParamsStorageKey = useMemo(() => `cruce_params_${casoId}`, [casoId]);
+    const cruceExpandedStorageKey = useMemo(() => `cruce_expanded_${casoId}`, [casoId]);
+
+    // Cargar datos desde sessionStorage al montar o cambiar al subpanel de cruce
+    // Solo carga si no hay resultados actuales para evitar sobrescribir datos nuevos
+    useEffect(() => {
+        if (activeSubTab === 'lanzadera' && modoDual === 'cruce' && cruceResultados.length === 0) {
+            try {
+                // Cargar resultados solo si no hay resultados actuales
+                const savedResultados = sessionStorage.getItem(cruceStorageKey);
+                if (savedResultados) {
+                    const parsed = JSON.parse(savedResultados);
+                    if (parsed && parsed.length > 0) {
+                        setCruceResultados(parsed);
+                    }
+                }
+
+                // Cargar parámetros
+                const savedParams = sessionStorage.getItem(cruceParamsStorageKey);
+                if (savedParams) {
+                    const parsed = JSON.parse(savedParams);
+                    if (parsed) {
+                        setCruceParams(parsed);
+                    }
+                }
+
+                // Cargar estado de expansión
+                const savedExpanded = sessionStorage.getItem(cruceExpandedStorageKey);
+                if (savedExpanded) {
+                    const parsed = JSON.parse(savedExpanded);
+                    if (parsed && Array.isArray(parsed) && parsed.length > 0) {
+                        setExpandedCruceCards(new Set(parsed));
+                    }
+                }
+            } catch (error) {
+                console.error('Error al cargar datos del cruce desde sessionStorage:', error);
+            }
+        }
+    }, [activeSubTab, modoDual, cruceStorageKey, cruceParamsStorageKey, cruceExpandedStorageKey]);
+
+    // Guardar resultados en sessionStorage cuando cambien
+    useEffect(() => {
+        if (cruceResultados.length > 0 || sessionStorage.getItem(cruceStorageKey)) {
+            try {
+                sessionStorage.setItem(cruceStorageKey, JSON.stringify(cruceResultados));
+            } catch (error) {
+                console.error('Error al guardar resultados del cruce en sessionStorage:', error);
+            }
+        }
+    }, [cruceResultados, cruceStorageKey]);
+
+    // Guardar parámetros en sessionStorage cuando cambien
+    useEffect(() => {
+        if (cruceParams.matricula1 || cruceParams.matricula2 || sessionStorage.getItem(cruceParamsStorageKey)) {
+            try {
+                sessionStorage.setItem(cruceParamsStorageKey, JSON.stringify(cruceParams));
+            } catch (error) {
+                console.error('Error al guardar parámetros del cruce en sessionStorage:', error);
+            }
+        }
+    }, [cruceParams, cruceParamsStorageKey]);
+
+    // Guardar estado de expansión en sessionStorage cuando cambie
+    useEffect(() => {
+        try {
+            sessionStorage.setItem(cruceExpandedStorageKey, JSON.stringify(Array.from(expandedCruceCards)));
+        } catch (error) {
+            console.error('Error al guardar estado de expansión del cruce en sessionStorage:', error);
+        }
+    }, [expandedCruceCards, cruceExpandedStorageKey]);
 
     // Cargar vehículos del caso
     useEffect(() => {
@@ -792,6 +866,15 @@ function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad', analisisLpr
                                             fechaFin: '',
                                         });
                                         setCruceResultados([]);
+                                        setExpandedCruceCards(new Set());
+                                        // Limpiar sessionStorage
+                                        try {
+                                            sessionStorage.removeItem(cruceStorageKey);
+                                            sessionStorage.removeItem(cruceParamsStorageKey);
+                                            sessionStorage.removeItem(cruceExpandedStorageKey);
+                                        } catch (error) {
+                                            console.error('Error al limpiar sessionStorage del cruce:', error);
+                                        }
                                     }}
                                 >
                                     Limpiar
@@ -1042,73 +1125,155 @@ function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad', analisisLpr
                             )}
 
                             {cruceResultados.length > 0 && (
-                                <Stack gap="md">
+                                <Stack gap="sm">
                                     {cruceResultados.map((coincidencia, index) => {
                                         const hora1 = coincidencia.hora1?.length === 5 ? coincidencia.hora1 + ':00' : coincidencia.hora1;
                                         const hora2 = coincidencia.hora2?.length === 5 ? coincidencia.hora2 + ':00' : coincidencia.hora2;
                                         const fechaHora1 = new Date(`${coincidencia.fecha}T${hora1}`);
                                         const fechaHora2 = new Date(`${coincidencia.fecha}T${hora2}`);
                                         const diferenciaMinutos = Math.abs((fechaHora1.getTime() - fechaHora2.getTime()) / (1000 * 60));
+                                        const isExpanded = expandedCruceCards.has(index);
+                                        const cardKey = `${coincidencia.matricula1}-${coincidencia.matricula2}-${coincidencia.fecha}-${coincidencia.lector}-${index}`;
 
                                         return (
-                                            <Card key={index} shadow="sm" p="md" radius="md" withBorder>
-                                                <Group gap="md" align="flex-start" wrap="nowrap">
-                                                    <Box style={{ flex: 1, minWidth: 200 }}>
-                                                        <Group gap="xs" mb="xs">
-                                                            <Badge color="blue" size="lg">{coincidencia.matricula1}</Badge>
-                                                        </Group>
-                                                        <Stack gap={4}>
-                                                            <Group gap={4} align="center">
-                                                                <IconClock size={14} color="var(--mantine-color-gray-6)" />
-                                                                <Text size="sm" fw={500}>{coincidencia.fecha}</Text>
-                                                            </Group>
-                                                            <Text size="lg" fw={600} c="blue" style={{ fontFamily: 'monospace' }}>
-                                                                {hora1}
-                                                            </Text>
-                                                            <Group gap={4} align="center" mt={4}>
-                                                                <IconRoute size={14} color="var(--mantine-color-gray-6)" />
-                                                                <Text size="xs" c="dimmed" lineClamp={1}>
-                                                                    {coincidencia.lector}
-                                                                </Text>
-                                                            </Group>
-                                                        </Stack>
-                                                    </Box>
-
-                                                    <Box style={{ flex: 0, minWidth: 140, textAlign: 'center' }}>
-                                                        <Stack gap={6} align="center">
-                                                            <ThemeIcon size="xl" radius="xl" variant="light" color="green">
-                                                                <IconGitMerge size={20} />
-                                                            </ThemeIcon>
-                                                            <Badge color="green" size="xl" variant="filled" style={{ fontSize: '16px', fontWeight: 700, padding: '8px 16px', minWidth: '100px' }}>
-                                                                {formatearTiempo(diferenciaMinutos)}
-                                                            </Badge>
-                                                            <Badge color={diferenciaMinutos <= 5 ? 'green' : diferenciaMinutos <= 30 ? 'yellow' : 'orange'} size="sm" variant="light">
-                                                                {diferenciaMinutos <= 5 ? 'Reunión posible' : diferenciaMinutos <= 30 ? 'Reunión probable' : 'Reunión improbable'}
-                                                            </Badge>
-                                                        </Stack>
-                                                    </Box>
-
-                                                    <Box style={{ flex: 1, minWidth: 200 }}>
-                                                        <Group gap="xs" mb="xs">
-                                                            <Badge color="gray" size="lg">{coincidencia.matricula2}</Badge>
-                                                        </Group>
-                                                        <Stack gap={4}>
-                                                            <Group gap={4} align="center">
-                                                                <IconClock size={14} color="var(--mantine-color-gray-6)" />
-                                                                <Text size="sm" fw={500}>{coincidencia.fecha}</Text>
-                                                            </Group>
-                                                            <Text size="lg" fw={600} c="gray" style={{ fontFamily: 'monospace' }}>
-                                                                {hora2}
-                                                            </Text>
-                                                            <Group gap={4} align="center" mt={4}>
-                                                                <IconRoute size={14} color="var(--mantine-color-gray-6)" />
-                                                                <Text size="xs" c="dimmed" lineClamp={1}>
-                                                                    {coincidencia.lector}
-                                                                </Text>
-                                                            </Group>
-                                                        </Stack>
-                                                    </Box>
+                                            <Card key={cardKey} shadow="sm" p="md" radius="md" withBorder mb="sm">
+                                                <Group justify="space-between" mb="xs">
+                                                    <Group gap="sm" align="center">
+                                                        <ActionIcon
+                                                            variant="subtle"
+                                                            color="gray"
+                                                            onClick={() => {
+                                                                const newExpanded = new Set(expandedCruceCards);
+                                                                if (isExpanded) {
+                                                                    newExpanded.delete(index);
+                                                                } else {
+                                                                    newExpanded.add(index);
+                                                                }
+                                                                setExpandedCruceCards(newExpanded);
+                                                            }}
+                                                            style={{ cursor: 'pointer' }}
+                                                        >
+                                                            {isExpanded ? <IconChevronUp size={18} /> : <IconChevronDown size={18} />}
+                                                        </ActionIcon>
+                                                        <Text fw={700}>{coincidencia.matricula1} ↔ {coincidencia.matricula2}</Text>
+                                                        <Badge color="gray">{coincidencia.fecha}</Badge>
+                                                        <Badge color={diferenciaMinutos <= 5 ? 'green' : diferenciaMinutos <= 30 ? 'yellow' : 'orange'} variant="light">
+                                                            {formatearTiempo(diferenciaMinutos)}
+                                                        </Badge>
+                                                    </Group>
+                                                    <Button 
+                                                        size="xs" 
+                                                        onClick={() => {
+                                                            // Aplicar filtros en el panel LPR para mostrar las lecturas de esta coincidencia
+                                                            if (analisisLprRef?.current) {
+                                                                // Calcular hora inicio y fin con un margen de ±5 minutos para capturar ambas lecturas
+                                                                const hora1Parts = hora1.split(':');
+                                                                const hora2Parts = hora2.split(':');
+                                                                const hora1Minutos = parseInt(hora1Parts[0]) * 60 + parseInt(hora1Parts[1] || '0');
+                                                                const hora2Minutos = parseInt(hora2Parts[0]) * 60 + parseInt(hora2Parts[1] || '0');
+                                                                const horaMin = Math.min(hora1Minutos, hora2Minutos) - 5;
+                                                                const horaMax = Math.max(hora1Minutos, hora2Minutos) + 5;
+                                                                
+                                                                const horaInicio = `${Math.floor(horaMin / 60).toString().padStart(2, '0')}:${(horaMin % 60).toString().padStart(2, '0')}`;
+                                                                const horaFin = `${Math.floor(horaMax / 60).toString().padStart(2, '0')}:${(horaMax % 60).toString().padStart(2, '0')}`;
+                                                                
+                                                                analisisLprRef.current.aplicarFiltros({
+                                                                    matriculaTags: [coincidencia.matricula1, coincidencia.matricula2],
+                                                                    fechaInicio: coincidencia.fecha,
+                                                                    fechaFin: coincidencia.fecha,
+                                                                    horaInicio: horaInicio,
+                                                                    horaFin: horaFin,
+                                                                    lectorIds: [coincidencia.lector]
+                                                                });
+                                                                
+                                                                // Navegar al panel LPR
+                                                                if (onNavigateToLpr) {
+                                                                    onNavigateToLpr();
+                                                                }
+                                                                
+                                                                notifications.show({
+                                                                    title: 'Filtros aplicados',
+                                                                    message: `Mostrando lecturas de ${coincidencia.matricula1} y ${coincidencia.matricula2} en el panel LPR`,
+                                                                    color: 'blue',
+                                                                    autoClose: 3000
+                                                                });
+                                                            } else {
+                                                                notifications.show({
+                                                                    title: 'Error',
+                                                                    message: 'No se pudo acceder al panel LPR',
+                                                                    color: 'red'
+                                                                });
+                                                            }
+                                                        }} 
+                                                        leftSection={<IconSearch size={16} />}
+                                                    >
+                                                        Ver Lecturas
+                                                    </Button>
                                                 </Group>
+                                                <Collapse in={isExpanded}>
+                                                    <Paper p="sm" withBorder radius="md" mt="sm" style={{ backgroundColor: 'var(--mantine-color-gray-0)' }}>
+                                                        <Group gap="md" align="flex-start" wrap="nowrap">
+                                                            {/* Columna izquierda: Vehículo 1 */}
+                                                            <Box style={{ flex: 1, minWidth: 200 }}>
+                                                                <Group gap="xs" mb="xs">
+                                                                    <Badge color="blue" size="lg">{coincidencia.matricula1}</Badge>
+                                                                </Group>
+                                                                <Stack gap={4}>
+                                                                    <Group gap={4} align="center">
+                                                                        <IconClock size={14} color="var(--mantine-color-gray-6)" />
+                                                                        <Text size="sm" fw={500}>{coincidencia.fecha}</Text>
+                                                                    </Group>
+                                                                    <Text size="lg" fw={600} c="blue" style={{ fontFamily: 'monospace' }}>
+                                                                        {hora1}
+                                                                    </Text>
+                                                                    <Group gap={4} align="center" mt={4}>
+                                                                        <IconRoute size={14} color="var(--mantine-color-gray-6)" />
+                                                                        <Text size="xs" c="dimmed" lineClamp={1}>
+                                                                            {coincidencia.lector}
+                                                                        </Text>
+                                                                    </Group>
+                                                                </Stack>
+                                                            </Box>
+
+                                                            {/* Columna central: Información de diferencia temporal */}
+                                                            <Box style={{ flex: 0, minWidth: 140, textAlign: 'center' }}>
+                                                                <Stack gap={6} align="center">
+                                                                    <ThemeIcon size="xl" radius="xl" variant="light" color="green">
+                                                                        <IconGitMerge size={20} />
+                                                                    </ThemeIcon>
+                                                                    <Badge color="green" size="xl" variant="filled" style={{ fontSize: '16px', fontWeight: 700, padding: '8px 16px', minWidth: '100px' }}>
+                                                                        {formatearTiempo(diferenciaMinutos)}
+                                                                    </Badge>
+                                                                    <Badge color={diferenciaMinutos <= 5 ? 'green' : diferenciaMinutos <= 30 ? 'yellow' : 'orange'} size="sm" variant="light">
+                                                                        {diferenciaMinutos <= 5 ? 'Reunión posible' : diferenciaMinutos <= 30 ? 'Reunión probable' : 'Reunión improbable'}
+                                                                    </Badge>
+                                                                </Stack>
+                                                            </Box>
+
+                                                            {/* Columna derecha: Vehículo 2 */}
+                                                            <Box style={{ flex: 1, minWidth: 200 }}>
+                                                                <Group gap="xs" mb="xs">
+                                                                    <Badge color="gray" size="lg">{coincidencia.matricula2}</Badge>
+                                                                </Group>
+                                                                <Stack gap={4}>
+                                                                    <Group gap={4} align="center">
+                                                                        <IconClock size={14} color="var(--mantine-color-gray-6)" />
+                                                                        <Text size="sm" fw={500}>{coincidencia.fecha}</Text>
+                                                                    </Group>
+                                                                    <Text size="lg" fw={600} c="gray" style={{ fontFamily: 'monospace' }}>
+                                                                        {hora2}
+                                                                    </Text>
+                                                                    <Group gap={4} align="center" mt={4}>
+                                                                        <IconRoute size={14} color="var(--mantine-color-gray-6)" />
+                                                                        <Text size="xs" c="dimmed" lineClamp={1}>
+                                                                            {coincidencia.lector}
+                                                                        </Text>
+                                                                    </Group>
+                                                                </Stack>
+                                                            </Box>
+                                                        </Group>
+                                                    </Paper>
+                                                </Collapse>
                                             </Card>
                                         );
                                     })}
