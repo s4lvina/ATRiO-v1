@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Box, Title, Text, Paper, Group, Button, TextInput, NumberInput, Select, Badge, Card, Stack, ActionIcon, Menu, Tooltip, Divider, Timeline, ThemeIcon } from '@mantine/core';
+import { Box, Title, Text, Paper, Group, Button, TextInput, NumberInput, Select, Badge, Card, Stack, ActionIcon, Menu, Tooltip, Divider, Timeline, ThemeIcon, Autocomplete, Loader } from '@mantine/core';
 import { IconSearch, IconMapPin, IconSortAscending, IconSortDescending, IconGauge, IconUsersGroup, IconWorld, IconClock, IconRoute, IconArrowRight } from '@tabler/icons-react';
 import apiClient from '../../services/api';
 import { notifications } from '@mantine/notifications';
@@ -7,6 +7,8 @@ import MatriculasExtranjerasPanel from './MatriculasExtranjerasPanel';
 import VelocidadAnormalPanel, { type VehiculoRapido } from './VelocidadAnormalPanel';
 import { useMapHighlight } from '../../context/MapHighlightContext';
 import appEventEmitter from '../../utils/eventEmitter';
+import { getVehiculosPorCaso } from '../../services/casosApi';
+import type { Vehiculo } from '../../types/data';
 
 export type AnalisisAvanzadoSubTab = 'velocidad' | 'lanzadera' | 'matriculas';
 
@@ -121,6 +123,39 @@ function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad', analisisLpr
     const { setHighlightedLecturas } = useMapHighlight();
     const [ordenCoincidencias, setOrdenCoincidencias] = useState<'fecha'|'matricula'|'tipo'>('fecha');
     const [ordenAsc, setOrdenAsc] = useState(true);
+    const [vehiculosCaso, setVehiculosCaso] = useState<Vehiculo[]>([]);
+    const [vehiculosLoading, setVehiculosLoading] = useState(false);
+
+    // Cargar vehículos del caso
+    useEffect(() => {
+        const fetchVehiculos = async () => {
+            if (!casoId) return;
+            setVehiculosLoading(true);
+            try {
+                const vehiculos = await getVehiculosPorCaso(casoId);
+                setVehiculosCaso(vehiculos || []);
+            } catch (error) {
+                console.error('Error al cargar vehículos del caso:', error);
+                setVehiculosCaso([]);
+            } finally {
+                setVehiculosLoading(false);
+            }
+        };
+        fetchVehiculos();
+    }, [casoId]);
+
+    // Escuchar cambios en la lista de vehículos
+    useEffect(() => {
+        const handler = () => {
+            if (casoId) {
+                getVehiculosPorCaso(casoId)
+                    .then(vehiculos => setVehiculosCaso(vehiculos || []))
+                    .catch(error => console.error('Error al recargar vehículos:', error));
+            }
+        };
+        appEventEmitter.on('listaVehiculosCambiada', handler);
+        return () => appEventEmitter.off('listaVehiculosCambiada', handler);
+    }, [casoId]);
 
     // Limpiar notificaciones cuando el componente se desmonte o cambie el caso
     useEffect(() => {
@@ -373,13 +408,17 @@ function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad', analisisLpr
 
                     <Group align="flex-start" gap="xl" wrap="nowrap">
                         <Stack gap="sm" style={{ flex: '0 0 320px' }}>
-                            <TextInput
+                            <Autocomplete
                                 label="Matrícula objetivo"
                                 value={lanzaderaParams?.matricula || ''}
-                                onChange={e => setLanzaderaParams(p => ({ ...p, matricula: e.target.value }))}
-                                placeholder="Introduce matrícula"
+                                onChange={(value) => setLanzaderaParams(p => ({ ...p, matricula: value }))}
+                                placeholder="Introduce o selecciona matrícula"
+                                data={Array.from(new Set(vehiculosCaso.map(v => v.Matricula).filter(Boolean))).sort()}
+                                rightSection={vehiculosLoading ? <Loader size="xs" /> : undefined}
                                 required
                                 style={{ width: '100%' }}
+                                limit={10}
+                                maxDropdownHeight={200}
                             />
                             <TextInput
                                 type="date"
