@@ -63,8 +63,37 @@ const OPTIONAL_FIELDS: { [key in 'LPR' | 'GPS' | 'GPX_KML' | 'EXTERNO']: string[
 // (Convertir a minúsculas para comparación insensible)
 const AUTO_MAP_TERMS: { [key: string]: string[] } = {
   Matricula: ['matricula', 'matrícula', 'plate', 'license', 'licensenumber', 'numplaca', 'patente', 'licenseplate'],
-  Fecha: ['fecha', 'date', 'fec'],
-  Hora: ['hora', 'time', 'timestamp'], // Timestamp podría requerir dividir fecha/hora después
+  Fecha: [
+    'fecha', 'date', 'fec', 
+    'fecha_lectura', 'fecha_registro', 'fecha_deteccion', 'fecha_evento', 'fecha_captura', 
+    'fecha_creacion', 'fecha_importacion', 'fecha_inicio', 'fecha_fin', 
+    'fecha_transaccion', 'fecha_ocurrencia', 'fecha_observacion', 'fecha_medicion', 
+    'fecha_muestra', 'fecha_dato', 'fecha_ingreso', 'fecha_entrada', 'fecha_salida', 'fecha_paso'
+  ],
+  Hora: [
+    'hora', 'time', 
+    'hora_lectura', 'hora_registro', 'hora_deteccion', 'hora_evento', 'hora_captura', 
+    'hora_creacion', 'hora_importacion', 'hora_inicio', 'hora_fin', 
+    'hora_transaccion', 'hora_ocurrencia', 'hora_observacion', 'hora_medicion', 
+    'hora_muestra', 'hora_dato', 'hora_ingreso', 'hora_entrada', 'hora_salida', 'hora_paso'
+  ],
+  DateTime: [
+    'datetime', 'fecha_hora', 'fecha y hora', 'fecha_y_hora', 'fecha_completa', 
+    'fecha_hora_lectura', 'fecha_hora_registro', 'fecha_hora_deteccion', 'fecha_hora_evento', 
+    'fecha_hora_captura', 'fecha_hora_creacion', 'fecha_hora_importacion', 
+    'fecha_hora_inicio', 'fecha_hora_fin', 'fecha_hora_transaccion', 'fecha_hora_ocurrencia', 
+    'fecha_hora_observacion', 'fecha_hora_medicion', 'fecha_hora_muestra', 'fecha_hora_dato', 
+    'fecha_hora_ingreso', 'fecha_hora_entrada', 'fecha_hora_salida', 'fecha_hora_paso',
+    'timestamp', 'fecha_timestamp', 'fechahora', 'fecha-hora', 'date_time', 'date_time'
+  ],
+  Sentido: [
+    'sentido', 'direction', 'direccion', 'dirección', 'dir', 
+    'direccion_viaje', 'direccion_movimiento', 'direccion_vehiculo', 'direccion_transito', 
+    'direccion_circulacion', 'direccion_trafico', 'direccion_paso', 
+    'direccion_entrada', 'direccion_salida', 'direccion_lectura', 'direccion_deteccion', 
+    'direccion_evento', 'direccion_captura', 'direccion_registro', 'direccion_observacion', 
+    'direccion_medicion', 'direccion_muestra', 'direccion_dato', 'direccion_ingreso'
+  ],
   ID_Lector: [
     'id_lector', 'idlector', 'lector', 'camara', 'cámara', 'device', 'reader', 'dispositivo',
     'camera', 'cam', 'cam_id', 'device_id', 'deviceid', 'reader_id', 'readerid',
@@ -80,8 +109,8 @@ const AUTO_MAP_TERMS: { [key: string]: string[] } = {
   ],
   Coordenada_X: ['coordenada_x', 'coord_x', 'coordx', 'longitud', 'longitude', 'lon', 'x', 'este', 'easting'],
   Coordenada_Y: ['coordenada_y', 'coord_y', 'coordy', 'latitud', 'latitude', 'lat', 'y', 'norte', 'northing'],
-  Velocidad: ['velocidad', 'speed', 'vel', 'v', 'kmh'],
-  Carril: ['carril', 'lane', 'via']
+  Velocidad: ['velocidad', 'speed', 'vel', 'v', 'kmh', 'km/h', 'km_h', 'velocidad_kmh'],
+  Carril: ['carril', 'lane', 'via', 'carril_via', 'via_carril']
 };
 
 // Tipado para el mapeo
@@ -467,11 +496,35 @@ function ImportarPage() {
               // --- Lógica de Auto-Mapeo ---
               const initialMapping: ColumnMapping = {};
               const allFields = [...REQUIRED_FIELDS[fileType], ...OPTIONAL_FIELDS[fileType]];
-              const lowercaseHeaders = headers.map(h => h.toLowerCase());
               const mappedHeaders = new Set<string>();
 
+              // Primero, verificar si hay una columna DateTime (fecha y hora combinada)
+              let detectedDateTimeColumn: string | null = null;
+              const dateTimeTerms = AUTO_MAP_TERMS['DateTime'] || [];
+              for (const header of headers) {
+                const lowerHeader = header.toLowerCase();
+                if (dateTimeTerms.includes(lowerHeader)) {
+                  detectedDateTimeColumn = header;
+                  setFechaHoraCombinada(true);
+                  break;
+                }
+              }
+
+              // Si se detectó una columna DateTime, mapearla a Fecha y Hora
+              if (detectedDateTimeColumn) {
+                initialMapping['Fecha'] = detectedDateTimeColumn;
+                initialMapping['Hora'] = detectedDateTimeColumn;
+                mappedHeaders.add(detectedDateTimeColumn.toLowerCase());
+              }
+
+              // Mapear el resto de campos
               allFields.forEach(field => {
-                initialMapping[field] = null;
+                // Si ya mapeamos Fecha y Hora con DateTime, saltar estos campos
+                if (detectedDateTimeColumn && (field === 'Fecha' || field === 'Hora')) {
+                  return;
+                }
+                
+                initialMapping[field] = initialMapping[field] || null;
                 const terms = AUTO_MAP_TERMS[field];
                 if (terms) {
                   for (const header of headers) {

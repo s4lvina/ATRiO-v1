@@ -448,18 +448,7 @@ function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad' }: PatronesP
                 <Paper shadow="sm" p="md" radius="md">
                     <Title order={4} mb="md">Búsqueda de Matrículas Extranjeras</Title>
                     <MatriculasExtranjerasPanel
-                        lecturas={[
-                            ...vehiculosRapidos.map(v => ({
-                                Matricula: v.matricula,
-                                Fecha_y_Hora: v.fechaHoraInicio,
-                                ID_Lector: v.lectorInicio
-                            })),
-                            ...lanzaderaDetalles.map(d => ({
-                                Matricula: d.matricula,
-                                Fecha_y_Hora: `${d.fecha}T${d.hora}`,
-                                ID_Lector: d.lector
-                            }))
-                        ]}
+                        casoId={casoId}
                         loading={velocidadLoading || lanzaderaLoading}
                     />
                 </Paper>
