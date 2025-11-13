@@ -422,8 +422,27 @@ export default function MatriculasExtranjerasPanel({ casoId, loading: externalLo
         const isForeign = !pais.code.startsWith('ESP_') && pais.code !== 'ES';
         const isSpecial = pais.code.startsWith('ESP_');
         
-        if (isForeign && selectedCountries.length > 0 && !selectedCountries.includes(pais.code)) return false;
-        if (isSpecial && selectedTiposEspeciales.length > 0 && !selectedTiposEspeciales.includes(pais.code)) return false;
+        // Si hay filtros seleccionados, aplicar la lógica de exclusión
+        const hasCountryFilter = selectedCountries.length > 0;
+        const hasSpecialFilter = selectedTiposEspeciales.length > 0;
+        
+        // Si hay filtros activos, aplicar lógica de inclusión/exclusión
+        if (hasCountryFilter || hasSpecialFilter) {
+          if (isForeign) {
+            // Si es extranjero, debe pasar el filtro de países si está activo
+            if (hasCountryFilter && !selectedCountries.includes(pais.code)) return false;
+            // Si hay filtro de tipos especiales pero no de países, excluir extranjeros
+            if (hasSpecialFilter && !hasCountryFilter) return false;
+          } else if (isSpecial) {
+            // Si es especial, debe pasar el filtro de tipos especiales si está activo
+            if (hasSpecialFilter && !selectedTiposEspeciales.includes(pais.code)) return false;
+            // Si hay filtro de países pero no de tipos especiales, excluir especiales
+            if (hasCountryFilter && !hasSpecialFilter) return false;
+          } else {
+            // ES normal o incompleto: excluir si hay cualquier filtro activo
+            if (hasCountryFilter || hasSpecialFilter) return false;
+          }
+        }
 
         const lecturaDate = new Date(lectura.Fecha_y_Hora);
         if (startDate && lecturaDate < startDate) return false;
@@ -851,7 +870,7 @@ export default function MatriculasExtranjerasPanel({ casoId, loading: externalLo
     if (code.startsWith('ESP_')) {
       if (code.includes('DGP') || code.includes('PGC') || code.includes('GC')) return 'red';
       if (code.includes('CD') || code.includes('CC') || code.includes('OM')) return 'blue';
-      if (code === 'ESP_R') return 'orange';
+      if (code === 'ESP_R') return 'cyan';
       if (code === 'ESP_TAXI') return 'yellow';
       return 'grape';
     }
@@ -868,7 +887,8 @@ export default function MatriculasExtranjerasPanel({ casoId, loading: externalLo
       );
     }
     if (pais.code.startsWith('ESP_')) {
-      return null; // No hay bandera para matrículas especiales
+      // Mostrar bandera de España para matrículas especiales españolas
+      return <CountryFlag countryCode="ES" svg style={{ width: 24 }} />;
     }
     return <CountryFlag countryCode={pais.code} svg style={{ width: 24 }} />;
   }, []);
