@@ -141,7 +141,7 @@ function ImportarPage() {
   const [uploadProgress, setUploadProgress] = useState(0);
   
   // Estados para importación múltiple
-  const [batchUploadProgress, setBatchUploadProgress] = useState<{ [fileName: string]: { progress: number; status: 'pending' | 'uploading' | 'completed' | 'error'; error?: string; taskId?: string } }>({});
+  const [batchUploadProgress, setBatchUploadProgress] = useState<{ [fileName: string]: { progress: number; status: 'pending' | 'uploading' | 'completed' | 'error'; error?: string; taskId?: string; duplicados?: number; totalRegistros?: number } }>({});
   const [batchResults, setBatchResults] = useState<{ [fileName: string]: UploadResponse | null }>({});
 
   // Estados para la lista de archivos
@@ -964,14 +964,22 @@ function ImportarPage() {
         );
 
         // Actualizar progreso y resultado
-        setBatchUploadProgress(prev => ({
-          ...prev,
-          [file.name]: { ...prev[file.name], status: 'completed', progress: 100, taskId: resultado.task_id }
-        }));
-
+        // Si no hay task_id, el resultado viene directamente con la información
         setBatchResults(prev => ({
           ...prev,
           [file.name]: resultado
+        }));
+
+        setBatchUploadProgress(prev => ({
+          ...prev,
+          [file.name]: { 
+            ...prev[file.name], 
+            status: 'completed', 
+            progress: 100, 
+            taskId: resultado.task_id,
+            duplicados: resultado.lecturas_duplicadas?.length || 0,
+            totalRegistros: resultado.total_registros || 0
+          }
         }));
 
         // Añadir tarea de seguimiento si hay task_id
@@ -980,10 +988,22 @@ function ImportarPage() {
           addTask({
             id: resultado.task_id,
             onComplete: (result: any) => {
+              // Guardar resultado completo con información de duplicados
+              setBatchResults(prev => ({
+                ...prev,
+                [file.name]: result
+              }));
+
               setBatchUploadProgress(prev => {
                 const updated = {
                   ...prev,
-                  [file.name]: { ...prev[file.name], status: 'completed', progress: 100 }
+                  [file.name]: { 
+                    ...prev[file.name], 
+                    status: 'completed', 
+                    progress: 100,
+                    duplicados: result.lecturas_duplicadas?.length || 0,
+                    totalRegistros: result.total_registros || 0
+                  }
                 };
                 // Verificar si todos los archivos están completos
                 const allComplete = selectedFiles.every(f => 
@@ -1822,6 +1842,8 @@ function ImportarPage() {
                       <Stack gap="xs">
                         {selectedFiles.map((file, index) => {
                           const progress = batchUploadProgress[file.name];
+                          const result = batchResults[file.name];
+                          const hasDuplicados = result?.lecturas_duplicadas && result.lecturas_duplicadas.length > 0;
                           return (
                             <Paper key={index} p="xs" withBorder style={{ backgroundColor: 'white' }}>
                               <Group justify="space-between" align="center">
@@ -1854,6 +1876,40 @@ function ImportarPage() {
                                 <Text size="xs" c="red" mt="xs" style={{ fontStyle: 'italic' }}>
                                   {progress.error}
                                 </Text>
+                              )}
+                              {progress && progress.status === 'completed' && hasDuplicados && (
+                                <Box mt="xs">
+                                  <Tooltip
+                                    label={
+                                      <Box>
+                                        <Text size="xs" mb="xs" fw={500}>
+                                          {result.lecturas_duplicadas.length} registro{result.lecturas_duplicadas.length !== 1 ? 's' : ''} duplicado{result.lecturas_duplicadas.length !== 1 ? 's' : ''} omitido{result.lecturas_duplicadas.length !== 1 ? 's' : ''}
+                                        </Text>
+                                        {result.lecturas_duplicadas.length <= 10 ? (
+                                          <Text size="xs" style={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
+                                            {result.lecturas_duplicadas.join('\n')}
+                                          </Text>
+                                        ) : (
+                                          <Text size="xs">
+                                            {result.lecturas_duplicadas.slice(0, 10).join(', ')}...
+                                          </Text>
+                                        )}
+                                      </Box>
+                                    }
+                                    withArrow
+                                    multiline
+                                    width={300}
+                                  >
+                                    <Badge color="orange" variant="light" size="sm" style={{ cursor: 'help' }}>
+                                      ⚠ {result.lecturas_duplicadas.length} duplicado{result.lecturas_duplicadas.length !== 1 ? 's' : ''}
+                                    </Badge>
+                                  </Tooltip>
+                                  {progress.totalRegistros && (
+                                    <Text size="xs" c="dimmed" mt={4}>
+                                      {progress.totalRegistros} registro{progress.totalRegistros !== 1 ? 's' : ''} importado{progress.totalRegistros !== 1 ? 's' : ''} correctamente
+                                    </Text>
+                                  )}
+                                </Box>
                               )}
                             </Paper>
                           );
