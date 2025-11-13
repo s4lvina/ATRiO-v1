@@ -22,7 +22,7 @@ type SubTabDefinition = {
 export const ANALISIS_AVANZADO_SUBTABS: SubTabDefinition[] = [
     { value: 'velocidad', label: 'Vehículos rápidos', icon: IconGauge, color: '#1d4ed8' },
     { value: 'lanzadera', label: 'Vehículo acompañante', icon: IconUsersGroup, color: '#9333ea' },
-    { value: 'matriculas', label: 'Matrículas extranjeras', icon: IconWorld, color: '#059669' }
+    { value: 'matriculas', label: 'Matrículas especiales', icon: IconWorld, color: '#059669' }
 ];
 
 interface PatronesPanelProps {
@@ -1287,10 +1287,12 @@ function AnalisisAvanzadoPanel({ casoId, activeSubTab = 'velocidad', analisisLpr
 
             {activeSubTab === 'matriculas' && (
                 <Paper shadow="sm" p="md" radius="md">
-                    <Title order={4} mb="md">Búsqueda de Matrículas Extranjeras</Title>
+                    <Title order={4} mb="md">Búsqueda de Matrículas Especiales</Title>
                     <MatriculasExtranjerasPanel
                         casoId={casoId}
                         loading={velocidadLoading || lanzaderaLoading}
+                        analisisLprRef={analisisLprRef}
+                        onNavigateToLpr={onNavigateToLpr}
                     />
                 </Paper>
             )}

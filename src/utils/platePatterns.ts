@@ -57,5 +57,21 @@ export const platePatterns = {
   MA: { name: 'Marruecos', regex: /^[0-9]{1,5}-[A-Z]{1,2}-[0-9]{2}$/, example: '12345-A-12' },
   DZ: { name: 'Argelia', regex: /^[0-9]{5,6}-[0-9]{2}-[0-9]{2}$/, example: '123456-12-34' },
   TN: { name: 'Túnez', regex: /^[0-9]{1,4} تونس [0-9]{1,4}$/, example: '1234 تونس 5678' },
-  LY: { name: 'Libia', regex: /^[0-9]{1,7}$/, example: '1234567' }
+  LY: { name: 'Libia', regex: /^[0-9]{1,7}$/, example: '1234567' },
+
+  // Matrículas especiales españolas
+  ESP_DGP: { name: 'España - DGP (Dirección General de la Policía)', regex: /^DGP[A-Z0-9]{1,6}$/i, example: 'DGP1234' },
+  ESP_PGC: { name: 'España - PGC (Policía Guardia Civil)', regex: /^PGC[A-Z0-9]{1,6}$/i, example: 'PGC1234' },
+  ESP_CD: { name: 'España - CD (Cuerpo Diplomático)', regex: /^CD[A-Z0-9]{1,6}$/i, example: 'CD1234' },
+  ESP_R: { name: 'España - R (Remolque)', regex: /^R[0-9]{4}[A-Z]{3}$/i, example: 'R1234ABC' },
+  ESP_CC: { name: 'España - CC (Cuerpo Consular)', regex: /^CC[A-Z0-9]{1,6}$/i, example: 'CC1234' },
+  ESP_OM: { name: 'España - OM (Organismos Multilaterales)', regex: /^OM[A-Z0-9]{1,6}$/i, example: 'OM1234' },
+  ESP_E: { name: 'España - E (Extranjeros)', regex: /^E[0-9]{4}[A-Z]{3}$/i, example: 'E1234ABC' },
+  ESP_S: { name: 'España - S (Servicio)', regex: /^S[0-9]{4}[A-Z]{3}$/i, example: 'S1234ABC' },
+  ESP_B: { name: 'España - B (Bicicleta)', regex: /^B[0-9]{4}[A-Z]{3}$/i, example: 'B1234ABC' },
+  ESP_C: { name: 'España - C (Ciclomotor)', regex: /^C[0-9]{4}[A-Z]{3}$/i, example: 'C1234ABC' },
+  ESP_P: { name: 'España - P (Provisional)', regex: /^P[0-9]{4}[A-Z]{3}$/i, example: 'P1234ABC' },
+  ESP_V: { name: 'España - V (Vehículo Histórico)', regex: /^V[0-9]{4}[A-Z]{3}$/i, example: 'V1234ABC' },
+  ESP_TAXI: { name: 'España - Taxi', regex: /^[0-9]{4}TX[A-Z]$/i, example: '1234TXA' },
+  ESP_GC: { name: 'España - GC (Guardia Civil)', regex: /^GC[A-Z0-9]{1,6}$/i, example: 'GC1234' }
 }; 

@@ -12,7 +12,7 @@ export type SubTabDefinition = {
 export const ANALISIS_AVANZADO_SUBTABS: SubTabDefinition[] = [
     { value: 'velocidad', label: 'Vehículos rápidos', icon: IconGauge, color: '#1d4ed8' },
     { value: 'lanzadera', label: 'Vehículo acompañante', icon: IconUsersGroup, color: '#9333ea' },
-    { value: 'matriculas', label: 'Matrículas extranjeras', icon: IconWorld, color: '#059669' }
+    { value: 'matriculas', label: 'Matrículas especiales', icon: IconWorld, color: '#059669' }
 ];
 
 
