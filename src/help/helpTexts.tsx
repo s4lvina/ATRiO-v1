@@ -89,12 +89,30 @@ const helpTexts = {
         <Text size="sm" mb="xs">
           La pestaña de Análisis Avanzado agrupa tres módulos especializados para el análisis de patrones y vehículos de interés:
           <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
-            <li><b>Detección de vehículos rápidos:</b> Identifica vehículos que circulan a velocidades superiores a un umbral definido, útil para localizar posibles lanzaderas, huidas o patrones de conducción sospechosos.</li>
-            <li><b>Detección de convoyes (Lanzadera):</b> Detecta pares de vehículos que viajan juntos de forma consistente (convoyes), basándose en lecturas LPR cercanas en el tiempo y en múltiples ubicaciones o días distintos. Esto puede indicar un vehículo "lanzadera" que guía a otro.</li>
-            <li><b>Detección de matrículas extranjeras:</b> Permite filtrar y localizar lecturas de vehículos con matrículas extranjeras, facilitando la investigación de vehículos no nacionales que puedan estar implicados en actividades relevantes para el caso.</li>
+            <li><b>Velocidad Anormal:</b> Identifica vehículos que circulan a velocidades superiores a un umbral definido, útil para localizar posibles lanzaderas, huidas o patrones de conducción sospechosos.</li>
+            <li><b>Vehículo Acompañante (Lanzadera):</b> Detecta pares de vehículos que viajan juntos de forma consistente (convoyes), basándose en lecturas LPR cercanas en el tiempo y en múltiples ubicaciones o días distintos. También permite cruzar dos vehículos específicos para encontrar coincidencias.</li>
+            <li><b>Matrículas Especiales:</b> Permite filtrar y localizar lecturas de vehículos con matrículas especiales (extranjeras o especiales españolas como DGP, PGC, CD, remolques, etc.), facilitando la investigación de vehículos de interés.</li>
           </ul>
         </Text>
-        <Text size="md" fw={700} mb={2}>¿Cómo usar el análisis lanzadera?</Text>
+        
+        <Text size="md" fw={700} mb={2}>Velocidad Anormal</Text>
+        <Text size="sm" mb="xs">
+          Este módulo permite identificar vehículos que han sido detectados circulando a velocidades superiores a un umbral definido. Es útil para localizar posibles vehículos lanzadera, huidas o patrones de conducción sospechosos.
+        </Text>
+        <Text size="md" fw={700} mb={2}>¿Cómo usar la detección de velocidad anormal?</Text>
+        <Text size="sm" mb="xs">
+          <ol style={{ paddingLeft: '20px', margin: '4px 0' }}>
+            <li>Define el umbral de velocidad a partir del cual se considerará un vehículo como anormal.</li>
+            <li>Aplica filtros opcionales por fecha, matrícula o lector.</li>
+            <li>Ejecuta la búsqueda para ver la lista de vehículos y lecturas que superan el umbral.</li>
+          </ol>
+        </Text>
+
+        <Text size="md" fw={700} mb={2}>Vehículo Acompañante (Lanzadera)</Text>
+        <Text size="sm" mb="xs">
+          Este módulo incluye dos funcionalidades principales:
+        </Text>
+        <Text size="sm" mb="xs" fw={600}>1. Detección de Acompañantes</Text>
         <Text size="sm" mb="xs">
           <ol style={{ paddingLeft: '20px', margin: '4px 0' }}>
             <li><b>Define Parámetros:</b> Ajusta la "Ventana de Tiempo" (minutos máximos entre lecturas para considerarlas juntas) y las "Mínimas Coincidencias" (cuántas veces deben verse juntos en lectores o días distintos para ser significativo).</li>
@@ -110,16 +128,15 @@ const helpTexts = {
             </li>
           </ol>
         </Text>
-        <Text size="md" fw={700} mb={2}>Detección de vehículos rápidos</Text>
+        <Text size="sm" mb="xs" fw={600}>2. Cruce de Vehículos</Text>
         <Text size="sm" mb="xs">
-          Este módulo permite identificar vehículos que han sido detectados circulando a velocidades superiores a un umbral definido. Es útil para localizar posibles vehículos lanzadera, huidas o patrones de conducción sospechosos.
-        </Text>
-        <Text size="md" fw={700} mb={2}>¿Cómo usar la detección de vehículos rápidos?</Text>
-        <Text size="sm" mb="xs">
+          Permite cruzar dos vehículos específicos para encontrar todas las coincidencias donde ambos fueron detectados en el mismo lector dentro de una ventana temporal:
           <ol style={{ paddingLeft: '20px', margin: '4px 0' }}>
-            <li>Define el umbral de velocidad a partir del cual se considerará un vehículo como rápido.</li>
-            <li>Aplica filtros opcionales por fecha, matrícula o lector.</li>
-            <li>Ejecuta la búsqueda para ver la lista de vehículos y lecturas que superan el umbral.</li>
+            <li><b>Introduce las Matrículas:</b> Ingresa las dos matrículas que deseas cruzar.</li>
+            <li><b>Configura la Ventana Temporal:</b> Define los minutos máximos entre lecturas para considerar una coincidencia.</li>
+            <li><b>Filtros Opcionales:</b> Puedes filtrar por rango de fechas, lectores específicos o carretera.</li>
+            <li><b>Buscar Coincidencias:</b> Haz clic en "Buscar" para encontrar todas las coincidencias.</li>
+            <li><b>Resultados:</b> Se muestran en cards colapsables con información detallada. Cada card incluye un botón "Ver Lecturas" que aplica automáticamente los filtros en el panel LPR para visualizar las lecturas correspondientes.</li>
           </ol>
         </Text>
         <Text size="md" fw={700} mb={2}>Dirección de Acompañamiento</Text>
@@ -130,31 +147,80 @@ const helpTexts = {
             <li><b>Solo por detrás:</b> Detecta vehículos que siempre van por detrás del objetivo (posibles escoltas o seguimiento).</li>
           </ul>
         </Text>
-        <Text size="md" fw={700} mb={2}>Consejos</Text>
+        <Text size="md" fw={700} mb={2}>Persistencia de Resultados</Text>
         <Text size="sm" mb="xs">
+          Los resultados de las búsquedas se guardan automáticamente en el navegador (sessionStorage), por lo que no se perderán al cambiar entre subpaneles. Puedes limpiar los resultados manualmente con el botón "Limpiar".
+        </Text>
+
+        <Text size="md" fw={700} mb={2}>Matrículas Especiales</Text>
+        <Text size="sm" mb="xs">
+          Este módulo permite filtrar y localizar lecturas de vehículos con matrículas especiales, incluyendo:
           <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
-            <li>Utiliza este módulo para detectar posibles lanzaderas o vehículos que intentan evitar controles.</li>
-            <li>Combina este análisis con el de convoyes para identificar patrones sospechosos.</li>
-            <li>La dirección de acompañamiento es crucial para distinguir entre vehículos de escolta, seguimiento o coordinación.</li>
+            <li><b>Matrículas extranjeras:</b> Vehículos de otros países (Francia, Italia, Portugal, etc.)</li>
+            <li><b>Matrículas especiales españolas:</b> DGP (Dirección General de la Policía), PGC/GC (Guardia Civil), CD (Cuerpo Diplomático), R (Remolques), CC (Cuerpo Consular), OM (Organismos Multilaterales), E (Extranjeros), S (Servicio), B (Bicicletas), C (Ciclomotores), P (Provisionales), V (Vehículos Históricos), TAXI, etc.</li>
           </ul>
         </Text>
-        <Text size="md" fw={700} mb={2}>Detección de matrículas extranjeras</Text>
-        <Text size="sm" mb="xs">
-          Este módulo permite filtrar y localizar lecturas de vehículos con matrículas extranjeras, facilitando la investigación de vehículos no nacionales que puedan estar implicados en actividades relevantes para el caso.
-        </Text>
-        <Text size="md" fw={700} mb={2}>¿Cómo usar la detección de matrículas extranjeras?</Text>
+        <Text size="md" fw={700} mb={2}>¿Cómo usar la búsqueda de matrículas especiales?</Text>
         <Text size="sm" mb="xs">
           <ol style={{ paddingLeft: '20px', margin: '4px 0' }}>
-            <li>Selecciona el país o países de interés, o utiliza el filtro general de matrículas extranjeras.</li>
-            <li>Aplica filtros adicionales por fecha, lector o patrón de matrícula si lo necesitas.</li>
-            <li>Consulta la lista de lecturas y vehículos extranjeros detectados en el caso.</li>
+            <li><b>Filtros de Tipo:</b>
+              <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
+                <li><b>Países:</b> Selecciona uno o varios países extranjeros para filtrar.</li>
+                <li><b>Tipos Especiales:</b> Selecciona uno o varios tipos especiales españoles (DGP, PGC, CD, etc.).</li>
+                <li>Puedes usar ambos filtros simultáneamente o por separado.</li>
+              </ul>
+            </li>
+            <li><b>Filtros Adicionales:</b>
+              <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
+                <li><b>Matrícula:</b> Busca una matrícula específica (con autocompletado).</li>
+                <li><b>Fechas y Horas:</b> Define rangos de fechas y horas.</li>
+                <li><b>Lectores y Carreteras:</b> Filtra por lectores o carreteras específicas.</li>
+                <li><b>Número de Lecturas:</b> Define mínimo y máximo de lecturas por matrícula.</li>
+              </ul>
+            </li>
+            <li><b>Buscar:</b> Haz clic en "Buscar" para ejecutar la búsqueda.</li>
+            <li><b>Resultados:</b>
+              <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
+                <li><b>Panel de Estadísticas:</b> Muestra un resumen con total de matrículas especiales, distribución por tipo/país, y top tipos/países.</li>
+                <li><b>Vista Tabla:</b> Muestra todas las lecturas en formato tabla con filas intercaladas para mejor legibilidad.</li>
+                <li><b>Vista Agrupada:</b> Agrupa las lecturas por matrícula en cards colapsables, mostrando resumen de lecturas, primera/última lectura, y lectores únicos.</li>
+                <li><b>Búsqueda Rápida:</b> Filtra los resultados en tiempo real dentro de la tabla.</li>
+                <li><b>Paginación:</b> Navega entre páginas de resultados (50 por página).</li>
+                <li><b>Ordenamiento:</b> Ordena por tipo/país, matrícula, fecha, lector o número de lecturas.</li>
+              </ul>
+            </li>
           </ol>
+        </Text>
+        <Text size="md" fw={700} mb={2}>Funcionalidades Avanzadas</Text>
+        <Text size="sm" mb="xs">
+          <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
+            <li><b>Ver Lecturas:</b> Cada fila/card incluye un botón "Ver Lecturas" que aplica automáticamente los filtros en el panel LPR para visualizar las lecturas correspondientes.</li>
+            <li><b>Selección Múltiple:</b> Selecciona múltiples matrículas para realizar acciones en lote:
+              <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
+                <li>Ver lecturas de todas las matrículas seleccionadas.</li>
+                <li>Exportar solo las matrículas seleccionadas a Excel.</li>
+              </ul>
+            </li>
+            <li><b>Exportar a Excel:</b> Exporta todos los resultados filtrados o solo los seleccionados a un archivo Excel con todas las columnas relevantes.</li>
+            <li><b>Indicadores Visuales:</b>
+              <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
+                <li>Bandera del país para matrículas extranjeras.</li>
+                <li>Bandera de España para matrículas especiales españolas.</li>
+                <li>Badges de colores según el tipo (rojo para policía, azul para diplomático, cyan para remolques, etc.).</li>
+                <li>Badge con número de lecturas cuando hay múltiples.</li>
+              </ul>
+            </li>
+            <li><b>Persistencia:</b> Los filtros, resultados y preferencias de vista se guardan automáticamente y se restauran al volver al subpanel.</li>
+          </ul>
         </Text>
         <Text size="md" fw={700} mb={2}>Consejos</Text>
         <Text size="sm" mb="xs">
           <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
-            <li>Presta especial atención a vehículos extranjeros que aparecen repetidamente o en compañía de vehículos nacionales sospechosos.</li>
-            <li>Utiliza la información de país para coordinar investigaciones con otras jurisdicciones si es necesario.</li>
+            <li>Utiliza la vista agrupada para identificar matrículas que aparecen frecuentemente.</li>
+            <li>Combina los filtros de países y tipos especiales para análisis más específicos.</li>
+            <li>El panel de estadísticas te da una visión rápida de la distribución de matrículas especiales en el caso.</li>
+            <li>Presta especial atención a vehículos especiales que aparecen repetidamente o en compañía de otros vehículos sospechosos.</li>
+            <li>Utiliza la exportación a Excel para análisis externos o documentación.</li>
           </ul>
         </Text>
       </Stack>
@@ -304,31 +370,80 @@ const helpTexts = {
   ),
   'gestion-lectores': (
     <Box style={{ maxWidth: 900 }}>
-      <Text fw={700} mb="sm" size="lg" c="blue.8">¿Cómo funciona la gestión de lectores?</Text>
+      <Text fw={700} mb="sm" size="lg" c="blue.8">¿Cómo funciona la gestión y consulta de lectores?</Text>
       <Stack gap="xs">
         <Text size="md" fw={700} mb={2}>¿Qué es un lector?</Text>
         <Text size="sm" mb="xs">
           Un <b>lector</b> es un dispositivo físico instalado en una ubicación concreta (p.ej. carretera, acceso, frontera) que captura lecturas de matrículas (LPR) o posiciones GPS de vehículos. Cada lector tiene un identificador único y puede estar asociado a una localización geográfica.
         </Text>
-        <Text size="md" fw={700} mb={2}>¿Para qué sirve la gestión de lectores?</Text>
+        <Text size="md" fw={700} mb={2}>Dos paneles separados</Text>
         <Text size="sm" mb="xs">
-          Permite consultar, añadir, editar o eliminar lectores en la base de datos. Es fundamental mantener actualizada esta información para que las lecturas se asignen correctamente a cada punto de control y para facilitar el análisis geográfico y temporal.
-        </Text>
-        <Text size="md" fw={700} mb={2}>Funcionalidades principales</Text>
-        <Text size="sm" mb="xs">
+          El sistema de lectores está dividido en dos paneles independientes:
           <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
-            <li><b>Listado de lectores:</b> Consulta todos los lectores registrados, su ubicación, tipo y estado.</li>
-            <li><b>Añadir lector:</b> Registra un nuevo lector indicando su identificador, tipo (LPR/GPS), ubicación y observaciones.</li>
-            <li><b>Editar lector:</b> Modifica los datos de un lector existente (por ejemplo, si cambia de ubicación o se corrige un error).</li>
-            <li><b>Eliminar lector:</b> Borra un lector de la base de datos (solo si ya no se utiliza).</li>
+            <li><b>Gestión de Lectores:</b> Permite administrar los lectores (añadir, editar, eliminar, importar, exportar).</li>
+            <li><b>Consulta de Lectores:</b> Permite visualizar y consultar los lectores en un mapa interactivo y tabla, sin capacidad de edición.</li>
           </ul>
         </Text>
-        <Text size="md" fw={700} mb={2}>Consejos</Text>
+        
+        <Text size="md" fw={700} mb={2}>Panel de Gestión de Lectores</Text>
+        <Text size="sm" mb="xs">
+          Este panel está diseñado para la administración completa de los lectores en la base de datos:
+        </Text>
+        <Text size="sm" mb="xs" fw={600}>Funcionalidades principales:</Text>
+        <Text size="sm" mb="xs">
+          <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
+            <li><b>Listado de lectores:</b> Consulta todos los lectores registrados en formato tabla con paginación y ordenamiento.</li>
+            <li><b>Filtros avanzados:</b> Filtra por provincia, localidad, carretera, organismo regulador o búsqueda de texto libre.</li>
+            <li><b>Editar lector:</b> Modifica los datos de un lector existente (identificador, nombre, ubicación, coordenadas, tipo, observaciones, etc.).</li>
+            <li><b>Eliminar lector:</b> Borra un lector de la base de datos (solo si ya no se utiliza).</li>
+            <li><b>Edición en lote:</b> Selecciona múltiples lectores y edítalos simultáneamente (útil para actualizar campos comunes como organismo o provincia).</li>
+            <li><b>Importar lectores:</b> Importa múltiples lectores desde un archivo Excel, permitiendo crear o actualizar lectores en masa.</li>
+            <li><b>Exportar a Excel:</b> Exporta la lista de lectores filtrados a un archivo Excel para análisis externo o respaldo.</li>
+          </ul>
+        </Text>
+        <Text size="sm" mb="xs" fw={600}>Consejos para la gestión:</Text>
         <Text size="sm" mb="xs">
           <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
             <li>Verifica siempre la ubicación y el identificador antes de añadir o modificar un lector.</li>
             <li>Elimina solo lectores que estén seguros de que no tienen lecturas asociadas relevantes.</li>
             <li>Utiliza descripciones claras para facilitar la identificación en los análisis y mapas.</li>
+            <li>La edición en lote es útil para actualizar información común a múltiples lectores (por ejemplo, cambiar el organismo regulador de varios lectores a la vez).</li>
+            <li>Al importar desde Excel, verifica el mapeo de columnas antes de confirmar la importación.</li>
+          </ul>
+        </Text>
+
+        <Text size="md" fw={700} mb={2}>Panel de Consulta de Lectores</Text>
+        <Text size="sm" mb="xs">
+          Este panel está diseñado para visualizar y consultar los lectores de forma geográfica y tabular:
+        </Text>
+        <Text size="sm" mb="xs" fw={600}>Funcionalidades principales:</Text>
+        <Text size="sm" mb="xs">
+          <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
+            <li><b>Vista de Mapa:</b> Visualiza todos los lectores en un mapa interactivo con marcadores en sus ubicaciones geográficas.</li>
+            <li><b>Vista de Tabla:</b> Consulta los lectores en formato tabla con información detallada.</li>
+            <li><b>Filtros avanzados:</b> Filtra por provincia, localidad, carretera, organismo regulador o búsqueda de texto libre (ID, nombre, etc.).</li>
+            <li><b>Filtro geográfico:</b> Dibuja polígonos o rectángulos en el mapa para filtrar lectores que estén dentro del área seleccionada.</li>
+            <li><b>Información detallada:</b> Haz clic en un marcador del mapa o en una fila de la tabla para ver todos los detalles del lector.</li>
+            <li><b>Exportar captura del mapa:</b> Exporta una imagen del mapa con los lectores visualizados.</li>
+            <li><b>Búsqueda rápida:</b> Utiliza el campo de búsqueda de texto libre para encontrar lectores por ID o nombre.</li>
+          </ul>
+        </Text>
+        <Text size="sm" mb="xs" fw={600}>Consejos para la consulta:</Text>
+        <Text size="sm" mb="xs">
+          <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
+            <li>Combina los filtros para realizar búsquedas específicas (por ejemplo, todos los lectores de una provincia en una carretera específica).</li>
+            <li>Utiliza el filtro geográfico para identificar lectores en una zona concreta del mapa.</li>
+            <li>La vista de tabla es útil para comparar información de múltiples lectores de forma rápida.</li>
+            <li>Puedes alternar entre vista de mapa y tabla según tus necesidades de análisis.</li>
+            <li>Los marcadores del mapa muestran información al hacer clic, incluyendo ID, nombre, carretera y coordenadas.</li>
+          </ul>
+        </Text>
+
+        <Text size="md" fw={700} mb={2}>¿Cuándo usar cada panel?</Text>
+        <Text size="sm" mb="xs">
+          <ul style={{ paddingLeft: '20px', margin: '4px 0' }}>
+            <li><b>Usa Gestión de Lectores cuando:</b> Necesites modificar datos de lectores, añadir nuevos, eliminar obsoletos, o realizar operaciones en lote.</li>
+            <li><b>Usa Consulta de Lectores cuando:</b> Necesites visualizar la distribución geográfica de los lectores, buscar lectores en una zona específica, o consultar información sin necesidad de editarla.</li>
           </ul>
         </Text>
       </Stack>
