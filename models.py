@@ -96,12 +96,17 @@ class Lector(Base):
 
     ID_Lector = Column(String(50), primary_key=True, index=True)
     Nombre = Column(String(100), nullable=True)
-    Carretera = Column(String(100), nullable=True)
+    Tipo = Column(String(20), nullable=True, index=True)  # 'IT' | 'LPR' | 'OTROS'
+    Subtipo = Column(String(50), nullable=True)  # Para OTROS: 'CAMARA' | 'RADAR' | 'FOTO_ROJO' | 'CINTURON' | etc.
+    Activo = Column(Boolean, nullable=False, default=True, index=True)
+    ID_PuntoIT = Column(String(50), ForeignKey("lector.ID_Lector"), nullable=True, index=True)  # FK a punto IT
+    Carretera = Column(String(100), nullable=True, index=True)  # Normalizada sin guión: M40, A6
+    PK = Column(Float, nullable=True)  # Punto kilométrico
     Provincia = Column(String(50), nullable=True)
     Localidad = Column(String(100), nullable=True)
     Sentido = Column(
-        String(50), nullable=True
-    )  # Ej: "Creciente", "Decreciente", "Norte", "Sur"
+        String(50), nullable=True, index=True
+    )  # 'C' | 'D' o valores legacy: "Creciente", "Decreciente", "Norte", "Sur"
     Orientacion = Column(String(100), nullable=True)  # Ej: "Hacia Madrid", "90 grados"
     Organismo_Regulador = Column(String(100), nullable=True, index=True)
     Contacto = Column(String(255), nullable=True)
@@ -111,7 +116,14 @@ class Lector(Base):
     Imagen_Path = Column(String(255), nullable=True)  # Ruta a una imagen asociada
 
     # Relación con Lectura: Un lector puede tener muchas lecturas
-    lecturas = relationship("Lectura", back_populates="lector")
+    lecturas = relationship("Lectura", back_populates="lector", foreign_keys="Lectura.ID_Lector")
+    # Relación con punto IT: Un punto IT puede tener muchos lectores relacionados
+    lectores_relacionados = relationship(
+        "Lector",
+        backref="punto_it",
+        remote_side=[ID_Lector],
+        foreign_keys=[ID_PuntoIT]
+    )
 
 
 class Lectura(Base):

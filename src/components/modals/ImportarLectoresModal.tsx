@@ -13,7 +13,9 @@ import {
   Title,
   Divider,
   Card,
-  Alert
+  Alert,
+  Radio,
+  Stack
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { IconUpload, IconFileSpreadsheet, IconAlertCircle, IconInfoCircle } from '@tabler/icons-react';
@@ -31,6 +33,7 @@ const AVAILABLE_FIELDS = [
   { value: 'ID_Lector', label: 'ID Lector' },
   { value: 'Nombre', label: 'Nombre' },
   { value: 'Carretera', label: 'Carretera' },
+  { value: 'PK', label: 'PK' },
   { value: 'Provincia', label: 'Provincia' },
   { value: 'Localidad', label: 'Localidad' },
   { value: 'Sentido', label: 'Sentido de circulación' },
@@ -51,7 +54,9 @@ const ImportarLectoresModal: React.FC<ImportarLectoresModalProps> = ({
   const [fileColumns, setFileColumns] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
-  const [step, setStep] = useState<'upload' | 'mapping' | 'preview'>('upload');
+  const [step, setStep] = useState<'upload' | 'tipo' | 'mapping' | 'preview'>('upload');
+  const [lectorTipo, setLectorTipo] = useState<'IT' | 'LPR' | 'OTROS' | null>(null);
+  const [lectorSubtipo, setLectorSubtipo] = useState<string | null>(null);
 
   // Cargar y procesar el archivo Excel
   const handleFileUpload = async (file: File | null) => {
@@ -112,7 +117,7 @@ const ImportarLectoresModal: React.FC<ImportarLectoresModalProps> = ({
         });
         
         setPreviewData(sampleData);
-        setStep('mapping');
+        setStep('tipo'); // Cambiar a paso de selección de tipo
       } else {
         throw new Error('El archivo está vacío.');
       }
@@ -187,7 +192,16 @@ const ImportarLectoresModal: React.FC<ImportarLectoresModalProps> = ({
         // Luego procesar el resto de campos
         Object.entries(columnMapping).forEach(([fileColumn, fieldName]) => {
           if (row[fileColumn] !== undefined && fieldName !== 'Coordenada_Y' && fieldName !== 'Coordenada_X') {
-            mappedRow[fieldName] = String(row[fileColumn]);
+            // Procesar PK como número
+            if (fieldName === 'PK') {
+              const pkValue = String(row[fileColumn]).replace(',', '.').trim();
+              const pkNum = parseFloat(pkValue);
+              if (!isNaN(pkNum)) {
+                mappedRow[fieldName] = pkNum;
+              }
+            } else {
+              mappedRow[fieldName] = String(row[fileColumn]);
+            }
           }
         });
 
@@ -202,6 +216,22 @@ const ImportarLectoresModal: React.FC<ImportarLectoresModalProps> = ({
         if (!mappedRow.ID_Lector) {
           console.warn('ID de lector vacío después de trim:', row);
           return null;
+        }
+
+        // Añadir Tipo y Subtipo según la selección del usuario
+        if (lectorTipo) {
+          mappedRow.Tipo = lectorTipo;
+        }
+        if (lectorTipo === 'OTROS' && lectorSubtipo) {
+          mappedRow.Subtipo = lectorSubtipo;
+        }
+        
+        // Si es IT, establecer Activo = False por defecto
+        if (lectorTipo === 'IT') {
+          mappedRow.Activo = false;
+        } else {
+          // Para LPR y OTROS, Activo = True por defecto
+          mappedRow.Activo = mappedRow.Activo !== undefined ? mappedRow.Activo : true;
         }
 
         return mappedRow;
@@ -244,7 +274,42 @@ const ImportarLectoresModal: React.FC<ImportarLectoresModalProps> = ({
     setFileColumns([]);
     setColumnMapping({});
     setStep('upload');
+    setLectorTipo(null);
+    setLectorSubtipo(null);
     onClose();
+  };
+
+  // Manejar cambio de tipo de lector
+  const handleTipoChange = (tipo: 'IT' | 'LPR' | 'OTROS') => {
+    setLectorTipo(tipo);
+    if (tipo !== 'OTROS') {
+      setLectorSubtipo(null);
+    }
+  };
+
+  // Continuar al paso de mapeo después de seleccionar tipo
+  const handleTipoNext = () => {
+    if (!lectorTipo) {
+      notifications.show({
+        title: 'Tipo requerido',
+        message: 'Debes seleccionar un tipo de lector para continuar.',
+        color: 'red',
+        icon: <IconAlertCircle size={16} />
+      });
+      return;
+    }
+
+    if (lectorTipo === 'OTROS' && !lectorSubtipo) {
+      notifications.show({
+        title: 'Subtipo requerido',
+        message: 'Debes seleccionar un subtipo para lectores de tipo OTROS.',
+        color: 'red',
+        icon: <IconAlertCircle size={16} />
+      });
+      return;
+    }
+
+    setStep('mapping');
   };
 
   return (
@@ -282,9 +347,101 @@ const ImportarLectoresModal: React.FC<ImportarLectoresModalProps> = ({
         </Box>
       )}
       
+      {step === 'tipo' && (
+        <Box p="md">
+          <Title order={4} mb="md">Paso 2: Seleccionar tipo de lector</Title>
+          <Text mb="md">
+            Selecciona el tipo de lector que contiene este archivo. Esto determinará cómo se procesarán los datos.
+          </Text>
+          
+          <Stack gap="md" mb="xl">
+            <Radio.Group
+              value={lectorTipo || ''}
+              onChange={(value) => handleTipoChange(value as 'IT' | 'LPR' | 'OTROS')}
+              label="Tipo de lector"
+              required
+            >
+              <Stack gap="xs" mt="xs">
+                <Radio 
+                  value="IT" 
+                  label={
+                    <div>
+                      <Text fw={500}>IT (Ubicación)</Text>
+                      <Text size="sm" c="dimmed">
+                        Punto de Infraestructura Tecnológica que actúa como referencia geográfica unificadora
+                      </Text>
+                    </div>
+                  }
+                />
+                <Radio 
+                  value="LPR" 
+                  label={
+                    <div>
+                      <Text fw={500}>LPR</Text>
+                      <Text size="sm" c="dimmed">
+                        Dispositivo que genera lecturas LPR, puede estar relacionado con un punto IT
+                      </Text>
+                    </div>
+                  }
+                />
+                <Radio 
+                  value="OTROS" 
+                  label={
+                    <div>
+                      <Text fw={500}>Otros</Text>
+                      <Text size="sm" c="dimmed">
+                        Sensores diversos (cámaras, radares, foto rojo, cámara de cinturón) que no generan LPR
+                      </Text>
+                    </div>
+                  }
+                />
+              </Stack>
+            </Radio.Group>
+
+            {lectorTipo === 'OTROS' && (
+              <Select
+                label="Subtipo"
+                placeholder="Seleccionar subtipo"
+                data={[
+                  { value: 'CAMARA', label: 'Cámara' },
+                  { value: 'RADAR', label: 'Radar' },
+                  { value: 'FOTO_ROJO', label: 'Foto Rojo' },
+                  { value: 'CINTURON', label: 'Cámara de Cinturón' }
+                ]}
+                value={lectorSubtipo || ''}
+                onChange={(value) => setLectorSubtipo(value)}
+                required
+                clearable={false}
+              />
+            )}
+          </Stack>
+
+          <Alert color="blue" title="Información" icon={<IconInfoCircle />} mb="xl">
+            {lectorTipo === 'IT' && (
+              <>Los puntos IT se crean con <strong>Activo=False</strong> por defecto y se activan automáticamente cuando tienen lectores relacionados.</>
+            )}
+            {lectorTipo === 'LPR' && (
+              <>Los lectores LPR se intentarán relacionar automáticamente con puntos IT existentes si tienen información de carretera, PK y sentido.</>
+            )}
+            {lectorTipo === 'OTROS' && (
+              <>Los lectores Otros pueden relacionarse manualmente con puntos IT durante o después de la importación.</>
+            )}
+          </Alert>
+          
+          <Group justify="right" mt="xl">
+            <Button variant="outline" onClick={() => setStep('upload')}>
+              Atrás
+            </Button>
+            <Button onClick={handleTipoNext} disabled={!lectorTipo || (lectorTipo === 'OTROS' && !lectorSubtipo)}>
+              Continuar
+            </Button>
+          </Group>
+        </Box>
+      )}
+
       {step === 'mapping' && fileColumns.length > 0 && (
         <Box p="md">
-          <Title order={4} mb="md">Paso 2: Mapear columnas</Title>
+          <Title order={4} mb="md">Paso 3: Mapear columnas</Title>
           <Text mb="md">
             Asigna cada columna del archivo a su correspondiente campo en el sistema.
             Los campos marcados como "requerido" deben ser mapeados obligatoriamente.
@@ -346,7 +503,7 @@ const ImportarLectoresModal: React.FC<ImportarLectoresModalProps> = ({
           )}
           
           <Group justify="right" mt="xl">
-            <Button variant="outline" onClick={() => setStep('upload')}>
+            <Button variant="outline" onClick={() => setStep('tipo')}>
               Atrás
             </Button>
             <Button onClick={handleGeneratePreview}>
@@ -358,20 +515,30 @@ const ImportarLectoresModal: React.FC<ImportarLectoresModalProps> = ({
       
       {step === 'preview' && (
         <Box p="md">
-          <Title order={4} mb="md">Paso 3: Confirmar importación</Title>
+          <Title order={4} mb="md">Paso 4: Confirmar importación</Title>
           <Text mb="md">
             Revisa la configuración y confirma la importación.
           </Text>
           
           <Card withBorder p="md" radius="md" mb="md">
-            <Title order={5} mb="sm">Resumen de mapeo</Title>
-            <SimpleGrid cols={2}>
-              {Object.entries(columnMapping).map(([fileColumn, fieldName]) => (
-                <Text key={fileColumn}>
-                  <strong>{fileColumn}</strong> → {fieldName}
-                </Text>
-              ))}
-            </SimpleGrid>
+            <Title order={5} mb="sm">Resumen de configuración</Title>
+            <Stack gap="sm" mb="md">
+              <Text>
+                <strong>Tipo de lector:</strong> {lectorTipo}
+                {lectorTipo === 'OTROS' && lectorSubtipo && (
+                  <> ({lectorSubtipo})</>
+                )}
+              </Text>
+              <Divider />
+              <Text fw={500} mb="xs">Mapeo de columnas:</Text>
+              <SimpleGrid cols={2}>
+                {Object.entries(columnMapping).map(([fileColumn, fieldName]) => (
+                  <Text key={fileColumn} size="sm">
+                    <strong>{fileColumn}</strong> → {fieldName}
+                  </Text>
+                ))}
+              </SimpleGrid>
+            </Stack>
           </Card>
           
           <Alert color="yellow" title="Importante" icon={<IconAlertCircle />}>

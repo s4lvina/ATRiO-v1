@@ -10,6 +10,10 @@ interface GetLectoresParams {
   limit?: number;
   id_lector?: string;
   nombre?: string;
+  tipo?: 'IT' | 'LPR' | 'OTROS';
+  subtipo?: string;
+  activo?: boolean;
+  id_punto_it?: string;
   carretera?: string;
   provincia?: string;
   organismo?: string;
@@ -194,7 +198,9 @@ export const importarLectores = async (lectores: any[]): Promise<ImportResult> =
         Sentido: normalizarSentido(lector.Sentido),
         // Asegurar que las coordenadas sean números si existen
         Coordenada_X: lector.Coordenada_X ? Number(lector.Coordenada_X) : undefined,
-        Coordenada_Y: lector.Coordenada_Y ? Number(lector.Coordenada_Y) : undefined
+        Coordenada_Y: lector.Coordenada_Y ? Number(lector.Coordenada_Y) : undefined,
+        // Asegurar que PK sea número si existe
+        PK: lector.PK !== undefined && lector.PK !== null && lector.PK !== '' ? Number(lector.PK) : undefined
       };
       
       console.log(`Procesando lector:`, lectorData);
@@ -209,10 +215,13 @@ export const importarLectores = async (lectores: any[]): Promise<ImportResult> =
             const updatedData = {
               ...existingLector.data,
               // Actualizar solo si hay nuevos datos
+              Tipo: lectorData.Tipo || existingLector.data.Tipo, // Incluir Tipo para que el matching funcione
+              Subtipo: lectorData.Subtipo || existingLector.data.Subtipo,
               Coordenada_X: lectorData.Coordenada_X !== undefined ? lectorData.Coordenada_X : existingLector.data.Coordenada_X,
               Coordenada_Y: lectorData.Coordenada_Y !== undefined ? lectorData.Coordenada_Y : existingLector.data.Coordenada_Y,
               Nombre: lectorData.Nombre || existingLector.data.Nombre,
               Carretera: lectorData.Carretera || existingLector.data.Carretera,
+              PK: lectorData.PK !== undefined ? lectorData.PK : existingLector.data.PK, // Incluir PK para matching
               Provincia: lectorData.Provincia || existingLector.data.Provincia,
               Localidad: lectorData.Localidad || existingLector.data.Localidad,
               Sentido: lectorData.Sentido || normalizarSentido(existingLector.data.Sentido),
@@ -243,10 +252,13 @@ export const importarLectores = async (lectores: any[]): Promise<ImportResult> =
                   const updatedData = {
                     ...existingLector.data,
                     // Actualizar solo si hay nuevos datos
+                    Tipo: lectorData.Tipo || existingLector.data.Tipo, // Incluir Tipo para que el matching funcione
+                    Subtipo: lectorData.Subtipo || existingLector.data.Subtipo,
                     Coordenada_X: lectorData.Coordenada_X !== undefined ? lectorData.Coordenada_X : existingLector.data.Coordenada_X,
                     Coordenada_Y: lectorData.Coordenada_Y !== undefined ? lectorData.Coordenada_Y : existingLector.data.Coordenada_Y,
                     Nombre: lectorData.Nombre || existingLector.data.Nombre,
                     Carretera: lectorData.Carretera || existingLector.data.Carretera,
+                    PK: lectorData.PK !== undefined ? lectorData.PK : existingLector.data.PK, // Incluir PK para matching
                     Provincia: lectorData.Provincia || existingLector.data.Provincia,
                     Localidad: lectorData.Localidad || existingLector.data.Localidad,
                     Sentido: lectorData.Sentido || normalizarSentido(existingLector.data.Sentido),
@@ -301,4 +313,111 @@ export const getLectoresSinCoordenadas = async (): Promise<Lector[]> => {
     const isMissing = (val: any) => val === null || val === undefined || val === '' || val === '-' || isNaN(Number(val)) || Number(val) === 0;
     return isMissing(x) || isMissing(y);
   });
+};
+
+/**
+ * Importa puntos IT desde un archivo Excel.
+ * @param file Archivo Excel con los puntos IT
+ * @returns Promise con el resultado de la importación
+ */
+export const importarPuntosIT = async (file: File): Promise<{
+  mensaje: string;
+  creados: number;
+  actualizados: number;
+  errores?: string[] | null;
+  total_procesados: number;
+}> => {
+  try {
+    const formData = new FormData();
+    formData.append('excel_file', file);
+    
+    const response = await apiClient.post('/lectores/it/importar', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error al importar puntos IT:', error);
+    if (axios.isAxiosError(error)) {
+      throw new Error(error.response?.data?.detail || 'Error al importar puntos IT');
+    }
+    throw error;
+  }
+};
+
+/**
+ * Fuerza el matching de todos los LPR y OTROS con sus IT correspondientes.
+ * @returns Promise con el resultado del matching
+ */
+export const forzarMatchingIT = async (): Promise<{
+  total_procesados: number;
+  relacionados: number;
+  no_relacionados: number;
+  errores: string[];
+}> => {
+  try {
+    const response = await apiClient.post('/lectores/forzar-matching-it');
+    return response.data;
+  } catch (error) {
+    console.error('Error al forzar matching IT:', error);
+    if (axios.isAxiosError(error)) {
+      throw new Error(error.response?.data?.detail || 'Error al forzar matching IT');
+    }
+    throw error;
+  }
+};
+
+/**
+ * Obtiene los lectores relacionados con un punto IT.
+ * @param lectorId ID del punto IT
+ * @returns Promise con la lista de lectores relacionados
+ */
+export const getLectoresRelacionados = async (lectorId: string): Promise<Lector[]> => {
+  try {
+    const response = await apiClient.get<Lector[]>(`/lectores/${encodeURIComponent(lectorId)}/relacionados`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error al obtener lectores relacionados para ${lectorId}:`, error);
+    if (axios.isAxiosError(error)) {
+      throw new Error(error.response?.data?.detail || 'Error al obtener lectores relacionados');
+    }
+    throw error;
+  }
+};
+
+/**
+ * Obtiene los conteos de LPR relacionados para todos los puntos IT.
+ * @returns Promise con un diccionario de ID_IT -> cantidad de LPR
+ */
+export const getConteosLPRPorIT = async (): Promise<Record<string, number>> => {
+  try {
+    const response = await apiClient.get<Record<string, number>>('/lectores/it/conteos-lpr');
+    return response.data;
+  } catch (error) {
+    console.error('Error al obtener conteos de LPR por IT:', error);
+    if (axios.isAxiosError(error)) {
+      throw new Error(error.response?.data?.detail || 'Error al obtener conteos de LPR');
+    }
+    throw error;
+  }
+};
+
+/**
+ * Obtiene los nombres de puntos IT por sus IDs.
+ * @param itIds Lista de IDs de IT
+ * @returns Promise con un diccionario de ID_IT -> Nombre_IT
+ */
+export const getNombresITPorIDs = async (itIds: string[]): Promise<Record<string, string>> => {
+  try {
+    const response = await apiClient.post<Record<string, string>>('/lectores/it/nombres', itIds);
+    return response.data;
+  } catch (error) {
+    console.error('Error al obtener nombres de IT:', error);
+    if (axios.isAxiosError(error)) {
+      throw new Error(error.response?.data?.detail || 'Error al obtener nombres de IT');
+    }
+    throw error;
+  }
 }; 

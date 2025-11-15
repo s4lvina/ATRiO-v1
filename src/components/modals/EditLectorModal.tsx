@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, TextInput, NumberInput, Textarea, Button, Group, SimpleGrid, LoadingOverlay, Select, Combobox, useCombobox, InputBase, CheckIcon, Pill, Loader, Input, InputWrapper, Text } from '@mantine/core';
+import { Modal, TextInput, NumberInput, Textarea, Button, Group, SimpleGrid, LoadingOverlay, Select, Combobox, useCombobox, InputBase, CheckIcon, Pill, Loader, Input, InputWrapper, Text, Box, Title, Divider, Badge } from '@mantine/core';
+import { DataTable } from 'mantine-datatable';
 import type { Lector, LectorUpdateData, LectorSugerenciasResponse } from '../../types/data';
-import { getLectorSugerencias } from '../../services/lectoresApi';
+import { getLectorSugerencias, getLectoresRelacionados } from '../../services/lectoresApi';
 
 // Opciones para el selector de Orientación
 const ORIENTACION_OPTIONS = [
@@ -112,6 +113,9 @@ const EditLectorModal: React.FC<EditLectorModalProps> = ({
   // Estado para sugerencias
   const [sugerencias, setSugerencias] = useState<LectorSugerenciasResponse | null>(null);
   const [loadingSugerencias, setLoadingSugerencias] = useState(false);
+  // Estado para lectores relacionados (si es IT)
+  const [lectoresRelacionados, setLectoresRelacionados] = useState<Lector[]>([]);
+  const [loadingRelacionados, setLoadingRelacionados] = useState(false);
 
   // Cargar sugerencias cuando se abre el modal
   useEffect(() => {
@@ -158,9 +162,28 @@ const EditLectorModal: React.FC<EditLectorModalProps> = ({
         Texto_Libre: lector.Texto_Libre || '',
         Imagen_Path: lector.Imagen_Path || ''
       });
+
+      // Si es un IT, cargar lectores relacionados
+      if (lector.Tipo === 'IT') {
+        setLoadingRelacionados(true);
+        getLectoresRelacionados(lector.ID_Lector)
+          .then(relacionados => {
+            setLectoresRelacionados(relacionados);
+          })
+          .catch(error => {
+            console.error('Error cargando lectores relacionados:', error);
+            setLectoresRelacionados([]);
+          })
+          .finally(() => {
+            setLoadingRelacionados(false);
+          });
+      } else {
+        setLectoresRelacionados([]);
+      }
     } else {
       // Resetear si no hay lector
       setFormData({});
+      setLectoresRelacionados([]);
     }
   }, [lector]);
 
@@ -321,6 +344,59 @@ const EditLectorModal: React.FC<EditLectorModalProps> = ({
         disabled={isSaving}
         mt="md"
       />
+
+      {/* Mostrar lectores relacionados si es un IT */}
+      {lector?.Tipo === 'IT' && (
+        <>
+          <Divider my="xl" />
+          <Box>
+            <Title order={4} mb="md">Lectores Relacionados ({lectoresRelacionados.length})</Title>
+            <LoadingOverlay visible={loadingRelacionados} />
+            {lectoresRelacionados.length > 0 ? (
+              <DataTable
+                withTableBorder
+                striped
+                highlightOnHover
+                records={lectoresRelacionados}
+                columns={[
+                  { accessor: 'ID_Lector', title: 'ID Lector' },
+                  { accessor: 'Nombre', title: 'Nombre' },
+                  { 
+                    accessor: 'Tipo', 
+                    title: 'Tipo',
+                    render: (lector) => (
+                      <Badge color={lector.Tipo === 'LPR' ? 'blue' : 'orange'}>
+                        {lector.Tipo}
+                      </Badge>
+                    )
+                  },
+                  { accessor: 'Carretera', title: 'Carretera' },
+                  { 
+                    accessor: 'PK', 
+                    title: 'PK',
+                    render: (lector) => lector.PK?.toFixed(2) || '-'
+                  },
+                  { accessor: 'Sentido', title: 'Sentido' },
+                  { 
+                    accessor: 'Activo', 
+                    title: 'Activo',
+                    render: (lector) => (
+                      <Badge color={lector.Activo ? 'green' : 'gray'}>
+                        {lector.Activo ? 'Sí' : 'No'}
+                      </Badge>
+                    )
+                  },
+                ]}
+                minHeight={200}
+                noRecordsText="No hay lectores relacionados con este punto IT"
+              />
+            ) : (
+              <Text c="dimmed" ta="center" py="xl">No hay lectores relacionados con este punto IT</Text>
+            )}
+          </Box>
+        </>
+      )}
+
       <Group justify="flex-end" mt="xl">
         <Button variant="default" onClick={handleModalClose} disabled={isSaving}>
           Cancelar

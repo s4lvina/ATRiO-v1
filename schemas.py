@@ -121,13 +121,18 @@ class VehiculoWithStats(Vehiculo):
 class LectorBase(BaseModel):
     ID_Lector: str = Field(..., example="MAD001", max_length=50)
     Nombre: Optional[str] = Field(None, example="Cámara M-30 Pk 7", max_length=100)
-    Carretera: Optional[str] = Field(None, example="M-30", max_length=100)
+    Tipo: Optional[str] = Field(None, example="LPR", max_length=20)  # 'IT' | 'LPR' | 'OTROS'
+    Subtipo: Optional[str] = Field(None, example="CAMARA", max_length=50)  # Para OTROS
+    Activo: Optional[bool] = Field(True, example=True)
+    ID_PuntoIT: Optional[str] = Field(None, example="GUID_PMV_172864", max_length=50)
+    Carretera: Optional[str] = Field(None, example="M40", max_length=100)  # Normalizada sin guión
+    PK: Optional[float] = Field(None, example=60.1)  # Punto kilométrico
     Provincia: Optional[str] = Field(None, example="Madrid", max_length=50)
     Localidad: Optional[str] = Field(None, example="Madrid", max_length=100)
-    Sentido: Optional[str] = Field(None, example="Norte", max_length=50)
+    Sentido: Optional[str] = Field(None, example="D", max_length=50)  # 'C' | 'D'
     Orientacion: Optional[str] = Field(None, example="Salida", max_length=100)
     Organismo_Regulador: Optional[str] = Field(
-        None, example="Ayuntamiento de Madrid", max_length=100
+        None, example="DGT", max_length=100
     )
     Contacto: Optional[str] = Field(None, example="policia@madrid.es", max_length=255)
     Coordenada_X: Optional[float] = Field(None, example=-3.703790)
@@ -148,7 +153,12 @@ class LectorCreate(LectorBase):
 # Update: Todos los campos son opcionales para permitir actualización parcial
 class LectorUpdate(BaseModel):
     Nombre: Optional[str] = Field(None, max_length=100)
+    Tipo: Optional[str] = Field(None, max_length=20)
+    Subtipo: Optional[str] = Field(None, max_length=50)
+    Activo: Optional[bool] = None
+    ID_PuntoIT: Optional[str] = Field(None, max_length=50)
     Carretera: Optional[str] = Field(None, max_length=100)
+    PK: Optional[float] = None
     Provincia: Optional[str] = Field(None, max_length=50)
     Localidad: Optional[str] = Field(None, max_length=100)
     Sentido: Optional[str] = Field(None, max_length=50)
@@ -165,18 +175,10 @@ class LectorUpdate(BaseModel):
 
 
 # Lectura (GET): Devuelve todos los campos de la BD
-class Lector(LectorBase):  # Hereda ID_Lector, Coordenada_X, Coordenada_Y
-    Nombre: Optional[str] = None
-    Carretera: Optional[str] = None
-    Provincia: Optional[str] = None
-    Localidad: Optional[str] = None
-    Sentido: Optional[str] = None
-    Orientacion: Optional[str] = None
-    Organismo_Regulador: Optional[str] = None
-    Contacto: Optional[str] = None
-    Texto_Libre: Optional[str] = None
-    Imagen_Path: Optional[str] = None
+class Lector(LectorBase):  # Hereda todos los campos de LectorBase
+    # Todos los campos ya están definidos en LectorBase
     # lecturas: List[Lectura] = [] # Evitar referencias circulares profundas aquí
+    # lectores_relacionados: List[Lector] = [] # Para IT, lista de lectores relacionados
 
     class Config:
         from_attributes = True

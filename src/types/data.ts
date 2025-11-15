@@ -102,7 +102,12 @@ export interface UploadResponse {
 export interface Lector {
   ID_Lector: string;
   Nombre?: string | null;
+  Tipo?: 'IT' | 'LPR' | 'OTROS' | null;
+  Subtipo?: string | null;
+  Activo?: boolean | null;
+  ID_PuntoIT?: string | null;
   Carretera?: string | null;
+  PK?: number | null;
   Provincia?: string | null;
   Localidad?: string | null;
   Sentido?: string | null;
@@ -125,7 +130,12 @@ export interface LectoresResponse {
 // --- NUEVO: Interfaz para datos de actualización de Lector ---
 export interface LectorUpdateData {
     Nombre?: string | null;
+    Tipo?: 'IT' | 'LPR' | 'OTROS' | null;
+    Subtipo?: string | null;
+    Activo?: boolean | null;
+    ID_PuntoIT?: string | null;
     Carretera?: string | null;
+    PK?: number | null;
     Provincia?: string | null;
     Localidad?: string | null;
     Sentido?: string | null;

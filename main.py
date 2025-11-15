@@ -27,6 +27,7 @@ from typing import List, Dict, Any, Optional, Tuple
 import json
 from urllib.parse import unquote
 import logging
+import asyncio
 import os
 import shutil
 import pathlib
@@ -92,6 +93,7 @@ from system_config import get_host_config, update_host_config
 
 # Importar diccionario de tareas compartido para evitar importaciones circulares
 from shared_state import task_statuses
+import lector_utils
 
 # === SISTEMA DE CACHE AVANZADO CON REDIS ===
 from cache_manager import (
@@ -301,6 +303,26 @@ def validate_coordinates(lat: Optional[float], lon: Optional[float]) -> bool:
 
 # --- Helper functions for data parsing --- END
 
+# Filtro para suprimir errores esperados durante el shutdown
+class ShutdownErrorFilter(logging.Filter):
+    """Filtra errores esperados durante el shutdown del servidor"""
+    
+    def filter(self, record):
+        # Suprimir CancelledError y KeyboardInterrupt durante el shutdown
+        if record.exc_info:
+            exc_type = record.exc_info[0]
+            if exc_type in (asyncio.CancelledError, KeyboardInterrupt):
+                # Suprimir estos errores ya que son esperados durante el shutdown
+                return False
+        # También filtrar mensajes de error relacionados con shutdown
+        msg = record.getMessage().lower()
+        if record.levelno == logging.ERROR:
+            if any(keyword in msg for keyword in ['cancellederror', 'keyboardinterrupt', 'lifespan']):
+                # Verificar si está en el contexto de shutdown
+                if 'shutdown' in msg or 'lifespan' in msg or 'receive_queue' in msg:
+                    return False
+        return True
+
 # Configurar logging básico para ver más detalles
 logging.basicConfig(
     level=logging.DEBUG,
@@ -310,6 +332,15 @@ logging.basicConfig(
         logging.StreamHandler(),
     ],
 )
+
+# Aplicar filtro a los loggers de asyncio, uvicorn y starlette
+asyncio_logger = logging.getLogger("asyncio")
+asyncio_logger.addFilter(ShutdownErrorFilter())
+uvicorn_logger = logging.getLogger("uvicorn")
+uvicorn_logger.addFilter(ShutdownErrorFilter())
+starlette_logger = logging.getLogger("starlette")
+starlette_logger.addFilter(ShutdownErrorFilter())
+
 logger = logging.getLogger(__name__)
 
 # Eliminar la llamada directa aquí
@@ -511,9 +542,34 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     logger.info("Cerrando aplicación ATRIO v1...")
+    try:
+        # Ejecutar limpieza de recursos
+        cleanup_resources()
+    except asyncio.CancelledError:
+        # Ignorar errores de cancelación durante el shutdown
+        pass
+    except Exception as e:
+        logger.warning(f"Error durante el shutdown: {e}")
 
 
 app = FastAPI(lifespan=lifespan)
+
+# Configurar CORS - DEBE ESTAR ANTES DE INCLUIR ROUTERS
+origins = [
+    "http://localhost:5173",  # Origen del frontend de desarrollo local
+    "http://127.0.0.1:5173",  # Origen del frontend de desarrollo local (alternativo)
+    "http://192.168.1.128:5173",  # Origen del frontend en red local
+    # Puedes añadir aquí otros orígenes permitidos en producción, por ejemplo:
+    # "https://tu-dominio-de-produccion.com",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  # Usar la lista de orígenes explícita
+    allow_credentials=True,
+    allow_methods=["*"],  # Permitir todos los métodos (GET, POST, PUT, DELETE, etc.)
+    allow_headers=["*"],  # Permitir todos los headers
+)
 
 # Incluir routers
 app.include_router(gps_capas_router)
@@ -522,6 +578,11 @@ app.include_router(gps_analysis_router, prefix="/api/gps")
 app.include_router(external_data_router)
 app.include_router(mapas_guardados_router)
 
+# --- INCLUDE auth_router EARLY ---
+app.include_router(
+    auth_router, prefix="/api/auth", tags=["Autenticación"]
+)  # MODIFIED: Added /api prefix
+# --- END INCLUDE auth_router EARLY ---
 
 # Imprimir todas las rutas registradas
 @app.on_event("startup")
@@ -559,29 +620,6 @@ async def get_upload_status(task_id: str):
 
 
 # --- END Endpoint to check background task status ---
-
-# --- INCLUDE auth_router EARLY ---
-app.include_router(
-    auth_router, prefix="/api/auth", tags=["Autenticación"]
-)  # MODIFIED: Added /api prefix
-# --- END INCLUDE auth_router EARLY ---
-
-# Configurar CORS - ÚNICA CONFIGURACIÓN
-origins = [
-    "http://localhost:5173",  # Origen del frontend de desarrollo local
-    "http://127.0.0.1:5173",  # Origen del frontend de desarrollo local (alternativo)
-    "http://192.168.1.128:5173",  # Origen del frontend en red local
-    # Puedes añadir aquí otros orígenes permitidos en producción, por ejemplo:
-    # "https://tu-dominio-de-produccion.com",
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,  # Usar la lista de orígenes explícita
-    allow_credentials=True,
-    allow_methods=["*"],  # Permitir todos los métodos (GET, POST, PUT, DELETE, etc.)
-    allow_headers=["*"],  # Permitir todos los headers
-)
 
 # --- NEW CONFIGURATION ROUTER ---
 config_router = APIRouter(prefix="/api/config", tags=["Configuración"])
@@ -1809,9 +1847,147 @@ def create_lector(
     # Aquí usamos model_dump() de Pydantic V2 en lugar de dict()
     db_lector = models.Lector(**lector.model_dump())
     db.add(db_lector)
+    
+    # Intentar matching con IT si es LPR u OTROS (antes de commit para poder actualizar IT)
+    if db_lector.Tipo in ['LPR', 'OTROS']:
+        punto_it_encontrado = lector_utils.intentar_matching_it(db, db_lector)
+        if punto_it_encontrado:
+            logger.info(
+                f"[Create Lector {db_lector.ID_Lector}] ✅ Matching IT encontrado: {punto_it_encontrado.ID_Lector}"
+            )
+    
     db.commit()
     db.refresh(db_lector)
     return db_lector
+
+
+@app.post("/lectores/it/importar", response_model=Dict[str, Any])
+def importar_puntos_it(
+    excel_file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_active_admin_or_superadmin),
+):
+    """
+    Importa puntos IT desde un archivo Excel.
+    
+    Formato esperado:
+    - Columnas: ID, Nombre, Latitud, Longitud, Provincia, Carretera, PK, Sentido
+    """
+    logger.info(f"Importación de puntos IT iniciada por usuario {current_user.User}")
+    
+    try:
+        # Leer archivo Excel
+        contents = excel_file.file.read()
+        df = pd.read_excel(BytesIO(contents))
+        
+        # Validar columnas requeridas
+        columnas_requeridas = ['ID', 'Nombre', 'Latitud', 'Longitud', 'Provincia', 'Carretera', 'PK', 'Sentido']
+        columnas_faltantes = [col for col in columnas_requeridas if col not in df.columns]
+        if columnas_faltantes:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Faltan columnas requeridas: {', '.join(columnas_faltantes)}"
+            )
+        
+        creados = 0
+        actualizados = 0
+        errores = []
+        
+        for index, row in df.iterrows():
+            try:
+                # Validar datos
+                id_punto = str(row['ID']).strip()
+                if not id_punto:
+                    errores.append(f"Fila {index + 2}: ID vacío")
+                    continue
+                
+                # Normalizar carretera
+                carretera_raw = str(row['Carretera']).strip() if pd.notna(row['Carretera']) else ""
+                carretera_norm = lector_utils.normalizar_carretera(carretera_raw)
+                
+                # Validar PK
+                try:
+                    pk = float(row['PK']) if pd.notna(row['PK']) else None
+                except (ValueError, TypeError):
+                    errores.append(f"Fila {index + 2}: PK inválido")
+                    continue
+                
+                # Validar sentido
+                sentido = str(row['Sentido']).strip().upper() if pd.notna(row['Sentido']) else ""
+                if sentido not in ['C', 'D']:
+                    errores.append(f"Fila {index + 2}: Sentido debe ser 'C' o 'D'")
+                    continue
+                
+                # Validar coordenadas
+                try:
+                    latitud = float(row['Latitud']) if pd.notna(row['Latitud']) else None
+                    longitud = float(row['Longitud']) if pd.notna(row['Longitud']) else None
+                except (ValueError, TypeError):
+                    errores.append(f"Fila {index + 2}: Coordenadas inválidas")
+                    continue
+                
+                # Verificar si ya existe
+                lector_existente = (
+                    db.query(models.Lector)
+                    .filter(models.Lector.ID_Lector == id_punto)
+                    .first()
+                )
+                
+                if lector_existente:
+                    # Actualizar existente
+                    lector_existente.Nombre = str(row['Nombre']).strip() if pd.notna(row['Nombre']) else None
+                    lector_existente.Carretera = carretera_norm
+                    lector_existente.PK = pk
+                    lector_existente.Sentido = sentido
+                    lector_existente.Coordenada_Y = latitud
+                    lector_existente.Coordenada_X = longitud
+                    lector_existente.Provincia = str(row['Provincia']).strip() if pd.notna(row['Provincia']) else None
+                    lector_existente.Tipo = 'IT'
+                    lector_existente.Activo = False  # Por defecto inactivo
+                    actualizados += 1
+                else:
+                    # Crear nuevo
+                    nuevo_lector = models.Lector(
+                        ID_Lector=id_punto,
+                        Nombre=str(row['Nombre']).strip() if pd.notna(row['Nombre']) else None,
+                        Tipo='IT',
+                        Activo=False,  # Por defecto inactivo
+                        Carretera=carretera_norm,
+                        PK=pk,
+                        Sentido=sentido,
+                        Coordenada_Y=latitud,
+                        Coordenada_X=longitud,
+                        Provincia=str(row['Provincia']).strip() if pd.notna(row['Provincia']) else None,
+                    )
+                    db.add(nuevo_lector)
+                    creados += 1
+                
+            except Exception as e:
+                errores.append(f"Fila {index + 2}: {str(e)}")
+                logger.error(f"Error procesando fila {index + 2}: {e}", exc_info=True)
+        
+        # Commit de todos los cambios
+        db.commit()
+        
+        logger.info(f"Importación completada: {creados} creados, {actualizados} actualizados, {len(errores)} errores")
+        
+        return {
+            "mensaje": "Importación completada",
+            "creados": creados,
+            "actualizados": actualizados,
+            "errores": errores if errores else None,
+            "total_procesados": len(df)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error en importación de puntos IT: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al importar puntos IT: {str(e)}"
+        )
 
 
 @app.get("/lectores", response_model=schemas.LectoresResponse)
@@ -1820,6 +1996,10 @@ def read_lectores(
     limit: int = 50,
     id_lector: Optional[str] = None,
     nombre: Optional[str] = None,
+    tipo: Optional[str] = None,  # Nuevo: 'IT' | 'LPR' | 'OTROS'
+    subtipo: Optional[str] = None,  # Nuevo: para OTROS
+    activo: Optional[bool] = None,  # Nuevo: filtro por activo
+    id_punto_it: Optional[str] = None,  # Nuevo: filtro por punto IT relacionado
     carretera: Optional[str] = None,
     provincia: Optional[str] = None,
     localidad: Optional[str] = None,
@@ -1843,6 +2023,14 @@ def read_lectores(
         query = query.filter(models.Lector.ID_Lector.ilike(f"%{id_lector}%"))
     if nombre:
         query = query.filter(models.Lector.Nombre.ilike(f"%{nombre}%"))
+    if tipo:
+        query = query.filter(models.Lector.Tipo == tipo)
+    if subtipo:
+        query = query.filter(models.Lector.Subtipo == subtipo)
+    if activo is not None:
+        query = query.filter(models.Lector.Activo == activo)
+    if id_punto_it:
+        query = query.filter(models.Lector.ID_PuntoIT == id_punto_it)
     if carretera:
         query = query.filter(models.Lector.Carretera.ilike(f"%{carretera}%"))
     if provincia:
@@ -2037,6 +2225,196 @@ def get_lector_sugerencias(
 
 
 # --- Ruta con parámetro DESPUÉS de las específicas ---
+@app.get("/lectores/diagnostico/it-existen", response_model=Dict[str, Any])
+def diagnosticar_it_existen(
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_active_admin_or_superadmin),
+):
+    """
+    Endpoint de diagnóstico: Verifica si hay IT en la base de datos y muestra ejemplos.
+    """
+    logger.info(f"Diagnóstico IT solicitado por usuario {current_user.User}")
+    
+    total_it = db.query(models.Lector).filter(models.Lector.Tipo == 'IT').count()
+    
+    # Obtener algunos ejemplos
+    ejemplos = (
+        db.query(models.Lector)
+        .filter(models.Lector.Tipo == 'IT')
+        .limit(10)
+        .all()
+    )
+    
+    # Estadísticas
+    it_con_carretera = db.query(models.Lector).filter(
+        models.Lector.Tipo == 'IT',
+        models.Lector.Carretera.isnot(None)
+    ).count()
+    
+    it_con_pk = db.query(models.Lector).filter(
+        models.Lector.Tipo == 'IT',
+        models.Lector.PK.isnot(None)
+    ).count()
+    
+    it_con_sentido = db.query(models.Lector).filter(
+        models.Lector.Tipo == 'IT',
+        models.Lector.Sentido.isnot(None)
+    ).count()
+    
+    it_completos = db.query(models.Lector).filter(
+        models.Lector.Tipo == 'IT',
+        models.Lector.Carretera.isnot(None),
+        models.Lector.PK.isnot(None),
+        models.Lector.Sentido.isnot(None)
+    ).count()
+    
+    ejemplos_data = []
+    for it in ejemplos:
+        ejemplos_data.append({
+            'ID_Lector': it.ID_Lector,
+            'Nombre': it.Nombre,
+            'Carretera': it.Carretera,
+            'PK': it.PK,
+            'Sentido': it.Sentido,
+            'Coordenada_X': it.Coordenada_X,
+            'Coordenada_Y': it.Coordenada_Y,
+        })
+    
+    return {
+        'total_it': total_it,
+        'it_con_carretera': it_con_carretera,
+        'it_con_pk': it_con_pk,
+        'it_con_sentido': it_con_sentido,
+        'it_completos': it_completos,
+        'ejemplos': ejemplos_data
+    }
+
+
+@app.get("/lectores/diagnostico/lpr-sin-it", response_model=List[Dict[str, Any]])
+def diagnosticar_lpr_sin_it(
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_active_admin_or_superadmin),
+):
+    """
+    Endpoint de diagnóstico: Lista todos los LPR que no tienen IT relacionado
+    y muestra sus datos para identificar por qué no se relacionaron.
+    """
+    logger.info(f"Diagnóstico LPR sin IT solicitado por usuario {current_user.User}")
+    
+    # Obtener todos los LPR sin IT relacionado
+    lpr_sin_it = (
+        db.query(models.Lector)
+        .filter(models.Lector.Tipo == 'LPR')
+        .filter(
+            or_(
+                models.Lector.ID_PuntoIT.is_(None),
+                models.Lector.ID_PuntoIT == ''
+            )
+        )
+        .all()
+    )
+    
+    resultado = []
+    for lpr in lpr_sin_it:
+        # Intentar parsear el ID_Lector
+        parsed_data = lector_utils.parsear_nombre_lector_lpr(lpr.ID_Lector) if lpr.ID_Lector else None
+        
+        # Buscar IT potencial
+        it_potencial = None
+        if parsed_data:
+            it_potencial = lector_utils.buscar_punto_it(
+                db=db,
+                carretera=parsed_data.get('carretera', ''),
+                pk=parsed_data.get('pk'),
+                sentido=parsed_data.get('sentido', ''),
+                coordenada_x=lpr.Coordenada_X,
+                coordenada_y=lpr.Coordenada_Y
+            )
+        elif lpr.Carretera and lpr.PK is not None and lpr.Sentido:
+            it_potencial = lector_utils.buscar_punto_it(
+                db=db,
+                carretera=lpr.Carretera,
+                pk=lpr.PK,
+                sentido=lpr.Sentido,
+                coordenada_x=lpr.Coordenada_X,
+                coordenada_y=lpr.Coordenada_Y
+            )
+        
+        resultado.append({
+            'ID_Lector': lpr.ID_Lector,
+            'Nombre': lpr.Nombre,
+            'Carretera': lpr.Carretera,
+            'PK': lpr.PK,
+            'Sentido': lpr.Sentido,
+            'Coordenada_X': lpr.Coordenada_X,
+            'Coordenada_Y': lpr.Coordenada_Y,
+            'ID_PuntoIT': lpr.ID_PuntoIT,
+            'parseado_exitoso': parsed_data is not None,
+            'datos_parseados': parsed_data,
+            'it_potencial_encontrado': it_potencial.ID_Lector if it_potencial else None,
+            'it_potencial_nombre': it_potencial.Nombre if it_potencial else None,
+        })
+    
+    logger.info(f"Encontrados {len(resultado)} LPR sin IT relacionado")
+    return resultado
+
+
+@app.post("/lectores/forzar-matching-it", response_model=Dict[str, Any])
+def forzar_matching_it_todos_lpr(
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_active_admin_or_superadmin),
+):
+    """
+    Fuerza el matching de todos los LPR y OTROS con sus IT correspondientes.
+    Útil para relacionar lectores que ya existen pero no tienen IT relacionado.
+    """
+    logger.info(f"Forzando matching IT para todos los LPR/OTROS por usuario {current_user.User}")
+    
+    # Obtener todos los LPR y OTROS
+    lectores = (
+        db.query(models.Lector)
+        .filter(models.Lector.Tipo.in_(['LPR', 'OTROS']))
+        .all()
+    )
+    
+    relacionados = 0
+    no_relacionados = 0
+    errores = []
+    
+    for lector in lectores:
+        try:
+            # Forzar búsqueda incluso si ya tiene IT relacionado
+            punto_it_encontrado = lector_utils.intentar_matching_it(db, lector, forzar_busqueda=True)
+            if punto_it_encontrado:
+                relacionados += 1
+                logger.info(f"✅ Lector {lector.ID_Lector} relacionado con IT {punto_it_encontrado.ID_Lector}")
+            else:
+                no_relacionados += 1
+                logger.debug(f"❌ No se encontró IT para lector {lector.ID_Lector}")
+        except Exception as e:
+            errores.append(f"Error con lector {lector.ID_Lector}: {str(e)}")
+            logger.error(f"Error forzando matching para {lector.ID_Lector}: {e}")
+    
+    # Hacer commit de todos los cambios
+    try:
+        db.commit()
+        logger.info(f"Matching completado: {relacionados} relacionados, {no_relacionados} sin relación")
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error al hacer commit: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al guardar cambios: {str(e)}"
+        )
+    
+    return {
+        'total_procesados': len(lectores),
+        'relacionados': relacionados,
+        'no_relacionados': no_relacionados,
+        'errores': errores
+    }
+
+
 @app.get("/lectores/{lector_id}", response_model=schemas.Lector)
 def read_lector(
     lector_id: str,
@@ -2052,6 +2430,116 @@ def read_lector(
             status_code=status.HTTP_404_NOT_FOUND, detail="Lector no encontrado"
         )
     return db_lector
+
+
+@app.get("/lectores/{lector_id}/relacionados", response_model=List[schemas.Lector])
+def get_lectores_relacionados(
+    lector_id: str,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_active_user),
+):
+    """
+    Obtiene todos los lectores relacionados con un punto IT.
+    """
+    logger.info(f"Solicitud GET /lectores/{lector_id}/relacionados por usuario {current_user.User}")
+    
+    # Verificar que el lector existe y es un IT
+    db_lector = (
+        db.query(models.Lector).filter(models.Lector.ID_Lector == lector_id).first()
+    )
+    if db_lector is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Lector no encontrado"
+        )
+    
+    if db_lector.Tipo != 'IT':
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Este endpoint solo está disponible para puntos IT"
+        )
+    
+    # Obtener todos los lectores relacionados
+    lectores_relacionados = (
+        db.query(models.Lector)
+        .filter(models.Lector.ID_PuntoIT == lector_id)
+        .order_by(models.Lector.ID_Lector)
+        .all()
+    )
+    
+    return lectores_relacionados
+
+
+@app.get("/lectores/it/conteos-lpr", response_model=Dict[str, int])
+def get_conteos_lpr_por_it(
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_active_user),
+):
+    """
+    Obtiene el conteo de LPR relacionados para cada punto IT.
+    Retorna un diccionario con ID_IT -> cantidad de LPR relacionados.
+    """
+    logger.info(f"Solicitud GET /lectores/it/conteos-lpr por usuario {current_user.User}")
+    
+    # Obtener todos los IT
+    it_points = (
+        db.query(models.Lector)
+        .filter(models.Lector.Tipo == 'IT')
+        .all()
+    )
+    
+    # Obtener conteos de LPR relacionados
+    from sqlalchemy import func
+    conteos = (
+        db.query(
+            models.Lector.ID_PuntoIT,
+            func.count(models.Lector.ID_Lector).label('count')
+        )
+        .filter(
+            models.Lector.ID_PuntoIT.isnot(None),
+            models.Lector.Tipo.in_(['LPR', 'OTROS'])
+        )
+        .group_by(models.Lector.ID_PuntoIT)
+        .all()
+    )
+    
+    # Crear diccionario de conteos
+    conteos_dict = {it_id: count for it_id, count in conteos}
+    
+    # Asegurar que todos los IT tengan entrada (aunque sea 0)
+    resultado = {it.ID_Lector: conteos_dict.get(it.ID_Lector, 0) for it in it_points}
+    
+    return resultado
+
+
+@app.post("/lectores/it/nombres", response_model=Dict[str, str])
+def get_nombres_it_por_ids(
+    it_ids: List[str] = Body(..., description="Lista de IDs de IT para obtener sus nombres"),
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_active_user),
+):
+    """
+    Obtiene los nombres de puntos IT por sus IDs.
+    Retorna un diccionario con ID_IT -> Nombre_IT.
+    """
+    logger.info(f"Solicitud POST /lectores/it/nombres para {len(it_ids)} IT por usuario {current_user.User}")
+    
+    if not it_ids:
+        return {}
+    
+    # Obtener los IT solicitados
+    it_points = (
+        db.query(models.Lector)
+        .filter(
+            models.Lector.Tipo == 'IT',
+            models.Lector.ID_Lector.in_(it_ids)
+        )
+        .all()
+    )
+    
+    # Crear diccionario ID -> Nombre
+    resultado = {it.ID_Lector: it.Nombre or it.ID_Lector for it in it_points}
+    
+    return resultado
 
 
 @app.put("/lectores/{lector_id}", response_model=schemas.Lector)
@@ -2106,6 +2594,19 @@ def update_lector(
     for key, value in update_data.items():
         if key not in ["Coordenada_X", "Coordenada_Y"]:
             setattr(db_lector, key, value)
+    
+    # Intentar matching con IT si es LPR u OTROS y se han actualizado campos relevantes
+    # Solo hacer matching si se actualizaron campos que puedan afectar el matching
+    campos_relevantes = ['Tipo', 'Carretera', 'PK', 'Sentido', 'Coordenada_X', 'Coordenada_Y', 'ID_PuntoIT']
+    if any(key in campos_relevantes for key in update_data.keys()) or ubicacion_input_str:
+        if db_lector.Tipo in ['LPR', 'OTROS']:
+            # Si se borró ID_PuntoIT (None), forzar búsqueda
+            forzar = 'ID_PuntoIT' in update_data and update_data['ID_PuntoIT'] is None
+            punto_it_encontrado = lector_utils.intentar_matching_it(db, db_lector, forzar_busqueda=forzar)
+            if punto_it_encontrado:
+                logger.info(
+                    f"[Update Lector {lector_id}] ✅ Matching IT encontrado: {punto_it_encontrado.ID_Lector}"
+                )
 
     try:
         # --- Indent this block ---
@@ -4231,15 +4732,55 @@ def process_file_in_background(
                                     )
                                     continue  # Saltar esta fila, no crear el lector problemático
 
+                                # Intentar matching con punto IT
+                                punto_it = None
+                                parsed_data = lector_utils.parsear_nombre_lector_lpr(id_lector_val)
+                                
+                                if parsed_data:
+                                    logger.info(
+                                        f"[Task {task_id}] Datos parseados del lector: {parsed_data}"
+                                    )
+                                    punto_it = lector_utils.buscar_punto_it(
+                                        db=db,
+                                        carretera=parsed_data.get('carretera', ''),
+                                        pk=parsed_data.get('pk'),
+                                        sentido=parsed_data.get('sentido', ''),
+                                        coordenada_x=coord_x,
+                                        coordenada_y=coord_y
+                                    )
+                                    
+                                    if punto_it:
+                                        logger.info(
+                                            f"[Task {task_id}] ✅ Punto IT encontrado: {punto_it.ID_Lector}"
+                                        )
+                                        # Activar IT si estaba inactivo
+                                        if not punto_it.Activo:
+                                            punto_it.Activo = True
+                                            logger.info(
+                                                f"[Task {task_id}] Punto IT {punto_it.ID_Lector} activado"
+                                            )
+
+                                # Crear lector nuevo
                                 db_lector_nuevo = models.Lector(
                                     ID_Lector=id_lector_val,
+                                    Tipo='LPR',
+                                    Activo=True,
                                     Coordenada_X=coord_x,
                                     Coordenada_Y=coord_y,
                                 )
+                                
+                                # Si hay punto IT, relacionar y heredar propiedades
+                                if punto_it:
+                                    db_lector_nuevo.ID_PuntoIT = punto_it.ID_Lector
+                                    lector_utils.copiar_propiedades_heredables(punto_it, db_lector_nuevo)
+                                    logger.info(
+                                        f"[Task {task_id}] Lector relacionado con IT y propiedades heredadas"
+                                    )
+                                
                                 db.add(db_lector_nuevo)
                                 lectores_creados_bg.add(id_lector_val)
                                 logger.info(
-                                    f"[Task {task_id}] ✅ Lector nuevo creado de forma segura: {id_lector_val}"
+                                    f"[Task {task_id}] ✅ Lector nuevo creado: {id_lector_val}"
                                 )
                         else:
                             if coord_x is None:
@@ -6515,11 +7056,6 @@ if not os.environ.get("RUNNING_MAIN"):
 
 # Registrar función de limpieza para salida normal
 atexit.register(cleanup_resources)
-
-# Incluir routers
-app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
-app.include_router(config_router, prefix="/api/config", tags=["Configuration"])
-app.include_router(localizaciones_router, prefix="/api", tags=["Localizaciones"])
 
 if __name__ == "__main__":
     import uvicorn
