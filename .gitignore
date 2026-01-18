@@ -5,6 +5,7 @@ database/secure/
 *.db-wal
 *.sqlite
 *.sqlite3
+docker/data/
 
 # Archivos de log
 *.log
@@ -31,6 +32,7 @@ tmp/
 *.env
 .env.local
 .env.production
+docker/.env
 system_config.json
 footer_config.json
 
@@ -62,3 +64,15 @@ dist/
 *.exe
 *.dmg
 *.app
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Coverage y testing
+htmlcov/
+.coverage
+.pytest_cache/
+.tox/
+
+# Archivos de respaldo
