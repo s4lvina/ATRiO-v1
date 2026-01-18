@@ -6,7 +6,9 @@ WORKDIR /app
 COPY package*.json ./
 
 # Instalar dependencias
-RUN npm ci
+# Usar npm install en lugar de npm ci para evitar problemas con dependencias nativas en Alpine
+# Si tienes package-lock.json, considere usar: npm ci --legacy-peer-deps
+RUN npm install --legacy-peer-deps
 
 # Copiar código
 COPY . .
@@ -18,5 +20,6 @@ RUN npm run build
 EXPOSE 3000
 
 # Servir con preview (para producción simple)
+CMD ["npm", "run", "preview"]
 # Para desarrollo: npm run dev
 CMD ["npm", "run", "preview"]
