@@ -133,6 +133,35 @@ chmod +x /home/usuario/deploy.sh
 
 > **Nota:** Requiere servicio HTTP en el servidor. Alternativa simple: pull manual vía SSH.
 
+## Configuración de Variables de Entorno
+
+### Generar SECRET_KEY Seguro
+
+```bash
+# En el servidor Ubuntu
+python3 scripts/generate_secret_key.py
+```
+
+Copiar el resultado a `docker/.env`:
+```bash
+SECRET_KEY=<resultado-del-comando-anterior>
+```
+
+### Variables Requeridas para Docker
+
+```bash
+# Crear docker/.env desde el template
+cp docker/.env.example docker/.env
+
+# Editar y configurar:
+nano docker/.env
+
+# Variables críticas:
+- SECRET_KEY: Cambiar a valor generado (ver arriba)
+- DEBUG: False en producción
+- DATABASE_URL: Usar ruta Docker (sqlite:////app/data/atrio.db)
+```
+
 ## Primeros pasos post-despliegue
 
 ```bash
