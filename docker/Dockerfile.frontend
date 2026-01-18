@@ -1,9 +1,5 @@
 FROM node:20-alpine
 
-# Recibir VITE_API_URL como argumento de build
-ARG VITE_API_URL=http://localhost:8000
-ENV VITE_API_URL=$VITE_API_URL
-
 WORKDIR /app
 
 # Instalar herramientas de compilación necesarias para dependencias nativas en Alpine
@@ -21,10 +17,11 @@ RUN rm -rf node_modules package-lock.json && \
 # Copiar código
 COPY . .
 
-# Crear .env con VITE_API_URL para que Vite lo encuentre durante la compilación
-RUN echo "VITE_API_URL=${VITE_API_URL}" > .env
+# Recibir VITE_API_URL como argumento de build (justo antes de compilar)
+ARG VITE_API_URL=http://localhost:8000
+ENV VITE_API_URL=$VITE_API_URL
 
-# Build Vite - ahora lee .env con la variable correcta
+# Build Vite con VITE_API_URL disponible en el entorno
 RUN npm run build
 
 # Exponer puerto
