@@ -1,10 +1,10 @@
 import axios from 'axios';
 
-// Detecta si estamos en localhost o en red
+// Detecta si estamos en localhost o en red y prioriza la VITE_API_URL de build
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const API_BASE_URL = isLocalhost
-  ? 'http://localhost:8000'
-  : 'http://192.168.1.128:8000'; // Cambia esta IP si tu servidor tiene otra
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL ||
+  (isLocalhost ? 'http://localhost:8000' : window.location.origin.replace(/:\d+$/, ':8000'));
 const JWT_TOKEN_KEY = 'jwt_access_token'; // Clave que usa AuthContext para guardar el token JWT
 
 // Crea una instancia de Axios con la configuración correcta

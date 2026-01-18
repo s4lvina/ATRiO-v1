@@ -569,11 +569,12 @@ app.include_router(
 
 # Configurar CORS - ÚNICA CONFIGURACIÓN
 origins = [
-    "http://localhost:5173",  # Origen del frontend de desarrollo local
-    "http://127.0.0.1:5173",  # Origen del frontend de desarrollo local (alternativo)
-    "http://192.168.1.128:5173",  # Origen del frontend en red local
-    # Puedes añadir aquí otros orígenes permitidos en producción, por ejemplo:
-    # "https://tu-dominio-de-produccion.com",
+    "http://localhost:5173",  # Frontend dev
+    "http://127.0.0.1:5173",  # Frontend dev alternativo
+    "http://localhost:3000",  # Frontend build/preview local
+    "http://127.0.0.1:3000",  # Frontend build/preview local alternativo
+    "http://192.168.1.157:3000",  # Frontend en red local (prod compose)
+    # Añadir aquí otros orígenes permitidos en producción si aplica
 ]
 
 app.add_middleware(
