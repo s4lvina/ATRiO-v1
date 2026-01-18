@@ -1,5 +1,16 @@
 # Despliegue Docker - ATRiO v1
 
+## 🚩 CHECKLIST CRÍTICO ANTES DE DESPLEGAR
+
+- [ ] **⚠️ VITE_API_URL:** Cambiar de `http://localhost:8000` a IP real del servidor (ej: `http://192.168.1.157:8000`)
+  - Si NO cambias esto, los navegadores remotos no podrán conectar al backend
+- [ ] **Puertos:** Verificar que puertos 3000 y 8000 están libres (revisar adguardhome, grafana, portainer)
+  - Comando: `sudo ss -tulpn | grep -E ':(3000|8000)'`
+- [ ] **Permisos:** Crear `docker/data/` y pre-crear `docker/data/atrio.db` ANTES de iniciar contenedores
+  - Evita que Docker cree archivos como root y tengas problemas de permisos después
+- [ ] **SECRET_KEY:** Generar nueva con `python3 scripts/generate_secret_key.py` (no usar la de ejemplo)
+- [ ] **Firewall:** Si es necesario, abrir puertos: `sudo ufw allow 3000/tcp && sudo ufw allow 8000/tcp`
+
 ## Descripción
 Implementación de despliegue containerizado para Ubuntu 24.04 LTS. Aplicación demo con 1-2 usuarios simultáneos.
 
@@ -47,14 +58,15 @@ DEBUG=False
 HOST=0.0.0.0
 PORT=8000
 
-# Frontend
-VITE_API_URL=http://localhost:8000
+# Frontend - ⚠️ CRÍTICO: cambiar a IP/dominio del servidor
+# NO usar localhost - los navegadores lo buscarán en su máquina local
+VITE_API_URL=http://192.168.1.157:8000
 ```
 
 - `DATABASE_URL`: ruta de la BD SQLite en el contenedor
 - `SECRET_KEY`: para JWT (generar nueva en producción)
 - `DEBUG`: False en producción
-- `VITE_API_URL`: URL de la API (puede ser dominio o localhost)
+- `VITE_API_URL`: **⚠️ IMPORTANTE** URL accesible desde clientes remotos (IP o dominio del servidor)
 
 ## Despliegue Local
 
@@ -82,22 +94,74 @@ cd ATRiO-v1
 git checkout feature/docker-deployment
 ```
 
-### 3. Configurar variables de entorno
+### 3. Crear directorio de datos (CRÍTICO para permisos)
+```bash
+# Crear carpeta y asegurar permisos antes de que Docker cree archivos como root
+mkdir -p docker/data
+chown tu-usuario:tu-usuario docker/data
+ls -la docker/  # verificar permisos (drwxr-xr-x)
+
+# Pre-crear el archivo de BD con permisos correctos
+touch docker/data/atrio.db
+chown tu-usuario:tu-usuario docker/data/atrio.db
+```
+
+### 4. Configurar variables de entorno
 ```bash
 cd docker/
 cp .env.example .env
-nano .env  # editar valores según servidor
+
+# Editar .env y cambiar CRÍTICAMENTE:
+# 1. VITE_API_URL: Cambiar http://localhost:8000 a http://192.168.1.157:8000
+# 2. SECRET_KEY: Ejecutar: python3 ../scripts/generate_secret_key.py
+nano .env
+
+# Después de editar, verificar:
+cat .env | grep -E "VITE_API_URL|SECRET_KEY"
 ```
 
-### 4. Iniciar servicios
+### 5. Verificar puertos disponibles (ANTES de iniciar)
 ```bash
-docker-compose up -d
+# Revisar qué está usando los puertos 3000 y 8000
+sudo netstat -tulpn | grep -E ':(3000|8000)'
+# o alternativa más moderna:
+sudo ss -tulpn | grep -E ':(3000|8000)'
+
+# Si hay conflictos, cambiar en docker-compose.yml:
+# ports:
+#   - "3001:3000"  # Frontend en 3001
+#   - "8001:8000"  # Backend en 8001
+
+# Si tienes adguardhome, grafana o portainer usando los puertos, opción A:
+# - Cambiar puertos en docker-compose.yml a 3001, 8001, etc.
+# - Opción B: Detener servicio conflictivo antes de iniciar Docker
 ```
 
-Verificar:
+### 6. Iniciar servicios
 ```bash
-docker-compose ps
+# Volver a docker/ si no estás ahí
+cd docker/
+
+# Iniciar contenedores en background
+docker-compose up -d --build
+
+# Monitorear logs durante inicio (primeros 30 segundos son críticos)
 docker-compose logs -f
+
+# En otra terminal, verificar estado
+docker-compose ps
+```
+
+Verificar acceso:
+```bash
+# Frontend: http://192.168.1.157:3000 (cambiar IP según tu servidor)
+# Backend: http://192.168.1.157:8000
+# API Docs: http://192.168.1.157:8000/docs
+
+# Si da error de conexión en frontend:
+# 1. Verificar VITE_API_URL en docker/.env (debe ser IP, no localhost)
+# 2. Verificar firewall: sudo ufw allow 3000/tcp && sudo ufw allow 8000/tcp
+# 3. Revisar logs: docker-compose logs backend
 ```
 
 ## Git Webhooks (Auto-deploy)
@@ -189,10 +253,16 @@ Los datos persisten aunque se detengan los containers.
 
 | Problema | Solución |
 |----------|----------|
-| Puerto ya en uso | Cambiar en compose: `ports: ["8001:8000"]` |
-| BD no inicia | `docker-compose down -v` y volver a crear |
-| Frontend no conecta a API | Revisar `VITE_API_URL` en .env |
-| Permisos en /data | `sudo chown -R usuario:usuario docker/data/` |
+| **Puerto 3000 ya en uso** | `sudo ss -tulpn \| grep 3000` para ver qué lo usa (¿adguardhome, grafana?). Cambiar en docker-compose.yml a puerto diferente (3001, 3002, etc.) |
+| **Puerto 8000 ya en uso** | `sudo ss -tulpn \| grep 8000` para ver qué lo usa (¿portainer?). Cambiar en docker-compose.yml a puerto diferente (8001, 8002, etc.) |
+| **Frontend muestra error de conexión "No se puede conectar al servidor"** | ✅ **CRÍTICO**: Cambiar `VITE_API_URL` a IP real en docker/.env. Ej: `http://192.168.1.157:8000` (NO localhost) |
+| **"localhost funciona pero otro PC no puede acceder"** | ✅ Normal - cambiar VITE_API_URL en docker/.env a IP/dominio del servidor |
+| **BD no inicia (database locked)** | `docker-compose down -v` (borra volúmenes) y volver a crear. O revisar permisos: `ls -la docker/data/` |
+| **Permisos en /data (no puedo hacer backups)** | `sudo chown -R tu-usuario:tu-usuario docker/data/` |
+| **Contenedor crea archivos .db como root** | Crear `docker/data/atrio.db` con `touch` ANTES de iniciar contenedores (ya en paso 3) |
+| **No puedo acceder desde otra máquina en la red** | Verificar firewall: `sudo ufw allow 3000/tcp` y `sudo ufw allow 8000/tcp` |
+| **Contenedores inician pero no responden** | Ver logs: `docker-compose logs -f backend` para errores específicos |
+| **"Connection refused" desde frontend a backend** | Revisar VITE_API_URL en docker/.env + verificar que backend esté sano: `docker-compose ps` |
 
 ## Próximas mejoras
 
