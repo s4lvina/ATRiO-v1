@@ -4,13 +4,11 @@ from sqlalchemy.orm import sessionmaker
 import psutil
 import logging
 import os
+from config.settings import DATABASE_URL
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Define la URL de la base de datos (archivo SQLite en directorio seguro)
-DATABASE_URL = "sqlite:///./database/secure/atrio.db"
 
 # Crea la clase base para los modelos
 Base = declarative_base()

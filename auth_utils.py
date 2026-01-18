@@ -2,17 +2,11 @@ from passlib.context import CryptContext
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from jose import JWTError, jwt
+from config.settings import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS, WARNING_MINUTES_BEFORE_EXPIRY
 
 # Configurar el contexto de hashing, bcrypt es una buena elección.
 # deprecated="auto" manejará automáticamente la actualización de hashes si cambias los algoritmos en el futuro.
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-# Configuración de JWT
-SECRET_KEY = "afe2eb405c2faf62bd83626be39901784649360f2020225a902312677aa0ac5e"  # ¡CAMBIAR EN PRODUCCIÓN Y GUARDAR DE FORMA SEGURA!
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60  # Por ejemplo, 60 minutos
-REFRESH_TOKEN_EXPIRE_DAYS = 7  # Token de renovación válido por 7 días
-WARNING_MINUTES_BEFORE_EXPIRY = 10  # Avisar 10 minutos antes de la expiración
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:

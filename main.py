@@ -89,6 +89,7 @@ from models import (
 import enum  # AÑADIDO: Importar enum
 import uuid
 from config.system_config import get_host_config, update_host_config
+from config.settings import DEBUG, HOST, PORT, SECRET_KEY
 
 # Importar diccionario de tareas compartido para evitar importaciones circulares
 from shared_state import task_statuses
@@ -6523,9 +6524,8 @@ app.include_router(localizaciones_router, prefix="/api", tags=["Localizaciones"]
 
 if __name__ == "__main__":
     import uvicorn
-    from config.system_config import get_host_config
 
-    config = get_host_config()
-    logger.info(f"Iniciando servidor en {config['host']}:{config['port']}")
+    logger.info(f"Iniciando servidor en {HOST}:{PORT}")
+    logger.info(f"DEBUG mode: {DEBUG}")
 
-    uvicorn.run(app, host=config["host"], port=config["port"], log_level="debug")
+    uvicorn.run(app, host=HOST, port=PORT, log_level="debug" if DEBUG else "info")
