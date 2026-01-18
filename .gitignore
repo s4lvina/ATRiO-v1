@@ -33,6 +33,7 @@ tmp/
 .env.local
 .env.production
 docker/.env
+docker/.env.redeploy
 system_config.json
 footer_config.json
 
