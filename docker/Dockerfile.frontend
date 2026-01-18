@@ -9,9 +9,10 @@ RUN apk add --no-cache python3 make g++
 # Copiar package.json y package-lock.json
 COPY package*.json ./
 
-# Instalar dependencias
-# Usar npm install en lugar de npm ci para evitar problemas con dependencias nativas en Alpine
-RUN npm install --legacy-peer-deps
+# Limpiar si existen versiones previas, luego instalar
+# Esto asegura que Rollup y otras dependencias nativas se recompilen con herramientas disponibles
+RUN rm -rf node_modules package-lock.json && \
+    npm install --legacy-peer-deps
 
 # Copiar código
 COPY . .
