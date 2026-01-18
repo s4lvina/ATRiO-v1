@@ -7,7 +7,7 @@ import uvicorn
 import signal
 import sys
 import os
-from system_config import get_host_config
+from config.system_config import get_host_config
 
 
 class GracefulServer(uvicorn.Server):

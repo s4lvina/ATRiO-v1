@@ -3,7 +3,10 @@ import sys
 import signal
 import subprocess
 import time
-from system_config import get_host_config
+
+# Agregar el directorio raíz al path para permitir imports relativos
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config.system_config import get_host_config
 
 
 def restart_server():

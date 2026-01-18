@@ -51,7 +51,7 @@ import sys
 import re
 from math import radians, sin, cos, sqrt, asin
 from schemas import Lectura as LecturaSchema
-from gps_capas import router as gps_capas_router
+from backend.routers.gps_capas import router as gps_capas_router
 from models import LocalizacionInteres
 from schemas import (
     LocalizacionInteresCreate,
@@ -88,7 +88,7 @@ from models import (
 )  # Asegúrate que RolUsuarioEnum está disponible (o usa la cadena directa)
 import enum  # AÑADIDO: Importar enum
 import uuid
-from system_config import get_host_config, update_host_config
+from config.system_config import get_host_config, update_host_config
 
 # Importar diccionario de tareas compartido para evitar importaciones circulares
 from shared_state import task_statuses
@@ -6151,7 +6151,7 @@ class SystemConfig(BaseModel):
 def get_host_config_endpoint():
     """Obtiene la configuración actual del host"""
     try:
-        from system_config import get_host_config as get_system_config
+        from config.system_config import get_host_config as get_system_config
 
         config = get_system_config()
         return SystemConfig(**config)
@@ -6178,7 +6178,7 @@ def get_network_info(
         local_ip = socket.gethostbyname(hostname)
 
         # Obtener configuración actual
-        from system_config import get_host_config as get_system_config
+        from config.system_config import get_host_config as get_system_config
 
         config = get_system_config()
 
@@ -6250,7 +6250,7 @@ def update_host_config_endpoint(
     current_user: models.Usuario = Depends(get_current_active_superadmin),
 ):
     """Actualiza la configuración del host y reinicia el servidor"""
-    from system_config import update_host_config as update_system_config
+    from config.system_config import update_host_config as update_system_config
 
     if update_system_config(config.model_dump()):
         # Iniciar el proceso de reinicio en segundo plano
@@ -6523,7 +6523,7 @@ app.include_router(localizaciones_router, prefix="/api", tags=["Localizaciones"]
 
 if __name__ == "__main__":
     import uvicorn
-    from system_config import get_host_config
+    from config.system_config import get_host_config
 
     config = get_host_config()
     logger.info(f"Iniciando servidor en {config['host']}:{config['port']}")
