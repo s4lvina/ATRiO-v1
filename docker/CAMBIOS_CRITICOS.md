@@ -2,11 +2,15 @@
 
 ## Resumen de Problemas Solucionados
 
-### 1. 🚫 PROBLEMA: VITE_API_URL localhost no funciona en red
+### 1. 🚫 PROBLEMA: VITE_API_URL localhost no funciona en red + TRAMPA DE VITE
 
 **Síntoma:** Frontend en otro PC/servidor no puede conectar al backend
 
-**Causa:** `VITE_API_URL=http://localhost:8000` hace que los navegadores busquen en su máquina local, no en el servidor
+**Causa:** 
+- `VITE_API_URL=http://localhost:8000` hace que los navegadores busquen en su máquina local, no en el servidor
+- **TRAMPA DE VITE:** Esta variable se "quema" (bakes in) en tiempo de BUILD, no en runtime
+  - Si cambias después de desplegar, un simple `restart` NO funciona
+  - DEBES reconstruir: `docker-compose up -d --build`
 
 **Solución Implementada:**
 ```env
@@ -15,12 +19,16 @@ VITE_API_URL=http://localhost:8000
 
 # AHORA (✅ FUNCIONA EN RED):
 VITE_API_URL=http://192.168.1.157:8000
+
+# ⚠️ IMPORTANTE: Si cambias después, ejecutar:
+docker-compose up -d --build  # (no solo restart)
 ```
 
 **Archivos Actualizados:**
-- `docker/.env` - cambio directo (gitignored)
+- `docker/.env` - cambio directo a IP real (gitignored)
 - `docker/.env.example` - comentario sobre el problema
-- `docker/DEPLOYMENT.md` - advertencia en rojo
+- `docker/DEPLOYMENT.md` - advertencia en rojo + nota sobre trampa de Vite
+- `docker/pre_deployment_check.sh` - valida que no sea localhost
 
 ---
 
@@ -51,7 +59,58 @@ sudo ss -tulpn | grep -E ':(3000|8000)'
 
 ---
 
-### 3. 🔐 PROBLEMA: Permisos SQLite (archivos creados como root)
+## 🔥 TRAMPA IMPORTANTE: Comportamiento de Vite en Docker
+
+Este es un problema común que causa frustración si no lo conoces:
+
+### El Problema
+Vite "quema" (bakes in) las variables `VITE_*` en tiempo de **BUILD**, no en runtime.
+
+### Ejemplo Típico (que NO funciona)
+```bash
+# 1. Despliegas con VITE_API_URL=http://localhost:8000
+docker-compose up -d --build
+# (Vite compila frontend con localhost)
+
+# 2. Te das cuenta de que debería ser la IP
+nano docker/.env
+# Cambias VITE_API_URL=http://192.168.1.157:8000
+
+# 3. Haces restart (❌ NO FUNCIONA)
+docker-compose restart
+# El frontend sigue buscando en localhost porque Vite ya compiló el HTML
+
+# 4. Solo esto funciona (✅ CORRECTO)
+docker-compose up -d --build
+# Se recompila el frontend con la IP correcta
+```
+
+### Por Qué Ocurre
+- En tiempo de BUILD, Vite escanea el `.env` y reemplaza `import.meta.env.VITE_*` directamente en el HTML
+- El valor se "quema" (bakes in) en los archivos compilados (`dist/index.html`)
+- En runtime, cambiar la variable no tiene efecto (ya está compilada)
+
+### Solución
+**SIEMPRE usa `--build` cuando cambies variables VITE_*:**
+```bash
+# ✅ CORRECTO
+docker-compose up -d --build
+
+# ❌ INCORRECTO (no funcionará)
+docker-compose restart
+```
+
+### Variables que Necesitan Reconstrucción
+- `VITE_API_URL` ← **MÁS IMPORTANTE**
+- Cualquier otra variable que empiece con `VITE_`
+
+### Variables que NO Necesitan Reconstrucción
+- `DATABASE_URL` (backend solamente)
+- `SECRET_KEY` (backend solamente)
+- `DEBUG` (backend solamente)
+- `HOST`, `PORT` (backend solamente)
+
+---
 
 **Síntoma:** Después de desplegar Docker, no puedes hacer backups de la BD o editar archivos
 
@@ -79,11 +138,14 @@ chown tu-usuario:tu-usuario docker/data/atrio.db
 ## 📋 CHECKLIST ANTES DE DESPLEGAR
 
 ```bash
-# 1. Cambiar VITE_API_URL
+# 1. Cambiar VITE_API_URL (⚠️ Variable crítica que se quema en build)
 nano docker/.env
 # Cambiar: http://localhost:8000 → http://192.168.1.157:8000
+# IMPORTANTE: Si cambias después, DEBES hacer: docker-compose up -d --build
 
 # 2. Generar SECRET_KEY nuevo
+python3 scripts/generate_secret_key.py
+# Copiar a docker/.env (este no necesita reconstrucción)
 python3 scripts/generate_secret_key.py
 # Copiar resultado a docker/.env
 

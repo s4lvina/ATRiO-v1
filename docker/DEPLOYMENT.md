@@ -3,7 +3,9 @@
 ## 🚩 CHECKLIST CRÍTICO ANTES DE DESPLEGAR
 
 - [ ] **⚠️ VITE_API_URL:** Cambiar de `http://localhost:8000` a IP real del servidor (ej: `http://192.168.1.157:8000`)
-  - Si NO cambias esto, los navegadores remotos no podrán conectar al backend
+  - ⚠️ **TRAMPA DE VITE:** Esta variable se "quema" (bakes in) en tiempo de BUILD, no de runtime
+  - Si cambias este valor DESPUÉS de desplegar, DEBES reconstruir: `docker-compose up -d --build`
+  - Un simple `restart` NO funcionará
 - [ ] **Puertos:** Verificar que puertos 3000 y 8000 están libres (revisar adguardhome, grafana, portainer)
   - Comando: `sudo ss -tulpn | grep -E ':(3000|8000)'`
 - [ ] **Permisos:** Crear `docker/data/` y pre-crear `docker/data/atrio.db` ANTES de iniciar contenedores
@@ -111,6 +113,9 @@ chown tu-usuario:tu-usuario docker/data/atrio.db
 cd docker/
 cp .env.example .env
 
+# ⚠️ IMPORTANTE: Editar .env ANTES de hacer docker-compose up
+# (Si cambias VITE_* después, deberás reconstruir con --build)
+
 # Editar .env y cambiar CRÍTICAMENTE:
 # 1. VITE_API_URL: Cambiar http://localhost:8000 a http://192.168.1.157:8000
 # 2. SECRET_KEY: Ejecutar: python3 ../scripts/generate_secret_key.py
@@ -119,6 +124,13 @@ nano .env
 # Después de editar, verificar:
 cat .env | grep -E "VITE_API_URL|SECRET_KEY"
 ```
+
+**⚠️ NOTA CRÍTICA SOBRE VITE:**
+Vite "quema" (bakes in) las variables que empiezan con `VITE_` en tiempo de **BUILD**, no en runtime:
+- Si cambias `VITE_API_URL` DESPUÉS de desplegar: **DEBES reconstruir**
+- Comando correcto: `docker-compose up -d --build` (incluye `--build`)
+- Un simple `docker-compose restart` **NO funcionará**
+- Esto es comportamiento estándar de Vite/React - las variables VITE_* se inyectan en el HTML durante el build
 
 ### 5. Verificar puertos disponibles (ANTES de iniciar)
 ```bash
@@ -142,7 +154,8 @@ sudo ss -tulpn | grep -E ':(3000|8000)'
 # Volver a docker/ si no estás ahí
 cd docker/
 
-# Iniciar contenedores en background
+# ⚠️ SIEMPRE usa --build para asegurar que Vite compile con las variables correctas
+# Especialmente importante si cambias VITE_API_URL - un simple restart NO es suficiente
 docker-compose up -d --build
 
 # Monitorear logs durante inicio (primeros 30 segundos son críticos)
@@ -255,14 +268,14 @@ Los datos persisten aunque se detengan los containers.
 |----------|----------|
 | **Puerto 3000 ya en uso** | `sudo ss -tulpn \| grep 3000` para ver qué lo usa (¿adguardhome, grafana?). Cambiar en docker-compose.yml a puerto diferente (3001, 3002, etc.) |
 | **Puerto 8000 ya en uso** | `sudo ss -tulpn \| grep 8000` para ver qué lo usa (¿portainer?). Cambiar en docker-compose.yml a puerto diferente (8001, 8002, etc.) |
-| **Frontend muestra error de conexión "No se puede conectar al servidor"** | ✅ **CRÍTICO**: Cambiar `VITE_API_URL` a IP real en docker/.env. Ej: `http://192.168.1.157:8000` (NO localhost) |
-| **"localhost funciona pero otro PC no puede acceder"** | ✅ Normal - cambiar VITE_API_URL en docker/.env a IP/dominio del servidor |
+| **Frontend muestra error de conexión "No se puede conectar al servidor"** | ✅ **CRÍTICO**: 1) Cambiar `VITE_API_URL` a IP real en docker/.env. 2) **SIEMPRE** reconstruir: `docker-compose up -d --build` (Vite quema variables en build) 3) No solo hacer restart |
+| **"localhost funciona pero otro PC no puede acceder"** | ✅ Normal - cambiar VITE_API_URL en docker/.env a IP/dominio del servidor. **Importante**: reconstruir con `--build` |
 | **BD no inicia (database locked)** | `docker-compose down -v` (borra volúmenes) y volver a crear. O revisar permisos: `ls -la docker/data/` |
 | **Permisos en /data (no puedo hacer backups)** | `sudo chown -R tu-usuario:tu-usuario docker/data/` |
 | **Contenedor crea archivos .db como root** | Crear `docker/data/atrio.db` con `touch` ANTES de iniciar contenedores (ya en paso 3) |
 | **No puedo acceder desde otra máquina en la red** | Verificar firewall: `sudo ufw allow 3000/tcp` y `sudo ufw allow 8000/tcp` |
 | **Contenedores inician pero no responden** | Ver logs: `docker-compose logs -f backend` para errores específicos |
-| **"Connection refused" desde frontend a backend** | Revisar VITE_API_URL en docker/.env + verificar que backend esté sano: `docker-compose ps` |
+| **"Connection refused" desde frontend a backend** | 1) Revisar VITE_API_URL en docker/.env 2) **IMPORTANTE**: Reconstruir con `docker-compose up -d --build` (Vite quema la variable en tiempo de build) 3) No solo hacer restart 4) Ver logs: `docker-compose logs frontend` |
 
 ## Próximas mejoras
 
