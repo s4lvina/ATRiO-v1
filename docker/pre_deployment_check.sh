@@ -34,8 +34,14 @@ check_result $? "Docker instalado"
 
 # 2. Verificar Docker Compose instalado
 echo "[2/7] Verificando Docker Compose..."
-docker-compose --version > /dev/null 2>&1
-check_result $? "Docker Compose instalado"
+# Docker Compose puede estar instalado como:
+# - docker-compose (versión standalone antigua)
+# - docker compose (plugin integrado en docker moderno)
+if docker-compose --version > /dev/null 2>&1 || docker compose version > /dev/null 2>&1; then
+    check_result 0 "Docker Compose instalado"
+else
+    check_result 1 "Docker Compose no está instalado (ejecutar: bash docker/fix_precheck.sh)"
+fi
 
 # 3. Verificar puertos libres
 echo "[3/7] Verificando puertos libres..."
