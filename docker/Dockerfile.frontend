@@ -21,8 +21,8 @@ RUN rm -rf node_modules package-lock.json && \
 # Copiar código
 COPY . .
 
-# Build Vite
-RUN npm run build
+# Build Vite con VITE_API_URL disponible en el entorno
+RUN export VITE_API_URL=${VITE_API_URL} && npm run build
 
 # Exponer puerto
 EXPOSE 3000
