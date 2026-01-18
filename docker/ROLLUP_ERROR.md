@@ -6,38 +6,52 @@
 Error: Cannot find module @rollup/rollup-linux-x64-musl
 ```
 
-### Causa
+También puede ver:
+```
+error: command 'gcc' not found
+error: command 'python' not found
+```
+
+### Causas
 
 Este error ocurre cuando:
 1. Usas `npm ci` en un contenedor Alpine (usa musl libc)
-2. Las dependencias nativas de Rollup no se compilan para la arquitectura correcta
-3. El `package-lock.json` se creó en una máquina diferente (ej: Windows/Mac)
+2. Las dependencias nativas (Rollup, node-gyp, etc.) no tienen herramientas de compilación
+3. Faltan `python`, `make`, `g++` en Alpine (necesarios para compilar desde fuente)
 
 ### Por Qué Alpine Causa Problemas
 
 Alpine Linux usa **musl libc** (más ligero que glibc), pero:
 - Algunas dependencias nativas (como Rollup) no tienen compilaciones pre-compiladas para musl
 - `npm ci` intenta usar binarios pre-compilados que no existen
-- `npm install` recompila desde fuente, lo cual sí funciona
+- `npm install` recompila desde fuente, **pero necesita herramientas de compilación**
+- Alpine no incluye `python`, `make`, `g++` por defecto (para mantenerlo ligero)
 
 ---
 
-## La Solución
+## La Solución (Ya Implementada)
 
-### ✅ Opción 1: Usar `npm install` con `--legacy-peer-deps` (RECOMENDADO)
+### ✅ Opción 1: Instalar herramientas + usar `npm install --legacy-peer-deps`
 
 ```dockerfile
+# Instalar herramientas necesarias
+RUN apk add --no-cache python3 make g++
+
+# Instalar dependencias
 RUN npm install --legacy-peer-deps
+
+# Build
+RUN npm run build
 ```
 
 **Ventajas:**
 - ✅ Funciona con Alpine
-- ✅ Recompila dependencias nativas si es necesario
-- ✅ Mejor compatibilidad
+- ✅ Recompila dependencias nativas correctamente
+- ✅ Menor footprint que cambiar a Debian
 
 **Desventajas:**
-- ⚠️ Más lento que `npm ci` (pero solo en el build)
-- ⚠️ Puede ignorar restricciones de versiones (peer-deps)
+- ⚠️ Imagen un poco más grande (agregadas herramientas)
+- ⚠️ Más lento que `npm ci` (pero solo en build)
 
 ---
 

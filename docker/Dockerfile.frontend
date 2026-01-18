@@ -2,24 +2,25 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+# Instalar herramientas de compilación necesarias para dependencias nativas en Alpine
+# (python, make, g++ son requeridos por algunos paquetes npm)
+RUN apk add --no-cache python3 make g++
+
 # Copiar package.json y package-lock.json
 COPY package*.json ./
 
 # Instalar dependencias
 # Usar npm install en lugar de npm ci para evitar problemas con dependencias nativas en Alpine
-# Si tienes package-lock.json, considere usar: npm ci --legacy-peer-deps
 RUN npm install --legacy-peer-deps
 
 # Copiar código
 COPY . .
 
-# Build
+# Build Vite
 RUN npm run build
 
 # Exponer puerto
 EXPOSE 3000
 
-# Servir con preview (para producción simple)
-CMD ["npm", "run", "preview"]
-# Para desarrollo: npm run dev
+# Servir con preview (para producción)
 CMD ["npm", "run", "preview"]
