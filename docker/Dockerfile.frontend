@@ -21,8 +21,11 @@ RUN rm -rf node_modules package-lock.json && \
 # Copiar código
 COPY . .
 
-# Build Vite con VITE_API_URL disponible en el entorno
-RUN export VITE_API_URL=${VITE_API_URL} && npm run build
+# Crear .env con VITE_API_URL para que Vite lo encuentre durante la compilación
+RUN echo "VITE_API_URL=${VITE_API_URL}" > .env
+
+# Build Vite - ahora lee .env con la variable correcta
+RUN npm run build
 
 # Exponer puerto
 EXPOSE 3000
