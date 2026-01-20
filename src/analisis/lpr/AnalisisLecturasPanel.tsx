@@ -914,12 +914,8 @@ const AnalisisLecturasPanel = forwardRef<AnalisisLecturasPanelHandle, AnalisisLe
             
             console.log('[AnalisisLecturasPanel] URL de búsqueda:', searchUrl);
             const response = await apiClient.get(searchUrl);
+            const data = response.data;
             
-            if (!response.ok) {
-                throw new Error(`Error en la búsqueda: ${response.statusText || response.status}`);
-            }
-            
-            const data = await response.json();
             if (!Array.isArray(data)) {
                 throw new Error('Formato de respuesta inesperado');
             }
@@ -1079,12 +1075,8 @@ const AnalisisLecturasPanel = forwardRef<AnalisisLecturasPanelHandle, AnalisisLe
             
             console.log('[AnalisisLecturasPanel] URL de búsqueda (desde aplicarFiltros):', searchUrl);
             const response = await apiClient.get(searchUrl);
+            const data = response.data;
             
-            if (!response.ok) {
-                throw new Error(`Error en la búsqueda: ${response.statusText || response.status}`);
-            }
-            
-            const data = await response.json();
             if (!Array.isArray(data)) {
                 throw new Error('Formato de respuesta inesperado');
             }
