@@ -693,6 +693,8 @@ def process_external_data_in_background(
         # Procesar datos
         imported_count = 0
         errors = []
+        batch_size = 100
+        batch_external = []
 
         for index, row in df.iterrows():
             try:
@@ -734,10 +736,20 @@ def process_external_data_in_background(
                     user_id=user_id,
                 )
 
-                db.add(db_external_data)
+                batch_external.append(db_external_data)
                 imported_count += 1
 
+                # Commit por lote para evitar bloqueos prolongados
+                if len(batch_external) >= batch_size:
+                    db.add_all(batch_external)
+                    db.commit()
+                    logger.info(
+                        f"[External Task {task_id}] Lote de {len(batch_external)} registros confirmado en BD"
+                    )
+                    batch_external = []
+
             except Exception as e:
+                logger.error(f"[External Task {task_id}] Error en fila {index + 1}: {e}")
                 errors.append(f"Fila {index + 1}: {str(e)}")
                 continue
 
@@ -750,8 +762,16 @@ def process_external_data_in_background(
             }
         )
 
-        # Confirmar cambios en external_data
+        # Confirmar cambios restantes en external_data
+        if batch_external:
+            db.add_all(batch_external)
+            logger.info(
+                f"[External Task {task_id}] Confirmando lote final de {len(batch_external)} registros"
+            )
         db.commit()
+        logger.info(
+            f"[External Task {task_id}] Todos los datos de external_data confirmados en BD"
+        )
 
         # Registrar archivo importado en ArchivosExcel
         archivo_excel = models.ArchivoExcel(
