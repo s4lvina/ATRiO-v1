@@ -43,8 +43,6 @@ const customStyles = `
   }
 `;
 
-const API_BASE_URL = 'http://localhost:8000';
-
 // --- Eliminar Interfaces Locales Duplicadas ---
 /*
 interface Lector {
@@ -508,9 +506,8 @@ const AnalisisLecturasPanel = forwardRef<AnalisisLecturasPanelHandle, AnalisisLe
             setInitialLoading(true);
             try {
                 if (casoIdFijo) {
-                    const response = await fetch(`${API_BASE_URL}/casos/${casoIdFijo}/lectores`);
-                    if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
-                    const data = await response.json();
+                    const response = await apiClient.get(`/casos/${casoIdFijo}/lectores`);
+                    const data = response.data;
                     if (!data || !Array.isArray(data)) throw new Error('Formato de respuesta inválido');
                     setLectoresRaw(data);
                     
@@ -602,9 +599,8 @@ const AnalisisLecturasPanel = forwardRef<AnalisisLecturasPanelHandle, AnalisisLe
             try {
                 if (casoIdFijo) {
                     console.log(`[AnalisisLecturasPanel] Cargando lectores del caso ${casoIdFijo}`);
-                    const response = await fetch(`${API_BASE_URL}/casos/${casoIdFijo}/lectores`);
-                    if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
-                    const data = await response.json();
+                    const response = await apiClient.get(`/casos/${casoIdFijo}/lectores`);
+                    const data = response.data;
                     if (!data || !Array.isArray(data)) throw new Error('Formato de respuesta inválido');
                     
                     console.log(`[AnalisisLecturasPanel] Recibidos ${data.length} lectores del caso`);
@@ -914,10 +910,10 @@ const AnalisisLecturasPanel = forwardRef<AnalisisLecturasPanelHandle, AnalisisLe
             
             params.append('limit', '100000');
             const queryString = params.toString();
-            const searchUrl = `${API_BASE_URL}/lecturas?${queryString}`;
+            const searchUrl = `/lecturas?${queryString}`;
             
             console.log('[AnalisisLecturasPanel] URL de búsqueda:', searchUrl);
-            const response = await fetch(searchUrl);
+            const response = await apiClient.get(searchUrl);
             
             if (!response.ok) {
                 throw new Error(`Error en la búsqueda: ${response.statusText || response.status}`);
@@ -978,9 +974,8 @@ const AnalisisLecturasPanel = forwardRef<AnalisisLecturasPanelHandle, AnalisisLe
         setLoading(true);
         try {
             console.log("Exportando: Obteniendo todos los lectores...");
-            const response = await fetch(`${API_BASE_URL}/lectores?limit=10000`);
-            if (!response.ok) throw new Error(`Error al obtener lectores: ${response.statusText}`);
-            const data = await response.json();
+            const response = await apiClient.get(`/lectores?limit=10000`);
+            const data = response.data;
             let lectoresParaExportar: Lector[] = [];
             if (data && Array.isArray(data.lectores)) {
                 lectoresParaExportar = data.lectores;
@@ -1080,10 +1075,10 @@ const AnalisisLecturasPanel = forwardRef<AnalisisLecturasPanelHandle, AnalisisLe
             
             params.append('limit', '100000');
             const queryString = params.toString();
-            const searchUrl = `${API_BASE_URL}/lecturas?${queryString}`;
+            const searchUrl = `/lecturas?${queryString}`;
             
             console.log('[AnalisisLecturasPanel] URL de búsqueda (desde aplicarFiltros):', searchUrl);
-            const response = await fetch(searchUrl);
+            const response = await apiClient.get(searchUrl);
             
             if (!response.ok) {
                 throw new Error(`Error en la búsqueda: ${response.statusText || response.status}`);
@@ -1534,9 +1529,8 @@ const AnalisisLecturasPanel = forwardRef<AnalisisLecturasPanelHandle, AnalisisLe
                 loading: true,
             });
             try {
-                const response = await fetch(`${API_BASE_URL}/casos/${casoIdFijo}/saved_searches`);
-                if (!response.ok) throw new Error('Error al cargar búsquedas guardadas');
-                const data = await response.json();
+                const response = await apiClient.get(`/casos/${casoIdFijo}/saved_searches`);
+                const data = response.data;
                 setSavedSearches(data);
                 notifications.update({
                     id: notificationId,
@@ -1592,17 +1586,8 @@ const AnalisisLecturasPanel = forwardRef<AnalisisLecturasPanelHandle, AnalisisLe
         };
 
         try {
-            const response = await fetch(`${API_BASE_URL}/casos/${casoIdFijo}/saved_searches`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(newSearch)
-            });
-
-            if (!response.ok) throw new Error('Error al guardar la búsqueda');
-            
-            const savedSearch = await response.json();
+            const response = await apiClient.post(`/casos/${casoIdFijo}/saved_searches`, newSearch);
+            const savedSearch = response.data;
             setSavedSearches(prev => [...prev, savedSearch]);
             
             notifications.show({
@@ -1626,11 +1611,7 @@ const AnalisisLecturasPanel = forwardRef<AnalisisLecturasPanelHandle, AnalisisLe
     // Función para eliminar una búsqueda guardada
     const handleDeleteSavedSearch = async (searchId: number) => {
         try {
-            const response = await fetch(`${API_BASE_URL}/saved_searches/${searchId}`, {
-                method: 'DELETE'
-            });
-
-            if (!response.ok) throw new Error('Error al eliminar la búsqueda');
+            await apiClient.delete(`/saved_searches/${searchId}`);
 
             setSavedSearches(prev => prev.filter(s => s.id !== searchId));
             setSelectedSearches(prev => prev.filter(id => id !== searchId));
