@@ -8,15 +8,15 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # Cargar variables de entorno desde archivo .env
-# Busca .env en docker/ primero (para Docker), luego en raíz (para desarrollo local)
+# Busca .env en raíz primero (para desarrollo local), luego en docker/ (para Docker)
 env_files = [
+    Path(__file__).parent.parent / ".env",
     Path(__file__).parent.parent / "docker" / ".env",
-    Path(__file__).parent.parent / ".env"
 ]
 
 for env_file in env_files:
     if env_file.exists():
-        load_dotenv(env_file)
+        load_dotenv(env_file, override=True)
         break
 
 
