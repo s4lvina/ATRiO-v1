@@ -184,7 +184,14 @@ async def restore_database(backup_file: UploadFile = File(...)):
             )
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         current_backup = f"pre_restore_backup_{timestamp}.db"
-        shutil.copy2(db_path, current_backup)
+        
+        # Solo hacer backup si el archivo actual existe
+        if os.path.exists(db_path):
+            shutil.copy2(db_path, current_backup)
+            logger.info(f"Backup creado: {current_backup}")
+        else:
+            logger.warning(f"Archivo actual no existe, saltando backup: {db_path}")
+        
         shutil.copy2(temp_path, db_path)
         os.remove(temp_path)
 
