@@ -620,7 +620,7 @@ function VehiculosPanel({ casoId }: VehiculosPanelProps) {
                 </Group>
             </Group>
 
-            {user?.Rol === 'superadmin' && (
+            {(user?.Rol === 'superadmin' || user?.Rol === 'admingrupo') && (
                 <Group justify="flex-start" mb="md">
                     <Button leftSection={<IconCar size={18} />} color="blue" onClick={openCreateModal}>
                         Añadir vehículo manualmente

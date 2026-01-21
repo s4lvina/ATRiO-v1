@@ -2154,9 +2154,9 @@ def delete_lector(
 def create_vehiculo(
     vehiculo: schemas.VehiculoCreate,
     db: Session = Depends(get_db),
-    current_user: models.Usuario = Depends(get_current_active_superadmin),
+    current_user: models.Usuario = Depends(get_current_active_admin_or_superadmin),
 ):  # MODIFICADO
-    """Crea un nuevo vehículo o devuelve el existente si la matrícula ya existe. Solo Superadmin."""
+    """Crea un nuevo vehículo o devuelve el existente si la matrícula ya existe. Superadmin y Admingrupo."""
     db_vehiculo = (
         db.query(models.Vehiculo)
         .filter(models.Vehiculo.Matricula == vehiculo.Matricula)
